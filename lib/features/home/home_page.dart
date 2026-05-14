@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
+import '../detail/feeding_record_page.dart';
+import '../detail/temperature_record_page.dart';
+import '../detail/diaper_record_page.dart';
 
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
@@ -25,17 +28,38 @@ class HomePage extends StatelessWidget {
     // 기록 입력용 바텀시트/페이지 연결 예정
   }
 
-  void handleRecordItemTap(BuildContext context, String title) {
-    debugPrint("Selected record: $title");
-    navigateToDetail(context);
-  }
+  // 수유 기록 페이지 이동
+ void handleFeedingRecordTap(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const FeedingRecordPage(),
+    ),
+  );
+}
+
+  // 체온 기록 페이지 이동 ✅ 수정
+void handleTemperatureRecordTap(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const TemperatureRecordPage(),
+    ),
+  );
+}
+
+// 배변 기록 페이지 이동 ✅
+void handleDiaperRecordTap(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const DiaperRecordPage(),
+    ),
+  );
+}
 
   void navigateToSettings(BuildContext context) {
     Navigator.pushNamed(context, AppRoutes.settings);
-  }
-
-  void navigateToDetail(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.detail);
   }
 
   @override
@@ -55,27 +79,37 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 32),
             _buildSectionHeader('오늘의 기록'),
             const SizedBox(height: 16),
+
+            // 수유 기록
             _buildRecordItem(
               context: context,
               icon: Icons.baby_changing_station,
               iconColor: primaryColor,
               title: '수유 (분유)',
               subtitle: '오전 10:30 · 160ml',
+              onTap: () => handleFeedingRecordTap(context),
             ),
+
+            // 체온 기록
             _buildRecordItem(
               context: context,
               icon: Icons.thermostat,
               iconColor: Colors.red,
               title: '체온',
               subtitle: '오전 09:15 · 36.5°C',
+              onTap: () => handleTemperatureRecordTap(context),
             ),
+
+            // 배변 기록
             _buildRecordItem(
               context: context,
               icon: Icons.opacity,
               iconColor: Colors.amber,
               title: '배변',
               subtitle: '오전 08:40 · 소변',
+              onTap: () => handleDiaperRecordTap(context),
             ),
+
             const SizedBox(height: 24),
             _buildBentoGrid(),
             const SizedBox(height: 120),
@@ -221,9 +255,10 @@ class HomePage extends StatelessWidget {
     required Color iconColor,
     required String title,
     required String subtitle,
+    required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: () => handleRecordItemTap(context, title),
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -356,7 +391,9 @@ class HomePage extends StatelessWidget {
         onPressed: () => handleRecordStateTap(context),
         backgroundColor: primaryColor,
         elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(32),
+        ),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           '아이 상태 기록하기',
@@ -375,9 +412,14 @@ class HomePage extends StatelessWidget {
       padding: const EdgeInsets.only(top: 10, bottom: 30),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.8),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+          ),
         ],
       ),
       child: Row(
@@ -414,11 +456,17 @@ class HomePage extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const Text(
           '전체보기',
-          style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
