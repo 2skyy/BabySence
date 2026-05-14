@@ -1,0 +1,10 @@
+^C:\USERS\ADMIN\STUDIOPROJECTS\BABYSENCE-EX\BUILD\WINDOWS\X64\CMAKEFILES\9A13D7003574DE8885BB17DA1C88C841\INSTALL_FORCE.RULE
+setlocal
+cd .
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
