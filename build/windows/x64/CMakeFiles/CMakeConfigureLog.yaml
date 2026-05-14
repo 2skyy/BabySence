@@ -53,6 +53,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "message-v1"
@@ -70,9 +71,9 @@ events:
       The output was:
       0
       msbuild 踰꾩쟾 18.4.0+6e61e96ac(.NET Framework??
-      鍮뚮뱶 ?쒖옉: 2026-05-14 (紐? ?ㅽ썑 1:42:57
+      鍮뚮뱶 ?쒖옉: 2026-05-14 (紐? ?ㅽ썑 8:25:15
       
-      1 ?몃뱶??"C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.vcxproj" ?꾨줈?앺듃(湲곕낯 ?\xc2\x80???낅땲??
+      1 ?몃뱶??"C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.vcxproj" ?꾨줈?앺듃(湲곕낯 ?\xc2\x80???낅땲??
       PrepareForBuild:
         "Debug\\" ?붾젆?곕━瑜?留뚮뱾怨??덉뒿?덈떎.
         援ъ“??異쒕젰???ъ슜?????덉뒿?덈떎. 而댄뙆?쇰윭 吏꾨떒???쒖떇?\xc2\x80 ?ㅻ쪟 怨꾩링 援ъ“瑜?諛섏쁺?⑸땲?? ?먯꽭???댁슜?\xc2\x80 https://aka.ms/cpp/structured-output??李몄“?섏꽭??
@@ -85,7 +86,7 @@ events:
         CMakeCXXCompilerId.cpp
       Link:
         C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdCXX.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdCXX.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdCXX.lib" /MACHINE:X64 Debug\\CMakeCXXCompilerId.obj
-        CompilerIdCXX.vcxproj -> C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.exe
+        CompilerIdCXX.vcxproj -> C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.exe
       PostBuildEvent:
         for %%i in (cl.exe) do @echo CMAKE_CXX_COMPILER=%%~$PATH:i
         :VCEnd
@@ -93,13 +94,13 @@ events:
       FinalizeBuildStatus:
         "Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild" ?뚯씪????젣?섍퀬 ?덉뒿?덈떎.
         "Debug\\CompilerIdCXX.tlog\\CompilerIdCXX.lastbuildstate"???곌껐(touching)?섍퀬 ?덉뒿?덈떎.
-      "C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.vcxproj" ?꾨줈?앺듃瑜?鍮뚮뱶?덉뒿?덈떎(湲곕낯 ?\xc2\x80??.
+      "C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\4.2.3-msvc3\\CompilerIdCXX\\CompilerIdCXX.vcxproj" ?꾨줈?앺듃瑜?鍮뚮뱶?덉뒿?덈떎(湲곕낯 ?\xc2\x80??.
       
       鍮뚮뱶?덉뒿?덈떎.
           寃쎄퀬 0媛?
           ?ㅻ쪟 0媛?
       
-      寃쎄낵 ?쒓컙: 00:00:01.08
+      寃쎄낵 ?쒓컙: 00:00:00.83
       
       
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.exe"
@@ -107,7 +108,7 @@ events:
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.vcxproj"
       
       The CXX compiler identification is MSVC, found in:
-        C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/4.2.3-msvc3/CompilerIdCXX/CompilerIdCXX.exe
+        C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/4.2.3-msvc3/CompilerIdCXX/CompilerIdCXX.exe
       
   -
     kind: "find-v1"
@@ -174,6 +175,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "find-v1"
@@ -299,6 +301,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "find-v1"
@@ -363,6 +366,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "find-v1"
@@ -486,6 +490,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "find-v1"
@@ -550,6 +555,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
   -
     kind: "find-v1"
@@ -720,6 +726,7 @@ events:
         - "C:\\Users\\admin\\.dotnet\\tools"
         - "C:\\Users\\admin\\AppData\\Local\\Programs\\Ollama"
         - "C:\\Flutter\\bin"
+        - "C:\\Program Files\\Git\\cmd"
         - "C:\\Flutter\\bin\\mingit\\cmd"
       CMAKE_INSTALL_PREFIX: "C:/Program Files/flutter_project"
       CMAKE_SYSTEM_PREFIX_PATH:
@@ -736,8 +743,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-u1crex"
-      binary: "C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-u1crex"
+      source: "C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-nf36uf"
+      binary: "C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-nf36uf"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
@@ -747,39 +754,39 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-u1crex'
+        Change Dir: 'C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-nf36uf'
         
-        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_91e99.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_c87b0.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
         msbuild 踰꾩쟾 18.4.0+6e61e96ac(.NET Framework??
-        鍮뚮뱶 ?쒖옉: 2026-05-14 (紐? ?ㅽ썑 1:42:59
+        鍮뚮뱶 ?쒖옉: 2026-05-14 (紐? ?ㅽ썑 8:25:16
         
-        1 ?몃뱶??"C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-u1crex\\cmTC_91e99.vcxproj" ?꾨줈?앺듃(湲곕낯 ?\xc2\x80???낅땲??
+        1 ?몃뱶??"C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-nf36uf\\cmTC_c87b0.vcxproj" ?꾨줈?앺듃(湲곕낯 ?\xc2\x80???낅땲??
         PrepareForBuild:
           援ъ“??異쒕젰???ъ슜?????덉뒿?덈떎. 而댄뙆?쇰윭 吏꾨떒???쒖떇?\xc2\x80 ?ㅻ쪟 怨꾩링 援ъ“瑜?諛섏쁺?⑸땲?? ?먯꽭???댁슜?\xc2\x80 https://aka.ms/cpp/structured-output??李몄“?섏꽭??
-          "C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-u1crex\\Debug\\" ?붾젆?곕━瑜?留뚮뱾怨??덉뒿?덈떎.
-          "cmTC_91e99.dir\\Debug\\cmTC_91e99.tlog\\" ?붾젆?곕━瑜?留뚮뱾怨??덉뒿?덈떎.
+          "C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-nf36uf\\Debug\\" ?붾젆?곕━瑜?留뚮뱾怨??덉뒿?덈떎.
+          "cmTC_c87b0.dir\\Debug\\cmTC_c87b0.tlog\\" ?붾젆?곕━瑜?留뚮뱾怨??덉뒿?덈떎.
         InitializeBuildStatus:
-          "AlwaysCreate"??媛\xc2\x80) 吏\xc2\x80?뺣릺?덇린 ?뚮Ц??"cmTC_91e99.dir\\Debug\\cmTC_91e99.tlog\\unsuccessfulbuild"??瑜? 留뚮뱾怨??덉뒿?덈떎.
-          "cmTC_91e99.dir\\Debug\\cmTC_91e99.tlog\\unsuccessfulbuild"???곌껐(touching)?섍퀬 ?덉뒿?덈떎.
+          "AlwaysCreate"??媛\xc2\x80) 吏\xc2\x80?뺣릺?덇린 ?뚮Ц??"cmTC_c87b0.dir\\Debug\\cmTC_c87b0.tlog\\unsuccessfulbuild"??瑜? 留뚮뱾怨??덉뒿?덈떎.
+          "cmTC_c87b0.dir\\Debug\\cmTC_c87b0.tlog\\unsuccessfulbuild"???곌껐(touching)?섍퀬 ?덉뒿?덈떎.
         ClCompile:
-          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_91e99.dir\\Debug\\\\" /Fd"cmTC_91e99.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.2\\Modules\\CMakeCXXCompilerABI.cpp"
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_c87b0.dir\\Debug\\\\" /Fd"cmTC_c87b0.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.2\\Modules\\CMakeCXXCompilerABI.cpp"
           Microsoft (R) C/C++ 理쒖쟻??而댄뙆?쇰윭 踰꾩쟾 19.50.35728(x64)
           Copyright (c) Microsoft Corporation. All rights reserved.
-          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_91e99.dir\\Debug\\\\" /Fd"cmTC_91e99.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.2\\Modules\\CMakeCXXCompilerABI.cpp"
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_c87b0.dir\\Debug\\\\" /Fd"cmTC_c87b0.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.2\\Modules\\CMakeCXXCompilerABI.cpp"
           CMakeCXXCompilerABI.cpp
         Link:
-          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-u1crex\\Debug\\cmTC_91e99.exe" /INCREMENTAL /ILK:"cmTC_91e99.dir\\Debug\\cmTC_91e99.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-u1crex/Debug/cmTC_91e99.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-u1crex/Debug/cmTC_91e99.lib" /MACHINE:X64  /machine:x64 cmTC_91e99.dir\\Debug\\CMakeCXXCompilerABI.obj
-          cmTC_91e99.vcxproj -> C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-u1crex\\Debug\\cmTC_91e99.exe
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-nf36uf\\Debug\\cmTC_c87b0.exe" /INCREMENTAL /ILK:"cmTC_c87b0.dir\\Debug\\cmTC_c87b0.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-nf36uf/Debug/cmTC_c87b0.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/Users/admin/StudioProjects/BabySence/build/windows/x64/CMakeFiles/CMakeScratch/TryCompile-nf36uf/Debug/cmTC_c87b0.lib" /MACHINE:X64  /machine:x64 cmTC_c87b0.dir\\Debug\\CMakeCXXCompilerABI.obj
+          cmTC_c87b0.vcxproj -> C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-nf36uf\\Debug\\cmTC_c87b0.exe
         FinalizeBuildStatus:
-          "cmTC_91e99.dir\\Debug\\cmTC_91e99.tlog\\unsuccessfulbuild" ?뚯씪????젣?섍퀬 ?덉뒿?덈떎.
-          "cmTC_91e99.dir\\Debug\\cmTC_91e99.tlog\\cmTC_91e99.lastbuildstate"???곌껐(touching)?섍퀬 ?덉뒿?덈떎.
-        "C:\\Users\\admin\\StudioProjects\\BabySence-ex\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-u1crex\\cmTC_91e99.vcxproj" ?꾨줈?앺듃瑜?鍮뚮뱶?덉뒿?덈떎(湲곕낯 ?\xc2\x80??.
+          "cmTC_c87b0.dir\\Debug\\cmTC_c87b0.tlog\\unsuccessfulbuild" ?뚯씪????젣?섍퀬 ?덉뒿?덈떎.
+          "cmTC_c87b0.dir\\Debug\\cmTC_c87b0.tlog\\cmTC_c87b0.lastbuildstate"???곌껐(touching)?섍퀬 ?덉뒿?덈떎.
+        "C:\\Users\\admin\\StudioProjects\\BabySence\\build\\windows\\x64\\CMakeFiles\\CMakeScratch\\TryCompile-nf36uf\\cmTC_c87b0.vcxproj" ?꾨줈?앺듃瑜?鍮뚮뱶?덉뒿?덈떎(湲곕낯 ?\xc2\x80??.
         
         鍮뚮뱶?덉뒿?덈떎.
             寃쎄퀬 0媛?
             ?ㅻ쪟 0媛?
         
-        寃쎄낵 ?쒓컙: 00:00:00.44
+        寃쎄낵 ?쒓컙: 00:00:00.41
         
       exitCode: 0
   -

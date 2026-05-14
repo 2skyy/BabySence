@@ -1,9 +1,9 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/cmake_install.cmake",
-		"C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/flutter/cmake_install.cmake",
-		"C:/Users/admin/StudioProjects/BabySence-ex/build/windows/x64/runner/cmake_install.cmake"
+		"C:/Users/admin/StudioProjects/BabySence/build/windows/x64/cmake_install.cmake",
+		"C:/Users/admin/StudioProjects/BabySence/build/windows/x64/flutter/cmake_install.cmake",
+		"C:/Users/admin/StudioProjects/BabySence/build/windows/x64/runner/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

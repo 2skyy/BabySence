@@ -6,27 +6,27 @@
 		<BuildType Name="Release"/>
 		<Platform Name="x64"/>
 	</Configurations>
-	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="243663c6-3637-3065-93b7-759fa0e65cc6" DefaultStartup="true">
+	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="e8527e8f-00a9-3fc8-abcb-94e6fbcf8926" DefaultStartup="true">
 		<BuildDependency Project="../ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="flutter_project.vcxproj"/>
 	</Project>
-	<Project Path="INSTALL.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="f9133e62-29d8-37fb-8de3-04083389951e">
+	<Project Path="INSTALL.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="3354c560-e1ad-36aa-97cf-93b825da53c7">
 		<BuildDependency Project="ALL_BUILD.vcxproj"/>
 		<BuildDependency Project="../ZERO_CHECK.vcxproj"/>
 		<Build Solution="Debug|*" Project="false"/>
 		<Build Solution="Profile|*" Project="false"/>
 		<Build Solution="Release|*" Project="false"/>
 	</Project>
-	<Project Path="../ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="441b87d4-8204-3dfa-adf3-fe590a98391f"/>
-	<Project Path="../flutter/flutter_assemble.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="88844618-9c46-3810-9107-0ffd67643733">
+	<Project Path="../ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="102a3424-1363-34af-b3f4-05355b910d9d"/>
+	<Project Path="../flutter/flutter_assemble.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="496087df-9ad6-3e09-a555-be0fb2b46042">
 		<BuildDependency Project="../ZERO_CHECK.vcxproj"/>
 	</Project>
-	<Project Path="flutter_project.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="eb7e2803-303a-3b05-8223-b0050f340207">
+	<Project Path="flutter_project.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="04e95025-7712-32b3-8a72-fb421a1af12d">
 		<BuildDependency Project="../ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="../flutter/flutter_assemble.vcxproj"/>
 		<BuildDependency Project="../flutter/flutter_wrapper_app.vcxproj"/>
 	</Project>
-	<Project Path="../flutter/flutter_wrapper_app.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="ce977107-99c5-3539-b1b1-76556496801a">
+	<Project Path="../flutter/flutter_wrapper_app.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="4ef739d5-7052-3fc9-998a-60c6f46cdf27">
 		<BuildDependency Project="../ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="../flutter/flutter_assemble.vcxproj"/>
 	</Project>
