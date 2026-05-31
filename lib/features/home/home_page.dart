@@ -3,11 +3,11 @@ import '../../routes/app_routes.dart';
 import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
-import '../detail/noise_test_page.dart';
-
-// ★ 새로 만든 페이지 임포트 추가
-import '../detail/eusick_page.dart';
 import '../detail/sleep_record_page.dart';
+import '../detail/eusick_page.dart';
+
+// ★ 수면 소음 측정 페이지 임포트 추가
+import '../detail/noise_test_page.dart';
 
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
@@ -28,68 +28,9 @@ class HomePage extends StatelessWidget {
     navigateToSettings(context);
   }
 
-  // ★ 수정: 플로팅 버튼 터치 시 바텀 시트 띄우기
   void handleRecordStateTap(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // 내용물 크기만큼만 높이 차지
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '어떤 상태를 기록할까요?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: onSurfaceColor,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // 이유식 분석 버튼
-                  _buildBottomSheetItem(
-                    context: context,
-                    icon: Icons.restaurant_menu,
-                    label: '이유식 분석',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.pop(context); // 바텀 시트 닫기
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const EusickPage()),
-                      );
-                    },
-                  ),
-                  // 수면 기록 버튼
-                  _buildBottomSheetItem(
-                    context: context,
-                    icon: Icons.bedtime,
-                    label: '수면 기록',
-                    color: Colors.indigo,
-                    onTap: () {
-                      Navigator.pop(context); // 바텀 시트 닫기
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SleepRecordPage()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
+    debugPrint("Record state tapped");
+    // 기록 입력용 바텀시트/페이지 연결 예정
   }
 
   // 수유 기록 페이지 이동
@@ -102,7 +43,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 체온 기록 페이지 이동
+  // 체온 기록 페이지 이동 ✅ 수정
   void handleTemperatureRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -112,12 +53,32 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 배변 기록 페이지 이동
+  // 배변 기록 페이지 이동 ✅
   void handleDiaperRecordTap(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const DiaperRecordPage(),
+      ),
+    );
+  }
+
+  // 수면 기록 페이지 이동
+  void handleSleepRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SleepRecordPage(),
+      ),
+    );
+  }
+
+  // 이유식 성분 분석 페이지 이동
+  void handleEusickTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EusickPage(),
       ),
     );
   }
@@ -174,8 +135,28 @@ class HomePage extends StatelessWidget {
               onTap: () => handleDiaperRecordTap(context),
             ),
 
+            // 수면 기록
+            _buildRecordItem(
+              context: context,
+              icon: Icons.bedtime,
+              iconColor: Colors.indigo,
+              title: '수면',
+              subtitle: '오전 11:20 ~ 오후 01:00',
+              onTap: () => handleSleepRecordTap(context),
+            ),
+
+            // 이유식 성분 분석 기록
+            _buildRecordItem(
+              context: context,
+              icon: Icons.restaurant,
+              iconColor: Colors.green,
+              title: '이유식 분석',
+              subtitle: '사진으로 AI 성분 분석',
+              onTap: () => handleEusickTap(context),
+            ),
+
             const SizedBox(height: 24),
-            // BentoGrid (수면 품질 클릭 추가)
+            // ★ 수정: buildBentoGrid에 context를 넘겨줍니다.
             _buildBentoGrid(context),
             const SizedBox(height: 120),
           ],
@@ -196,7 +177,11 @@ class HomePage extends StatelessWidget {
           const CircleAvatar(
             radius: 20,
             backgroundColor: Color(0xFFD9E3F1),
-            backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+            child: Icon(
+              Icons.child_care,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -383,6 +368,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // ★ 수정: context를 매개변수로 받고 수면 품질 클릭 시 NoiseTestPage로 이동
   Widget _buildBentoGrid(BuildContext context) {
     return Row(
       children: [
@@ -542,40 +528,6 @@ class HomePage extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  // ★ 바텀 시트 안에 들어갈 동그란 아이콘 버튼을 만드는 위젯 추가
-  Widget _buildBottomSheetItem({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 32),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
