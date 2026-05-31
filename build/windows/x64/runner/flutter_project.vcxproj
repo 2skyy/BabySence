@@ -71,7 +71,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -100,10 +100,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;_HAS_EXCEPTIONS=0;FLUTTER_VERSION=\"1.0.0+1\";FLUTTER_VERSION_MAJOR=1;FLUTTER_VERSION_MINOR=0;FLUTTER_VERSION_PATCH=0;FLUTTER_VERSION_BUILD=1;NOMINMAX;UNICODE;_UNICODE;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -111,7 +111,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <Link>
-      <AdditionalDependencies>..\flutter\Debug\flutter_wrapper_app.lib;dwmapi.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\flutter\Debug\flutter_wrapper_app.lib;dwmapi.lib;..\plugins\permission_handler_windows\Debug\permission_handler_windows_plugin.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <DataExecutionPrevention></DataExecutionPrevention>
@@ -133,7 +133,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -163,10 +163,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_HAS_EXCEPTIONS=0;FLUTTER_VERSION=\"1.0.0+1\";FLUTTER_VERSION_MAJOR=1;FLUTTER_VERSION_MINOR=0;FLUTTER_VERSION_PATCH=0;FLUTTER_VERSION_BUILD=1;NOMINMAX;UNICODE;_UNICODE;CMAKE_INTDIR=\"Profile\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -174,7 +174,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <Link>
-      <AdditionalDependencies>..\flutter\Profile\flutter_wrapper_app.lib;dwmapi.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\flutter\Profile\flutter_wrapper_app.lib;dwmapi.lib;..\plugins\permission_handler_windows\Profile\permission_handler_windows_plugin.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <DataExecutionPrevention></DataExecutionPrevention>
@@ -196,7 +196,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -226,10 +226,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_HAS_EXCEPTIONS=0;FLUTTER_VERSION=\"1.0.0+1\";FLUTTER_VERSION_MAJOR=1;FLUTTER_VERSION_MINOR=0;FLUTTER_VERSION_PATCH=0;FLUTTER_VERSION_BUILD=1;NOMINMAX;UNICODE;_UNICODE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\admin\StudioProjects\BabySence\windows;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\cpp_client_wrapper\include;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\.plugin_symlinks\permission_handler_windows\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -237,7 +237,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <Link>
-      <AdditionalDependencies>..\flutter\Release\flutter_wrapper_app.lib;dwmapi.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\flutter\Release\flutter_wrapper_app.lib;dwmapi.lib;..\plugins\permission_handler_windows\Release\permission_handler_windows_plugin.lib;C:\Users\admin\StudioProjects\BabySence\windows\flutter\ephemeral\flutter_windows.dll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <DataExecutionPrevention></DataExecutionPrevention>
@@ -326,6 +326,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ProjectReference Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\flutter\flutter_wrapper_app.vcxproj">
       <Project>{4EF739D5-7052-3FC9-998A-60C6F46CDF27}</Project>
       <Name>flutter_wrapper_app</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\plugins\permission_handler_windows\permission_handler_windows_plugin.vcxproj">
+      <Project>{D4EAAA6E-D474-3F64-8406-1465503D5820}</Project>
+      <Name>permission_handler_windows_plugin</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

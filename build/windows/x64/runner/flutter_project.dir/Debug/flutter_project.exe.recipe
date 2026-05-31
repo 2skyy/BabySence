@@ -8,6 +8,9 @@
       <FullPath>C:\Users\admin\StudioProjects\BabySence\build\windows\x64\flutter\x64\Debug\flutter_assemble</FullPath>
     </ProjectOutput>
     <ProjectOutput>
+      <FullPath>C:\Users\admin\StudioProjects\BabySence\build\windows\x64\plugins\permission_handler_windows\Debug\permission_handler_windows_plugin.dll</FullPath>
+    </ProjectOutput>
+    <ProjectOutput>
       <FullPath>C:\Users\admin\StudioProjects\BabySence\build\windows\x64\runner\Debug\flutter_project.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>

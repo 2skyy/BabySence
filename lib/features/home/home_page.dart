@@ -3,6 +3,7 @@ import '../../routes/app_routes.dart';
 import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
+import '../detail/noise_test_page.dart';
 
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
@@ -29,34 +30,34 @@ class HomePage extends StatelessWidget {
   }
 
   // 수유 기록 페이지 이동
- void handleFeedingRecordTap(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const FeedingRecordPage(),
-    ),
-  );
-}
+  void handleFeedingRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FeedingRecordPage(),
+      ),
+    );
+  }
 
-  // 체온 기록 페이지 이동 ✅ 수정
-void handleTemperatureRecordTap(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const TemperatureRecordPage(),
-    ),
-  );
-}
+  // 체온 기록 페이지 이동
+  void handleTemperatureRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TemperatureRecordPage(),
+      ),
+    );
+  }
 
-// 배변 기록 페이지 이동 ✅
-void handleDiaperRecordTap(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const DiaperRecordPage(),
-    ),
-  );
-}
+  // 배변 기록 페이지 이동
+  void handleDiaperRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DiaperRecordPage(),
+      ),
+    );
+  }
 
   void navigateToSettings(BuildContext context) {
     Navigator.pushNamed(context, AppRoutes.settings);
@@ -111,7 +112,8 @@ void handleDiaperRecordTap(BuildContext context) {
             ),
 
             const SizedBox(height: 24),
-            _buildBentoGrid(),
+            // ★ 수정된 부분: BentoGrid (수면 품질 클릭 추가)
+            _buildBentoGrid(context),
             const SizedBox(height: 120),
           ],
         ),
@@ -318,16 +320,26 @@ void handleDiaperRecordTap(BuildContext context) {
     );
   }
 
-  Widget _buildBentoGrid() {
+  // ★ 수정: context를 매개변수로 받도록 변경
+  Widget _buildBentoGrid(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _buildBentoCard(
-            icon: Icons.bedtime,
-            title: '수면 품질',
-            value: '94%',
-            color: primaryColor.withOpacity(0.1),
-            textColor: primaryColor,
+          // ★ 수정: GestureDetector 추가
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NoiseTestPage()),
+              );
+            },
+            child: _buildBentoCard(
+              icon: Icons.bedtime,
+              title: '수면 품질',
+              value: '94%',
+              color: primaryColor.withOpacity(0.1),
+              textColor: primaryColor,
+            ),
           ),
         ),
         const SizedBox(width: 16),

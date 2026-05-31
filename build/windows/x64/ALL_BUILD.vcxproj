@@ -153,6 +153,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <Project>{57B3CDF7-21A4-379E-BC38-5B83410EB872}</Project>
       <Name>flutter_wrapper_plugin</Name>
     </ProjectReference>
+    <ProjectReference Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\plugins\permission_handler_windows\permission_handler_windows_plugin.vcxproj">
+      <Project>{D4EAAA6E-D474-3F64-8406-1465503D5820}</Project>
+      <Name>permission_handler_windows_plugin</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

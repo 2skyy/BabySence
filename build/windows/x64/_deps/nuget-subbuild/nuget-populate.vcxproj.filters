@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-copyfile.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\e93d2067d1a361aa37c700e2188adea0\nuget-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\5bdfc8098f8f5cb2e17702c560ef5267\nuget-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\7099922d0b5eb750f2f0427afad93146\nuget-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\admin\StudioProjects\BabySence\build\windows\x64\_deps\nuget-subbuild\CMakeFiles\nuget-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{552120CD-2FE6-3B6E-B768-498341AADA4B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
