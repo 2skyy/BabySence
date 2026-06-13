@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class NoiseResultPage extends StatefulWidget {
-  final int recordId; // 어떤 수면 기록의 결과를 볼 것인지 전달받음
+  final int recordId;
+  final double maxDb; // ★ 추가: 측정 페이지에서 넘어온 실제 최대 데시벨 값
 
-  const NoiseResultPage({super.key, required this.recordId});
+  const NoiseResultPage({super.key, required this.recordId, required this.maxDb});
 
   @override
   State<NoiseResultPage> createState() => _NoiseResultPageState();
@@ -16,7 +17,6 @@ class _NoiseResultPageState extends State<NoiseResultPage> {
   String _analysisReport = "";
   bool _isError = false;
 
-  // 본인의 환경(실기기/에뮬레이터)에 맞게 IP를 수정하세요 (테스트 때 맞춘 주소와 동일하게)
   final String _serverBaseUrl = 'http://127.0.0.1:8080';
 
   @override
@@ -25,14 +25,12 @@ class _NoiseResultPageState extends State<NoiseResultPage> {
     _fetchAnalysisResult();
   }
 
-  // 백엔드(Spring Boot)에 분석 결과(가이드 문구)를 요청하는 함수
   Future<void> _fetchAnalysisResult() async {
     try {
       final url = Uri.parse('$_serverBaseUrl/api/sleep-records/${widget.recordId}/analysis');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        // 서버가 반환한 텍스트 그대로 사용 (한글 깨짐 방지를 위해 utf8 디코딩)
         final decodedResponse = utf8.decode(response.bodyBytes);
         setState(() {
           _analysisReport = decodedResponse;
@@ -56,19 +54,19 @@ class _NoiseResultPageState extends State<NoiseResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 분석 내용에 따라 상태 아이콘과 색상 결정 (간단한 키워드 매칭)
+    // ★ 수정: 서버의 텍스트가 아니라 '실제 측정한 데시벨(maxDb)' 기준으로 상태 결정
     IconData statusIcon = Icons.check_circle;
     Color statusColor = Colors.green;
     String statusTitle = "정상";
 
-    if (_analysisReport.contains("확률이 70%로 매우 높습니다") || _analysisReport.contains("상담 권장")) {
+    if (widget.maxDb >= 70.0) { // 70dB 이상이면 시끄러움 (경고)
       statusIcon = Icons.warning_rounded;
       statusColor = Colors.redAccent;
-      statusTitle = "주의 / 상담 권장";
-    } else if (_analysisReport.contains("확률이 40%")) {
+      statusTitle = "경고 / 환경 개선 필요";
+    } else if (widget.maxDb >= 50.0) { // 50~70dB 사이면 주의
       statusIcon = Icons.info_outline;
       statusColor = Colors.orangeAccent;
-      statusTitle = "주의";
+      statusTitle = "주의 / 약간 시끄러움";
     }
 
     return Scaffold(
@@ -113,8 +111,9 @@ class _NoiseResultPageState extends State<NoiseResultPage> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
+                    // ★ 수정: 내가 방금 낸 시끄러운 소리가 몇 dB였는지 화면에 명확하게 표시
                     Text(
-                      _isError ? _analysisReport : _analysisReport,
+                      '🔊 측정된 최대 소음: ${widget.maxDb.toStringAsFixed(1)} dB\n\n${_isError ? _analysisReport : _analysisReport}',
                       style: const TextStyle(fontSize: 16, height: 1.5),
                     ),
                   ],

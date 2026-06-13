@@ -6,12 +6,26 @@
 .buildlog/
 .history
 
-
-
 # Flutter/Dart/Pub related
 **/doc/api/
 .dart_tool/
 .flutter-plugins-dependencies
 .pub/
+.packages
 
-app.*.symbols
+# Android/iOS specific (중요!)
+build/
+.gradle/
+.idea/
+.dart_tool/
+*.apk
+*.aab
+*.iml
+.DS_Store
+.vscode/
+.android/
+ios/Pods/
+ios/.symlinks/
+
+# Log files (추가)
+*.log
