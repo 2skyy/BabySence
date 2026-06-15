@@ -5,7 +5,9 @@ import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
 import '../detail/eusick_page.dart';
-
+import '../detail/skin_analysis_page.dart';
+import '../detail/cry_analysis_page.dart';
+import '../detail/vaccination_page.dart';
 // ★ 수면 소음 측정 페이지 임포트 추가
 import '../detail/noise_test_page.dart';
 
@@ -37,9 +39,7 @@ class HomePage extends StatelessWidget {
   void handleFeedingRecordTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const FeedingRecordPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const FeedingRecordPage()),
     );
   }
 
@@ -47,9 +47,7 @@ class HomePage extends StatelessWidget {
   void handleTemperatureRecordTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TemperatureRecordPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TemperatureRecordPage()),
     );
   }
 
@@ -57,9 +55,7 @@ class HomePage extends StatelessWidget {
   void handleDiaperRecordTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const DiaperRecordPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const DiaperRecordPage()),
     );
   }
 
@@ -67,9 +63,7 @@ class HomePage extends StatelessWidget {
   void handleSleepRecordTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const SleepRecordPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const SleepRecordPage()),
     );
   }
 
@@ -77,9 +71,35 @@ class HomePage extends StatelessWidget {
   void handleEusickTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const EusickPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const EusickPage()),
+    );
+  }
+
+  void handleVaccinationTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const VaccinationPage()),
+    );
+  }
+
+  void handleNoiseTestTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NoiseTestPage()),
+    );
+  }
+
+  void handleSkinAnalysisTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SkinAnalysisPage()),
+    );
+  }
+
+  void handleCryAnalysisTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CryAnalysisPage()),
     );
   }
 
@@ -105,54 +125,87 @@ class HomePage extends StatelessWidget {
             _buildSectionHeader('오늘의 기록'),
             const SizedBox(height: 16),
 
-            // 수유 기록
-            _buildRecordItem(
-              context: context,
-              icon: Icons.baby_changing_station,
-              iconColor: primaryColor,
-              title: '수유 (분유)',
-              subtitle: '오전 10:30 · 160ml',
-              onTap: () => handleFeedingRecordTap(context),
-            ),
-
-            // 체온 기록
-            _buildRecordItem(
-              context: context,
-              icon: Icons.thermostat,
-              iconColor: Colors.red,
-              title: '체온',
-              subtitle: '오전 09:15 · 36.5°C',
-              onTap: () => handleTemperatureRecordTap(context),
-            ),
-
-            // 배변 기록
-            _buildRecordItem(
-              context: context,
-              icon: Icons.opacity,
-              iconColor: Colors.amber,
-              title: '배변',
-              subtitle: '오전 08:40 · 소변',
-              onTap: () => handleDiaperRecordTap(context),
-            ),
-
-            // 수면 기록
-            _buildRecordItem(
-              context: context,
-              icon: Icons.bedtime,
-              iconColor: Colors.indigo,
-              title: '수면',
-              subtitle: '오전 11:20 ~ 오후 01:00',
-              onTap: () => handleSleepRecordTap(context),
-            ),
-
-            // 이유식 성분 분석 기록
-            _buildRecordItem(
-              context: context,
-              icon: Icons.restaurant,
-              iconColor: Colors.green,
-              title: '이유식 분석',
-              subtitle: '사진으로 AI 성분 분석',
-              onTap: () => handleEusickTap(context),
+            GridView.count(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 0.95,
+              children: [
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.baby_changing_station,
+                  iconColor: primaryColor,
+                  title: '수유',
+                  subtitle: '분유 · 160ml',
+                  onTap: () => handleFeedingRecordTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.thermostat,
+                  iconColor: Colors.red,
+                  title: '체온',
+                  subtitle: '36.5°C',
+                  onTap: () => handleTemperatureRecordTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.opacity,
+                  iconColor: Colors.amber,
+                  title: '배변',
+                  subtitle: '소변',
+                  onTap: () => handleDiaperRecordTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.bedtime,
+                  iconColor: Colors.indigo,
+                  title: '수면',
+                  subtitle: '오전 11:20 ~ 오후 01:00',
+                  onTap: () => handleSleepRecordTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.restaurant,
+                  iconColor: Colors.green,
+                  title: '이유식',
+                  subtitle: 'AI 성분 분석',
+                  onTap: () => handleEusickTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.vaccines,
+                  iconColor: Colors.teal,
+                  title: '예방접종',
+                  subtitle: '접종 일정',
+                  onTap: () => handleVaccinationTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.mic,
+                  iconColor: Colors.deepPurple,
+                  title: '소음',
+                  subtitle: '측정하기',
+                  onTap: () => handleNoiseTestTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.face_retouching_natural,
+                  iconColor: Colors.pink,
+                  title: '피부',
+                  subtitle: 'AI 판단',
+                  onTap: () => handleSkinAnalysisTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.record_voice_over,
+                  iconColor: Colors.deepOrange,
+                  title: '울음소리',
+                  subtitle: '의미 분석',
+                  onTap: () => handleCryAnalysisTap(context),
+                ),
+              ],
             ),
 
             const SizedBox(height: 24),
@@ -170,18 +223,14 @@ class HomePage extends StatelessWidget {
 
   PreferredSizeWidget _buildTopAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white.withOpacity(0.8),
+      backgroundColor: Colors.white.withValues(alpha: 0.8),
       elevation: 0,
       title: Row(
         children: [
           const CircleAvatar(
             radius: 20,
             backgroundColor: Color(0xFFD9E3F1),
-            child: Icon(
-              Icons.child_care,
-              color: Colors.white,
-              size: 22,
-            ),
+            child: Icon(Icons.child_care, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -232,7 +281,7 @@ class HomePage extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -249,7 +298,7 @@ class HomePage extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -299,7 +348,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildRecordItem({
+  Widget _buildSquareRecordButton({
     required BuildContext context,
     required IconData icon,
     required Color iconColor,
@@ -310,57 +359,35 @@ class HomePage extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F3F4),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(14),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor),
+              child: Icon(icon, color: iconColor, size: 28),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: secondaryTextColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
-            const Row(
-              children: [
-                Text(
-                  '정상',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(width: 4),
-                Icon(Icons.circle, size: 8, color: Colors.green),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: secondaryTextColor, fontSize: 11),
             ),
           ],
         ),
@@ -384,7 +411,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.bedtime,
               title: '수면 품질',
               value: '94%',
-              color: primaryColor.withOpacity(0.1),
+              color: primaryColor.withValues(alpha: 0.1),
               textColor: primaryColor,
             ),
           ),
@@ -395,7 +422,7 @@ class HomePage extends StatelessWidget {
             icon: Icons.speed,
             title: '활동량',
             value: '낮음',
-            color: const Color(0xFFD9E3F1).withOpacity(0.5),
+            color: const Color(0xFFD9E3F1).withValues(alpha: 0.5),
             textColor: secondaryTextColor,
           ),
         ),
@@ -450,9 +477,7 @@ class HomePage extends StatelessWidget {
         onPressed: () => handleRecordStateTap(context),
         backgroundColor: primaryColor,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(32),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           '아이 상태 기록하기',
@@ -470,13 +495,11 @@ class HomePage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(top: 10, bottom: 30),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
           ),
         ],
@@ -515,17 +538,11 @@ class HomePage extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const Text(
           '전체보기',
-          style: TextStyle(
-            color: primaryColor,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
         ),
       ],
     );

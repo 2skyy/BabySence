@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../../core/constants/api_config.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -10,6 +11,7 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  final String _baseUrl = ApiConfig.baseUrl;
   // 1. 사용자가 입력할 4가지 칸의 데이터를 담을 컨트롤러
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -46,9 +48,7 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-    // 💡 백엔드 서버 주소 (윈도우 데스크톱 실행 기준)
-    // 에뮬레이터로 실행 기기를 바꿀 경우 '127.0.0.1'을 '10.0.2.2'로 바꿔주세요!
-    final url = Uri.parse('http://127.0.0.1:8080/api/users/join');
+    final url = Uri.parse('$_baseUrl/api/users/join');
 
     try {
       // 스프링 부트 서버로 POST 요청 보내기

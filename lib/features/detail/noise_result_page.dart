@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../core/constants/api_config.dart';
 
 class NoiseResultPage extends StatefulWidget {
   final int recordId; // 어떤 수면 기록의 결과를 볼 것인지 전달받음
@@ -16,8 +17,7 @@ class _NoiseResultPageState extends State<NoiseResultPage> {
   String _analysisReport = "";
   bool _isError = false;
 
-  // 본인의 환경(실기기/에뮬레이터)에 맞게 IP를 수정하세요 (테스트 때 맞춘 주소와 동일하게)
-  final String _serverBaseUrl = 'http://127.0.0.1:8080';
+  final String _serverBaseUrl = ApiConfig.baseUrl;
 
   @override
   void initState() {

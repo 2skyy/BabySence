@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../../core/constants/api_config.dart';
 import '../../../routes/app_routes.dart';
 
 // 입력 컨트롤러를 사용하기 위해 StatefulWidget으로 변경되었습니다.
@@ -12,9 +14,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final String _baseUrl = ApiConfig.baseUrl;
   // 1. 입력값을 저장할 텍스트 컨트롤러 생성
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoggingIn = false;
 
   // 2. 메모리 누수를 막기 위해 화면이 꺼질 때 컨트롤러 해제
   @override
@@ -25,46 +29,63 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // 3. 서버와 통신하는 이메일 로그인 함수
-  Future<void> handleLoginTap(BuildContext context) async {
-    // 💡 백엔드 팀원과 맞춘 실제 로그인 API 주소로 나중에 변경해야 합니다.
-    // 안드로이드 에뮬레이터에서 내 컴퓨터 로컬 서버로 접속할 때는 10.0.2.2를 사용합니다.
-    final url = Uri.parse('http://127.0.0.1:8080/api/users/login');
+  Future<void> handleLoginTap() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이메일과 비밀번호를 모두 입력해주세요.')),
+      );
+      return;
+    }
+
+    final url = Uri.parse('$_baseUrl/api/users/login');
 
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': _emailController.text,
-          'password': _passwordController.text,
-        }),
-      );
+      setState(() => _isLoggingIn = true);
 
-      if (response.statusCode == 200) {
-        print('로그인 성공!');
-        if (mounted) {
-          // 성공 시 홈 화면으로 이동 (뒤로 가기 방지)
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            AppRoutes.home,
-                (route) => false,
-          );
-        }
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (route) => false,
+        );
       } else {
-        // 실패 시 스낵바 알림
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('이메일이나 비밀번호를 확인해주세요.')),
-          );
-        }
-      }
-    } catch (e) {
-      print('서버 연결 에러: $e');
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('서버와 연결할 수 없습니다.')),
+          SnackBar(
+            content: Text('로그인에 실패했습니다. (상태 코드: ${response.statusCode})'),
+          ),
         );
       }
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 요청이 지연되고 있습니다. 서버 상태를 확인해주세요.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('서버와 연결할 수 없습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoggingIn = false);
     }
   }
 
@@ -75,7 +96,7 @@ class _LoginPageState extends State<LoginPage> {
 
   // 임시 소셜 로그인 처리 함수
   void handleSocialLogin(BuildContext context, String provider) {
-    print('$provider 로그인 클릭됨');
+    debugPrint('$provider 로그인 클릭됨');
     // 추후 서버 연동 시 로직 추가
   }
 
@@ -101,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3182F6).withOpacity(0.1),
+                  color: const Color(0xFF3182F6).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -213,31 +234,40 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 48,
                 child: ElevatedButton(
-                  onPressed: () => handleLoginTap(context),
+                  onPressed: _isLoggingIn ? null : handleLoginTap,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3182F6),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    '로그인하기',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isLoggingIn
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          '로그인하기',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -263,7 +293,7 @@ class _LoginPageState extends State<LoginPage> {
           border: hasBorder ? Border.all(color: Colors.grey[200]!) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
