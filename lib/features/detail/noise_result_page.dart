@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 import '../../core/constants/api_config.dart';
 
 class NoiseResultPage extends StatefulWidget {
-  final int recordId; // 어떤 수면 기록의 결과를 볼 것인지 전달받음
+  final int recordId;
+  final double maxDb;
 
-  const NoiseResultPage({super.key, required this.recordId});
+  const NoiseResultPage({super.key, required this.recordId, required this.maxDb});
 
   @override
   State<NoiseResultPage> createState() => _NoiseResultPageState();

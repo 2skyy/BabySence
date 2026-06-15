@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:io' show Platform; // <-- 플랫폼 확인을 위해 추가됨
+import 'dart:io' show Platform;
 import 'dart:ui';
-import 'package:flutter/foundation.dart' show kIsWeb; // <-- 웹 환경 확인을 위해 추가됨
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:noise_meter/noise_meter.dart';
 
 // 기존 임포트 유지
@@ -24,12 +25,31 @@ import 'core/services/noise_tracker.dart';
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
+  // ★ 에러 해결의 핵심: 안드로이드 시스템에 알림 채널(방)을 먼저 만들어 줍니다.
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'babysense_noise', // 아래 설정의 notificationChannelId와 무조건 똑같아야 함!
+    '수면 소음 측정 알림', // 핸드폰 알림 설정에 표시될 이름
+    description: '백그라운드에서 소음을 측정 중임을 상단바에 알립니다.',
+    importance: Importance.low, // 소리나 진동 없이 조용히 띄움
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
+
+  if (Platform.isAndroid) {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+
+  // ★ 만들어진 채널 위에 백그라운드 서비스를 올립니다.
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
       autoStart: false, // 앱 켤 때가 아니라 사용자가 버튼 누를 때 시작
       isForegroundMode: true,
-      notificationChannelId: 'babysense_noise',
+      notificationChannelId: 'babysense_noise', // 🚨 위 채널 ID와 일치!
       initialNotificationTitle: 'BabySense 수면 모드',
       initialNotificationContent: '수면 소음을 측정하기 위해 대기 중입니다.',
       foregroundServiceNotificationId: 888,
@@ -83,7 +103,7 @@ void main() async {
   // Flutter 엔진 초기화 (필수)
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ★ 방어 코드 추가: 웹이 아니고, 안드로이드나 iOS일 때만 백그라운드 서비스 초기화
+  // 방어 코드: 웹이 아니고, 안드로이드나 iOS일 때만 백그라운드 서비스 초기화
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     try {
       await initializeService();

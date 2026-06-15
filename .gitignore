@@ -6,8 +6,6 @@
 .buildlog/
 .history
 
-
-
 # Flutter/Dart/Pub related
 **/doc/api/
 .dart_tool/
@@ -15,19 +13,3 @@
 .pub/
 
 app.*.symbols
-
-cat >> .gitignore <<'EOF'
-
-# Flutter / Xcode build cache
-build/
-.dart_tool/
-ios/Pods/
-ios/Flutter/ephemeral/
-macos/Flutter/ephemeral/
-*.xcuserstate
-*.xcworkspace/xcuserdata/
-*.xcodeproj/xcuserdata/
-**/DerivedData/
-**/XCBuildData/
-.DS_Store
-EOF
