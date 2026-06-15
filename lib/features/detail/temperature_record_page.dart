@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class TemperatureRecordPage extends StatefulWidget {
   const TemperatureRecordPage({super.key});
 
   @override
-  State<TemperatureRecordPage> createState() =>
-      _TemperatureRecordPageState();
+  State<TemperatureRecordPage> createState() => _TemperatureRecordPageState();
 }
 
 class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
@@ -16,23 +14,37 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textColor = Color(0xFF1F2937);
   static const Color secondaryTextColor = Color(0xFF6B7280);
+  static const double defaultTemperature = 36.5;
 
-  final TextEditingController temperatureController =
-      TextEditingController();
+  final TextEditingController temperatureController = TextEditingController();
+  late final FixedExtentScrollController temperatureScrollController;
 
   final List<String> selectedSymptoms = [];
+  late final List<double> temperatures;
+  late double selectedTemperature;
 
-  final List<String> symptoms = [
-    '없음',
-    '기침',
-    '콧물',
-    '발진',
-    '구토',
-    '설사',
-  ];
+  final List<String> symptoms = ['없음', '기침', '콧물', '발진', '구토', '설사'];
+
+  @override
+  void initState() {
+    super.initState();
+    temperatures = List.generate(151, (index) => (300 + index) / 10);
+    selectedTemperature = defaultTemperature;
+
+    final initialIndex = temperatures.indexWhere(
+      (temperature) =>
+          temperature.toStringAsFixed(1) ==
+          defaultTemperature.toStringAsFixed(1),
+    );
+    temperatureScrollController = FixedExtentScrollController(
+      initialItem: initialIndex >= 0 ? initialIndex : 0,
+    );
+    temperatureController.text = selectedTemperature.toStringAsFixed(1);
+  }
 
   @override
   void dispose() {
+    temperatureScrollController.dispose();
     temperatureController.dispose();
     super.dispose();
   }
@@ -71,6 +83,13 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
     });
   }
 
+  void handleTemperatureChanged(int index) {
+    setState(() {
+      selectedTemperature = temperatures[index];
+      temperatureController.text = selectedTemperature.toStringAsFixed(1);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,10 +105,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         ),
         title: const Text(
           '체온 기록',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
         ),
       ),
 
@@ -115,67 +131,42 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
               const SizedBox(height: 20),
 
               // 🔥 체온 입력 (빨간색 복구 완료)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    width: 140,
-                    child: TextField(
-                      controller: temperatureController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d*\.?\d*'),
-                        ),
-                      ],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w700,
-                        color: primaryColor, // 🔥 핵심 복구
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: '36.5',
-                        hintStyle: TextStyle(color: Color(0xFFFFB4B4)),
-                        border: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+              const SizedBox(height: 8),
 
-                  const SizedBox(width: 6),
+              SizedBox(
+                height: 170,
+                child: ListWheelScrollView.useDelegate(
+                  itemExtent: 44,
+                  diameterRatio: 1.4,
+                  perspective: 0.003,
+                  physics: const FixedExtentScrollPhysics(),
+                  controller: temperatureScrollController,
+                  onSelectedItemChanged: handleTemperatureChanged,
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: temperatures.length,
+                    builder: (context, index) {
+                      final temperature = temperatures[index];
+                      final isSelected =
+                          temperature.toStringAsFixed(1) ==
+                          selectedTemperature.toStringAsFixed(1);
 
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      '℃',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                      ),
-                    ),
+                      return Center(
+                        child: Text(
+                          '${temperature.toStringAsFixed(1)}℃',
+                          style: TextStyle(
+                            fontSize: isSelected ? 28 : 20,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? primaryColor
+                                : secondaryTextColor,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
 
               const SizedBox(height: 36),
@@ -184,10 +175,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '동반 증상',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
 
@@ -213,10 +201,9 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                 child: ElevatedButton(
                   onPressed: handleAnalyzeButtonTap,
                   style: ButtonStyle(
-                    backgroundColor:
-                        MaterialStateProperty.all(buttonBlue),
-                    elevation: MaterialStateProperty.all(0),
-                    shape: MaterialStateProperty.all(
+                    backgroundColor: const WidgetStatePropertyAll(buttonBlue),
+                    elevation: const WidgetStatePropertyAll(0),
+                    shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
@@ -247,14 +234,9 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
       onTap: () => handleSymptomTap(symptom),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 11,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected
-              ? primaryColor.withOpacity(0.1)
-              : Colors.white,
+          color: isSelected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? primaryColor : borderColor,
@@ -266,9 +248,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
           style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: isSelected
-                ? primaryColor
-                : secondaryTextColor,
+            color: isSelected ? primaryColor : secondaryTextColor,
           ),
         ),
       ),
