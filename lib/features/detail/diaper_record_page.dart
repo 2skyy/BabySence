@@ -20,11 +20,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
   String selectedStoolState = "황금변";
   String selectedAmPm = "AM";
 
-  final TextEditingController hourController =
-      TextEditingController(text: "08");
-
-  final TextEditingController minuteController =
-      TextEditingController(text: "40");
+  final TextEditingController hourController = TextEditingController(text: "08");
+  final TextEditingController minuteController = TextEditingController(text: "40");
 
   void selectDiaper(String type) {
     setState(() => selectedDiaperType = type);
@@ -70,14 +67,14 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
           ),
         ),
       ),
+      // ★ 수정: 키보드가 올라올 때 화면이 부드럽게 스크롤되도록 전체를 감싸줍니다.
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-
               const Text(
                 "배변 종류",
                 style: TextStyle(
@@ -86,9 +83,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               Row(
                 children: [
                   Expanded(child: _diaperButton("소변")),
@@ -98,9 +93,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   Expanded(child: _diaperButton("혼합")),
                 ],
               ),
-
               const SizedBox(height: 28),
-
               const Text(
                 "대변 상태",
                 style: TextStyle(
@@ -109,9 +102,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               GridView.count(
                 shrinkWrap: true,
                 crossAxisCount: 2,
@@ -126,9 +117,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   _stoolButton("단단함", Colors.brown),
                 ],
               ),
-
               const SizedBox(height: 28),
-
               const Text(
                 "교체 시간",
                 style: TextStyle(
@@ -137,12 +126,9 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: surfaceColor,
                   borderRadius: BorderRadius.circular(20),
@@ -151,16 +137,12 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // AM / PM
                     _amPmButton("AM", "오전"),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _amPmButton("PM", "오후"),
-
-                    const SizedBox(width: 12),
-
-                    // 시
+                    const SizedBox(width: 10),
                     SizedBox(
-                      width: 50,
+                      width: 45,
                       child: TextField(
                         controller: hourController,
                         keyboardType: TextInputType.number,
@@ -170,49 +152,42 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                         ],
                         onChanged: (value) {
                           if (value.isEmpty) return;
-
                           final intVal = int.tryParse(value);
                           if (intVal == null) return;
-
                           if (intVal < 1) {
                             hourController.text = "1";
                           } else if (intVal > 12) {
                             hourController.text = "12";
                           }
-
-                          hourController.selection =
-                              TextSelection.fromPosition(
-                            TextPosition(
-                                offset: hourController.text.length),
+                          hourController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: hourController.text.length),
                           );
                         },
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          fontSize: 26,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: textColor,
                         ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+                          isDense: true,
                         ),
                       ),
                     ),
-
                     const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
                         ":",
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: textColor,
                         ),
                       ),
                     ),
-
-                    // 분
                     SizedBox(
-                      width: 50,
+                      width: 45,
                       child: TextField(
                         controller: minuteController,
                         keyboardType: TextInputType.number,
@@ -222,21 +197,21 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                         ],
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          fontSize: 26,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: textColor,
                         ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+                          isDense: true,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              const Spacer(),
-
+              // ★ 수정: 스크롤 뷰 내부에서 에러를 내는 Spacer() 대신 고정 간격 지정
+              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -268,14 +243,12 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   Widget _amPmButton(String value, String label) {
     final selected = selectedAmPm == value;
-
     return GestureDetector(
       onTap: () => selectAmPm(value),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color:
-              selected ? primaryColor.withOpacity(0.1) : Colors.white,
+          color: selected ? primaryColor.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -294,16 +267,13 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   Widget _diaperButton(String label) {
     final selected = selectedDiaperType == label;
-
     return GestureDetector(
       onTap: () => selectDiaper(label),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected
-              ? primaryColor.withOpacity(0.1)
-              : Colors.white,
+          color: selected ? primaryColor.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -316,8 +286,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color:
-                selected ? primaryColor : secondaryTextColor,
+            color: selected ? primaryColor : secondaryTextColor,
           ),
         ),
       ),
@@ -326,7 +295,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   Widget _stoolButton(String label, Color color) {
     final selected = selectedStoolState == label;
-
     return GestureDetector(
       onTap: () => selectStool(label),
       child: AnimatedContainer(

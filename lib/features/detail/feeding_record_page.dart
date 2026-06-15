@@ -1,5 +1,3 @@
-// feeding_record_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -18,8 +16,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
   static const Color textColor = Color(0xFF1F2937);
   static const Color secondaryTextColor = Color(0xFF6B7280);
 
-  final TextEditingController feedingAmountController =
-      TextEditingController();
+  final TextEditingController feedingAmountController = TextEditingController();
 
   String selectedFeedingType = '분유';
 
@@ -43,7 +40,6 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-
       appBar: AppBar(
         backgroundColor: backgroundColor,
         elevation: 0,
@@ -62,9 +58,9 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
           ),
         ),
       ),
-
       body: SafeArea(
-        child: Padding(
+        // ★ 수정: 키보드가 켜져도 화면이 터지지 않고 부드럽게 스크롤되도록 설정
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,9 +74,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 10),
-
               const Text(
                 '기록된 데이터는 AI 분석에 활용됩니다.',
                 style: TextStyle(
@@ -88,9 +82,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   color: secondaryTextColor,
                 ),
               ),
-
               const SizedBox(height: 40),
-
               const Text(
                 '수유 형태',
                 style: TextStyle(
@@ -99,9 +91,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               Row(
                 children: [
                   Expanded(child: _buildFeedingTypeButton('분유')),
@@ -111,9 +101,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   Expanded(child: _buildFeedingTypeButton('이유식')),
                 ],
               ),
-
               const SizedBox(height: 32),
-
               const Text(
                 '수유량 (ml)',
                 style: TextStyle(
@@ -122,9 +110,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   color: textColor,
                 ),
               ),
-
               const SizedBox(height: 14),
-
               Container(
                 decoration: BoxDecoration(
                   color: surfaceColor,
@@ -140,14 +126,11 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
                 child: TextField(
                   controller: feedingAmountController,
-
                   keyboardType: TextInputType.number,
-
                   // ✅ 숫자만 입력 가능
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
                   ],
-
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 32,
@@ -165,9 +148,8 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   ),
                 ),
               ),
-
-              const Spacer(),
-
+              // ★ 수정: 스크롤뷰 내부에선 무한 확장을 시도하는 Spacer() 대신 고정 공백(SizedBox)을 줍니다.
+              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 height: 60,

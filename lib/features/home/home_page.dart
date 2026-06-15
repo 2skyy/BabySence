@@ -8,7 +8,7 @@ import '../detail/eusick_page.dart';
 import '../detail/skin_analysis_page.dart';
 import '../detail/cry_analysis_page.dart';
 import '../detail/vaccination_page.dart';
-// ★ 수면 소음 측정 페이지 임포트 추가
+// 수면 소음 측정 페이지 임포트
 import '../detail/noise_test_page.dart';
 
 /// [HomePage]
@@ -32,10 +32,8 @@ class HomePage extends StatelessWidget {
 
   void handleRecordStateTap(BuildContext context) {
     debugPrint("Record state tapped");
-    // 기록 입력용 바텀시트/페이지 연결 예정
   }
 
-  // 수유 기록 페이지 이동
   void handleFeedingRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -43,7 +41,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 체온 기록 페이지 이동 ✅ 수정
   void handleTemperatureRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -51,7 +48,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 배변 기록 페이지 이동 ✅
   void handleDiaperRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -59,7 +55,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 수면 기록 페이지 이동
   void handleSleepRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -67,7 +62,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 이유식 성분 분석 페이지 이동
   void handleEusickTap(BuildContext context) {
     Navigator.push(
       context,
@@ -131,7 +125,8 @@ class HomePage extends StatelessWidget {
               mainAxisSpacing: 12,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 0.95,
+              // ★ 수정: 비율을 0.95에서 0.72로 낮춰서 세로 공간을 넉넉하게 확장합니다.
+              childAspectRatio: 0.72,
               children: [
                 _buildSquareRecordButton(
                   context: context,
@@ -209,7 +204,6 @@ class HomePage extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            // ★ 수정: buildBentoGrid에 context를 넘겨줍니다.
             _buildBentoGrid(context),
             const SizedBox(height: 120),
           ],
@@ -359,7 +353,8 @@ class HomePage extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        // ★ 수정: 카드 내부 상하좌우 패딩을 살짝 줄여 여유 공간을 더 확보합니다.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F3F4),
           borderRadius: BorderRadius.circular(20),
@@ -368,18 +363,19 @@ class HomePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              // ★ 수정: 아이콘 원형 바탕 패딩 조절 (14 -> 10)
+              padding: const EdgeInsets.all(10),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 28),
+              child: Icon(icon, color: iconColor, size: 26), // ★ 크기 최적화 (28 -> 26)
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8), // ★ 간격 조절 (10 -> 8)
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), // ★ (14 -> 13)
             ),
             const SizedBox(height: 4),
             Text(
@@ -387,7 +383,7 @@ class HomePage extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: secondaryTextColor, fontSize: 11),
+              style: const TextStyle(color: secondaryTextColor, fontSize: 10), // ★ (11 -> 10)
             ),
           ],
         ),
@@ -395,7 +391,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // ★ 수정: context를 매개변수로 받고 수면 품질 클릭 시 NoiseTestPage로 이동
   Widget _buildBentoGrid(BuildContext context) {
     return Row(
       children: [

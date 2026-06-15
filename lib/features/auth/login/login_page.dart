@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../../core/constants/api_config.dart';
 import '../../../routes/app_routes.dart';
 
 // 입력 컨트롤러를 사용하기 위해 StatefulWidget으로 변경되었습니다.
@@ -14,7 +13,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final String _baseUrl = ApiConfig.baseUrl;
+  // 💡 팀원 코드를 받으면서 바뀐 주소를 우리 컴퓨터 로컬(adb reverse) 주소로 고쳐줍니다.
+  final String _baseUrl = 'http://127.0.0.1:8080';
+
   // 1. 입력값을 저장할 텍스트 컨트롤러 생성
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -50,13 +51,13 @@ class _LoginPageState extends State<LoginPage> {
 
       final response = await http
           .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': email,
-              'password': password,
-            }),
-          )
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      )
           .timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
@@ -65,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.home,
-          (route) => false,
+              (route) => false,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,163 +114,177 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3182F6).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+        // ★ 핵심 고정: 팀원 코드로 유실되었던 키보드 밀림 에러 방지용 스크롤 레이아웃을 다시 복구합니다.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
                 ),
-                child: const Icon(
-                  Icons.child_care,
-                  color: Color(0xFF3182F6),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '이메일과 비밀번호를\n입력해주세요',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // ⭐️ 컨트롤러가 연결된 이메일 입력창
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress, // 이메일 키보드 모드
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[400]),
-                  hintText: '이메일',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ⭐️ 컨트롤러가 연결된 비밀번호 입력창
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[400]),
-                  hintText: '비밀번호',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () => handleSignupTap(context),
-                  child: Text(
-                    '아직 계정이 없으신가요?',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 14,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Center(
-                child: Text(
-                  '또는 SNS로 간편하게 시작하기',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 13),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 이미지 에셋을 사용하는 소셜 로그인 버튼 영역
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildSocialImageButton(
-                    imagePath: 'assets/images/kakao_logo.png',
-                    backgroundColor: const Color(0xFFFEE500),
-                    onTap: () => handleSocialLogin(context, 'Kakao'),
-                  ),
-                  const SizedBox(width: 20),
-                  _buildSocialImageButton(
-                    imagePath: 'assets/images/google_logo.png',
-                    backgroundColor: Colors.white,
-                    onTap: () => handleSocialLogin(context, 'Google'),
-                    hasBorder: true,
-                  ),
-                  const SizedBox(width: 20),
-                  _buildSocialImageButton(
-                    imagePath: 'assets/images/apple_logo.png',
-                    backgroundColor: Colors.black,
-                    onTap: () => handleSocialLogin(context, 'Apple'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isLoggingIn ? null : handleLoginTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3182F6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoggingIn
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3182F6).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                        )
-                      : const Text(
-                          '로그인하기',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                          child: const Icon(
+                            Icons.child_care,
+                            color: Color(0xFF3182F6),
+                            size: 32,
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          '이메일과 비밀번호를\n입력해주세요',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+
+                        // ⭐️ 컨트롤러가 연결된 이메일 입력창
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress, // 이메일 키보드 모드
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[400]),
+                            hintText: '이메일',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ⭐️ 컨트롤러가 연결된 비밀번호 입력창
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[400]),
+                            hintText: '비밀번호',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => handleSignupTap(context),
+                            child: Text(
+                              '아직 계정이 없으신가요?',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Center(
+                          child: Text(
+                            '또는 SNS로 간편하게 시작하기',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 이미지 에셋을 사용하는 소셜 로그인 버튼 영역
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildSocialImageButton(
+                              imagePath: 'assets/images/kakao_logo.png',
+                              backgroundColor: const Color(0xFFFEE500),
+                              onTap: () => handleSocialLogin(context, 'Kakao'),
+                            ),
+                            const SizedBox(width: 20),
+                            _buildSocialImageButton(
+                              imagePath: 'assets/images/google_logo.png',
+                              backgroundColor: Colors.white,
+                              onTap: () => handleSocialLogin(context, 'Google'),
+                              hasBorder: true,
+                            ),
+                            const SizedBox(width: 20),
+                            _buildSocialImageButton(
+                              imagePath: 'assets/images/apple_logo.png',
+                              backgroundColor: Colors.black,
+                              onTap: () => handleSocialLogin(context, 'Apple'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _isLoggingIn ? null : handleLoginTap,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3182F6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: _isLoggingIn
+                                ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                                : const Text(
+                              '로그인하기',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
