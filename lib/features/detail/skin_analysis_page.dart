@@ -16,7 +16,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   String _resultText = "발진, 습진, 건조함 같은 상태를 확인하는 기능으로 준비하면 됩니다.";
   bool _isLoading = false;
 
-  // 📸 1. 카메라로 아기 피부 사진 촬영하기
+  // 1. 카메라로 아기 피부 사진 촬영하기
   Future<void> _takePhoto() async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
@@ -26,7 +26,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     }
   }
 
-  // 🖼️ 2. 갤러리에서 아기 피부 사진 선택하기
+  // 2. 갤러리에서 아기 피부 사진 선택하기
   Future<void> _getFromGallery() async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -36,7 +36,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     }
   }
 
-  // 🚀 3. 조장님 맥북 스프링 부트 서버로 사진을 던지는 핵심 통신 함수
+  // 3.  스프링 부트 서버로 사진을 던지는 핵심 통신 함수
   Future<void> _sendToSpringServer() async {
     if (_image == null) return;
 
@@ -47,7 +47,6 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
 
     Dio dio = Dio();
 
-    // 💡 에뮬레이터 구동 시 localhost:8080 주소로 조장님 자바 백엔드를 정조준합니다.
     String serverUrl = "http://localhost:8080/api/skin/diagnose";
 
     try {
@@ -100,7 +99,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             Text(_resultText, style: const TextStyle(fontSize: 14, color: Color(0xFF555F6A))),
             const SizedBox(height: 30),
 
-            // 🖼️ 두 번째 스크린샷의 '사진 업로드 UI 예정' 커스텀 박스 영역
+            // 두 번째 스크린샷의 '사진 업로드 UI 예정' 커스텀 박스 영역
             Expanded(
               child: GestureDetector(
                 onTap: () => _showImageSourceBottomSheet(),
@@ -131,7 +130,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             ),
             const SizedBox(height: 30),
 
-            // 🔘 기획서 하단 디자인 그대로 구현한 [분석하기] 버튼
+            // 기획서 하단 디자인 그대로 구현한 [분석하기] 버튼
             SizedBox(
               width: double.infinity,
               height: 60,

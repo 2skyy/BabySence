@@ -13,9 +13,9 @@ class CryAnalysisPage extends StatefulWidget {
 
 class _CryAnalysisPageState extends State<CryAnalysisPage> {
   XFile? _selectedFile;
-  String _resultSubtitle = '교수님이 즉석에서 지정하는 다른 .wav 파일을 선택해도 실시간 분석이 가능합니다.';
+  String _resultSubtitle = '다른 .wav 파일을 선택해도 실시간 분석이 가능합니다.';
   bool _isLoading = false;
-  bool _isDragging = false; // 👈 드래그 중 UI 표시용
+  bool _isDragging = false; //  드래그 중 UI 표시용
 
   Future<void> _pickAudioFile() async {
     try {
@@ -37,18 +37,18 @@ class _CryAnalysisPageState extends State<CryAnalysisPage> {
     }
   }
 
-  // 👇 파일 적용 로직을 공통 함수로 분리
+  //  파일 적용 로직을 공통 함수로 분리
   void _applyFile(XFile file) {
     final ext = file.name.split('.').last.toLowerCase();
     if (!['wav', 'mp3', 'm4a'].contains(ext)) {
       setState(() {
-        _resultSubtitle = "❌ .wav / .mp3 / .m4a 파일만 지원합니다.";
+        _resultSubtitle = " .wav / .mp3 / .m4a 파일만 지원합니다.";
       });
       return;
     }
     setState(() {
       _selectedFile = file;
-      _resultSubtitle = "✅ 선택된 파일: ${file.name}\n이제 하단의 분석하기 버튼을 눌러주세요.";
+      _resultSubtitle = " 선택된 파일: ${file.name}\n이제 하단의 분석하기 버튼을 눌러주세요.";
     });
   }
 
@@ -68,7 +68,7 @@ class _CryAnalysisPageState extends State<CryAnalysisPage> {
       if (response.statusCode == 200) {
         String aiAnalysis = response.data['analysis'] ?? 'unknown';
         setState(() {
-          _resultSubtitle = "💡 AI 분석 결과: 현재 아기는 [ $aiAnalysis ] 상태입니다.";
+          _resultSubtitle = " AI 분석 결과: 현재 아기는 [ $aiAnalysis ] 상태입니다.";
         });
       }
     } catch (e) {
@@ -110,7 +110,6 @@ class _CryAnalysisPageState extends State<CryAnalysisPage> {
             ),
             const SizedBox(height: 28),
 
-            // 👇 DropTarget으로 감싸서 드래그 앤 드롭 활성화
             Expanded(
               child: DropTarget(
                 onDragDone: (detail) {
