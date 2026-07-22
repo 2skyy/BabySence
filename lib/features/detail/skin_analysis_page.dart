@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_selector/file_selector.dart' as fs;
 import 'package:dio/dio.dart';
 
 class SkinAnalysisPage extends StatefulWidget {
@@ -11,32 +13,82 @@ class SkinAnalysisPage extends StatefulWidget {
 }
 
 class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
-  File? _image; // 사용자가 찍거나 고른 아기 피부 사진이 담길 곳
+  File? _image;
+  Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
-  String _resultText = "발진, 습진, 건조함 같은 상태를 확인하는 기능으로 준비하면 됩니다.";
+
+  String _resultText = "사진을 선택한 후 '분석하기' 버튼을 눌러주세요.";
   bool _isLoading = false;
+  bool _isNormal = false;
 
-  // 1. 카메라로 아기 피부 사진 촬영하기
+  final Map<String, String> _koDiseases = {
+    "normal": "정상 피부",
+    "Atopic Dermatitis": "아토피성 피부염",
+    "Melanoma": "흑색종",
+    "Actinic keratosis": "광선각화증",
+    "Benign keratosis": "양성 각화증",
+    "Candidiasis Ringworm Tinea": "칸디다증/백선",
+    "Dermatofibroma": "피부섬유종",
+    "Melanocytic nevus": "멜라닌세포모반",
+    "Squamous carcinoma cell": "편평세포암",
+    "Vascular lesion": "혈관성 병변"
+  };
+
+  // 1. 카메라로 촬영
   Future<void> _takePhoto() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
+    try {
+      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _image = File(pickedFile.path);
+          _imageBytes = bytes;
+          _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
+          _isNormal = false;
+        });
+      }
+    } catch (e) {
+      print("카메라 에러: $e");
     }
   }
 
-  // 2. 갤러리에서 아기 피부 사진 선택하기
   Future<void> _getFromGallery() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
+    try {
+      const fs.XTypeGroup typeGroup = fs.XTypeGroup(
+        label: 'images',
+        extensions: <String>['jpg', 'jpeg', 'png', 'JPG', 'PNG'],
+      );
+
+      final fs.XFile? file = await fs.openFile(acceptedTypeGroups: <fs.XTypeGroup>[typeGroup]);
+
+      if (file != null) {
+        final bytes = await file.readAsBytes();
+        setState(() {
+          _image = File(file.path);
+          _imageBytes = bytes;
+          _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
+          _isNormal = false;
+        });
+      }
+    } catch (e) {
+      print("파일 선택 에러: $e");
+      try {
+        final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+        if (pickedFile != null) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _image = File(pickedFile.path);
+            _imageBytes = bytes;
+            _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
+            _isNormal = false;
+          });
+        }
+      } catch (err) {
+        print("백업 기기 선택 에러: $err");
+      }
     }
   }
-
-  // 3.  스프링 부트 서버로 사진을 던지는 핵심 통신 함수
+  // 3. 스프링부트 분석 요청
   Future<void> _sendToSpringServer() async {
     if (_image == null) return;
 
@@ -46,28 +98,31 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     });
 
     Dio dio = Dio();
-
     String serverUrl = "http://localhost:8080/api/skin/diagnose";
 
     try {
-      // 자바 컨트롤러의 @RequestParam("file")과 매칭되도록 'file' 키값 사용
       FormData formData = FormData.fromMap({
         "file": await MultipartFile.fromFile(_image!.path, filename: "baby_skin.jpg"),
       });
 
-      // 조장님 스프링 서버로 POST 전송!
       Response response = await dio.post(serverUrl, data: formData);
 
       if (response.statusCode == 200) {
         var data = response.data;
+        String rawDisease = data['disease'] ?? "normal";
+        double prob = (data['probability'] as num).toDouble();
+
+        String translatedDisease = _koDiseases[rawDisease] ?? rawDisease;
+
         setState(() {
-          // 서버가 최종 리턴해 준 AI 판독 결과를 화면 문구에 반영!
-          _resultText = "진단 결과: ${data['disease']} (${data['probability']}%)";
+          _isNormal = (rawDisease == "normal");
+          _resultText = "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)";
         });
       }
     } catch (e) {
       setState(() {
         _resultText = "서버 연동 실패: $e";
+        _isNormal = false;
       });
     } finally {
       setState(() {
@@ -96,10 +151,27 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.4, color: Color(0xFF1A1C1C)),
             ),
             const SizedBox(height: 12),
-            Text(_resultText, style: const TextStyle(fontSize: 14, color: Color(0xFF555F6A))),
+
+            // 결과/상태 안내 박스
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _isNormal ? const Color(0xFFE8F5E9) : const Color(0xFFECEFF8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _resultText,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _isNormal ? Colors.green[800] : const Color(0xFF555F6A),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             const SizedBox(height: 30),
 
-            // 두 번째 스크린샷의 '사진 업로드 UI 예정' 커스텀 박스 영역
+            // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
             Expanded(
               child: GestureDetector(
                 onTap: () => _showImageSourceBottomSheet(),
@@ -108,9 +180,17 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFE3E3E3)),
+                    border: Border.all(
+                      color: _isNormal ? Colors.green.withOpacity(0.5) : const Color(0xFFE3E3E3),
+                      width: _isNormal ? 2 : 1,
+                    ),
                   ),
-                  child: _image != null
+                  child: (_imageBytes != null)
+                      ? ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                  )
+                      : (_image != null)
                       ? ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: Image.file(_image!, fit: BoxFit.cover),
@@ -121,7 +201,11 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                       children: [
                         Icon(Icons.add_a_photo_outlined, size: 48, color: Colors.grey),
                         SizedBox(height: 12),
-                        Text("사진 업로드 UI 예정\n(클릭하여 촬영 또는 선택)", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
+                        Text(
+                          "터치하여 사진 촬영 또는 선택",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
                       ],
                     ),
                   ),
@@ -130,20 +214,27 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             ),
             const SizedBox(height: 30),
 
-            // 기획서 하단 디자인 그대로 구현한 [분석하기] 버튼
+            // 분석하기 버튼
             SizedBox(
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
-                onPressed: _image != null && !_isLoading ? _sendToSpringServer : null,
+                onPressed: (_image != null || _imageBytes != null) && !_isLoading ? _sendToSpringServer : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFECEFF8),
+                  backgroundColor: _isNormal ? Colors.green : const Color(0xFFECEFF8),
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Color(0xFF0059B9))
-                    : const Text("분석하기", style: TextStyle(fontSize: 18, color: Color(0xFF0059B9), fontWeight: FontWeight.bold)),
+                    : Text(
+                  "분석하기",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: _isNormal ? Colors.white : const Color(0xFF0059B9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -152,7 +243,6 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     );
   }
 
-  // 아래서 스윽 올라오는 카메라/갤러리 선택창
   void _showImageSourceBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -162,12 +252,18 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('카메라로 아기 피부 촬영하기'),
-              onTap: () { _takePhoto(); Navigator.pop(context); },
+              onTap: () {
+                Navigator.pop(context);
+                _takePhoto();
+              },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('갤러리에서 아기 사진 가져오기'),
-              onTap: () { _getFromGallery(); Navigator.pop(context); },
+              onTap: () {
+                Navigator.pop(context);
+                _getFromGallery();
+              },
             ),
           ],
         ),
