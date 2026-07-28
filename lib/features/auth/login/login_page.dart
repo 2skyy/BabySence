@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/common_button.dart';
 import '../../../routes/app_routes.dart';
 
 // 입력 컨트롤러를 사용하기 위해 StatefulWidget으로 변경되었습니다.
@@ -132,12 +134,12 @@ class _LoginPageState extends State<LoginPage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3182F6).withValues(alpha: 0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.child_care,
-                            color: Color(0xFF3182F6),
+                            color: AppColors.primary,
                             size: 32,
                           ),
                         ),
@@ -168,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                             focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                             contentPadding: const EdgeInsets.symmetric(vertical: 16),
                           ),
@@ -190,7 +192,7 @@ class _LoginPageState extends State<LoginPage> {
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
                             focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                             contentPadding: const EdgeInsets.symmetric(vertical: 16),
                           ),
@@ -246,36 +248,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _isLoggingIn ? null : handleLoginTap,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3182F6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: _isLoggingIn
-                                ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                                : const Text(
-                              '로그인하기',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                        CommonButton(
+                          text: '로그인하기',
+                          onPressed: handleLoginTap,
+                          isLoading: _isLoggingIn,
                         ),
                         const SizedBox(height: 8),
                       ],
