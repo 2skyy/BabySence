@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/constants/app_colors.dart';
 
 class DiaperRecordPage extends StatefulWidget {
   const DiaperRecordPage({super.key});
@@ -9,7 +10,7 @@ class DiaperRecordPage extends StatefulWidget {
 }
 
 class _DiaperRecordPageState extends State<DiaperRecordPage> {
-  static const Color primaryColor = Color(0xFF3B82F6);
+  static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
   static const Color surfaceColor = Colors.white;
   static const Color borderColor = Color(0xFFE5E7EB);
@@ -248,7 +249,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withOpacity(0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -273,7 +274,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withOpacity(0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -301,7 +302,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.2) : Colors.white,
+          color: selected ? color.withValues(alpha: 0.2) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? color : borderColor,

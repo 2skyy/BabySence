@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 
 class EusickPage extends StatefulWidget {
   const EusickPage({super.key});
@@ -8,7 +9,7 @@ class EusickPage extends StatefulWidget {
 }
 
 class _EusickPageState extends State<EusickPage> {
-  static const Color primaryColor = Color(0xFF3B82F6);
+  static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textColor = Color(0xFF1F2937);

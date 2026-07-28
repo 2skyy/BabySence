@@ -126,7 +126,7 @@ class MyPagePage extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08), // 👉 핵심 (톤 컬러)
+        color: color.withValues(alpha: 0.08), // 👉 핵심 (톤 컬러)
         borderRadius: BorderRadius.circular(16),
       ),
       child: ListTile(

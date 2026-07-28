@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 
 class TemperatureRecordPage extends StatefulWidget {
   const TemperatureRecordPage({super.key});
@@ -8,12 +9,9 @@ class TemperatureRecordPage extends StatefulWidget {
 }
 
 class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
-  static const Color primaryColor = Color(0xFFEF4444);
   static const Color buttonBlue = Color(0xFF2F80ED);
   static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
   static const double defaultTemperature = 36.5;
 
   final TextEditingController temperatureController = TextEditingController();
@@ -159,8 +157,8 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                                 ? FontWeight.w700
                                 : FontWeight.w500,
                             color: isSelected
-                                ? primaryColor
-                                : secondaryTextColor,
+                                ? AppColors.error
+                                : AppColors.textSecondary,
                           ),
                         ),
                       );
@@ -236,10 +234,10 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
+          color: isSelected ? AppColors.error.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? primaryColor : borderColor,
+            color: isSelected ? AppColors.error : AppColors.border,
             width: 1.2,
           ),
         ),
@@ -248,7 +246,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
           style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: isSelected ? primaryColor : secondaryTextColor,
+            color: isSelected ? AppColors.error : AppColors.textSecondary,
           ),
         ),
       ),

@@ -48,7 +48,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
         });
       }
     } catch (e) {
-      print("카메라 에러: $e");
+      debugPrint("카메라 에러: $e");
     }
   }
 
@@ -71,7 +71,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
         });
       }
     } catch (e) {
-      print("파일 선택 에러: $e");
+      debugPrint("파일 선택 에러: $e");
       try {
         final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
         if (pickedFile != null) {
@@ -84,7 +84,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
           });
         }
       } catch (err) {
-        print("백업 기기 선택 에러: $err");
+        debugPrint("백업 기기 선택 에러: $err");
       }
     }
   }

@@ -79,10 +79,9 @@ void onStart(ServiceInstance service) async {
 
   NoiseMeter noiseMeter = NoiseMeter();
   NoiseTracker noiseTracker = NoiseTracker();
-  StreamSubscription<NoiseReading>? noiseSubscription;
 
   try {
-    noiseSubscription = noiseMeter.noise.listen((NoiseReading noiseReading) {
+    noiseMeter.noise.listen((NoiseReading noiseReading) {
       noiseTracker.onNoiseLevelChanged(noiseReading.meanDecibel);
 
       if (service is AndroidServiceInstance) {

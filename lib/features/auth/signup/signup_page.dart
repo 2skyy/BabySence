@@ -79,7 +79,7 @@ class _SignupPageState extends State<SignupPage> {
         }
       }
     } catch (e) {
-      print('서버 연결 에러: $e');
+      debugPrint('서버 연결 에러: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('서버와 연결할 수 없습니다. 서버가 켜져 있는지 확인해주세요.')),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/constants/app_colors.dart';
 
 class FeedingRecordPage extends StatefulWidget {
   const FeedingRecordPage({super.key});
@@ -9,7 +10,7 @@ class FeedingRecordPage extends StatefulWidget {
 }
 
 class _FeedingRecordPageState extends State<FeedingRecordPage> {
-  static const Color primaryColor = Color(0xFF3B82F6);
+  static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
   static const Color surfaceColor = Colors.white;
   static const Color borderColor = Color(0xFFE5E7EB);
@@ -118,7 +119,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   border: Border.all(color: borderColor),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -189,7 +190,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? primaryColor.withOpacity(0.1)
+              ? primaryColor.withValues(alpha: 0.1)
               : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(

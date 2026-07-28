@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/constants/app_colors.dart';
 
 class SleepRecordPage extends StatefulWidget {
   const SleepRecordPage({super.key});
@@ -9,7 +10,7 @@ class SleepRecordPage extends StatefulWidget {
 }
 
 class _SleepRecordPageState extends State<SleepRecordPage> {
-  static const Color primaryColor = Color(0xFF3B82F6);
+  static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textColor = Color(0xFF1F2937);
@@ -166,7 +167,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.08),
+                  color: primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -229,7 +230,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withOpacity(0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
