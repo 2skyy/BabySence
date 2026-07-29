@@ -9,6 +9,11 @@ import 'package:noise_meter/noise_meter.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+// ★ 백엔드 파이어베이스 및 수파베이스 임포트
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login/login_page.dart';
 import 'features/auth/signup/signup_page.dart';
@@ -117,7 +122,7 @@ void onStart(ServiceInstance service) async {
 
           double rawDb = noiseReading.meanDecibel;
 
-          // 1. [강력한 오프셋 차감]: 마이크 하울링/증폭을 감쇄하기 위해 15dB 차감
+          // 1. [강력한 오프셋 차감]: 마이크 하울링/증폭 감쇄를 위해 15dB 차감
           double adjustedDb = rawDb - 15.0;
 
           // 2. [노이즈 바닥 제한 (Min Cutoff)]: 방 안의 고요한 환경 수치인 30dB 이하로 떨어지지 않게 평탄화
@@ -217,13 +222,11 @@ void onStart(ServiceInstance service) async {
 
 // ★ 앱 실행 시 필수 권한 팝업을 띄우는 강화된 권한 함수
 Future<void> _requestAppPermissions() async {
-  // 1. 마이크 권한 및 알림(상단 바) 권한 요청
   Map<Permission, PermissionStatus> statuses = await [
     Permission.microphone,
     Permission.notification,
   ].request();
 
-  // 2. 만약 마이크 권한이 완전히 거부되어 있다면 설정 페이지 안내 디버그 출력
   if (statuses[Permission.microphone]!.isPermanentlyDenied) {
     debugPrint("★ 마이크 권한이 영구 거부되었습니다. 설정에서 권한을 허용해 주세요.");
     await openAppSettings();
@@ -233,12 +236,34 @@ Future<void> _requestAppPermissions() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ★ 앱이 완전히 구동되기 전에 시스템 권한 팝업 실행
+  // 1. ★ Supabase 초기화
+  // 연결 정보가 없으면 여기서 즉시 멈춥니다. 초기화에 실패한 채로 앱을 띄우면
+  // 나중에 로그인 화면에서 원인을 알 수 없는 에러가 나기 때문입니다.
+  if (!SupabaseConfig.isConfigured) {
+    throw StateError(
+      'Supabase 연결 정보가 없습니다.\n'
+      'env.example.json을 env.json으로 복사해 값을 채운 뒤 아래처럼 실행하세요.\n'
+      '  flutter run --dart-define-from-file=env.json',
+    );
+  }
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.publishableKey,
+  );
+
+  // 2. ★ Firebase 초기화 (google-services.json 기반)
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    await _requestAppPermissions();
+    try {
+      await Firebase.initializeApp();
+      debugPrint("🔴 Firebase 초기화 성공!");
+    } catch (e) {
+      debugPrint("🔴 Firebase 초기화 실패: $e");
+    }
   }
 
+  // 3. 앱 시스템 권한 및 백그라운드 서비스 시작
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await _requestAppPermissions();
     try {
       await initializeService();
     } catch (e) {

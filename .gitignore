@@ -31,3 +31,6 @@
 # Symbolication / obfuscation
 app.*.symbols
 app.*.map.json
+
+# 환경 설정 (env.example.json을 복사해서 만드세요)
+env.json
