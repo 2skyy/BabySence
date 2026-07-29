@@ -8,7 +8,7 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
-        background: AppColors.background,
+        surface: AppColors.background,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,

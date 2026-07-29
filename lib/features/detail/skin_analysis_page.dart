@@ -181,7 +181,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: _isNormal ? Colors.green.withOpacity(0.5) : const Color(0xFFE3E3E3),
+                      color: _isNormal ? Colors.green.withValues(alpha: 0.5) : const Color(0xFFE3E3E3),
                       width: _isNormal ? 2 : 1,
                     ),
                   ),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../constants/api_config.dart';
 
 class NoiseTracker {
   final List<Map<String, dynamic>> _noiseBuffer = [];

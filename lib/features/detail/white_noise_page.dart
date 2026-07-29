@@ -17,7 +17,7 @@ class WhiteNoiseItem {
 }
 
 class WhiteNoisePage extends StatefulWidget {
-  const WhiteNoisePage({Key? key}) : super(key: key);
+  const WhiteNoisePage({super.key});
 
   @override
   State<WhiteNoisePage> createState() => _WhiteNoisePageState();
@@ -126,7 +126,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -164,7 +164,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, -3),
                   ),

@@ -136,7 +136,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                 color: currentStatus["color"] as Color,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: (currentStatus["textColor"] as Color).withOpacity(0.3),
+                  color: (currentStatus["textColor"] as Color).withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
