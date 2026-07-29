@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:noise_meter/noise_meter.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
-import '../../core/services/noise_tracker.dart';
-import 'noise_result_page.dart';
+// ★ 백색소음 선택 페이지 및 싱글톤 서비스 import
+import './white_noise_page.dart';
+import './white_noise_service.dart';
 
 class NoiseTestPage extends StatefulWidget {
   const NoiseTestPage({super.key});
@@ -17,146 +14,259 @@ class NoiseTestPage extends StatefulWidget {
 }
 
 class _NoiseTestPageState extends State<NoiseTestPage> {
-  bool _isRecording = false;
-  double _currentDecibel = 0.0;
-  double _maxDecibel = 0.0;
+  double _currentDecibel = 0.0; // 실시간 데시벨 수치 저장
+  bool _isNoiseMeasuring = false;
+  StreamSubscription? _serviceSubscription;
 
-  // ★ 스무딩을 위한 변수들
-  final int _bufferSize = 7; // 숫자가 클수록 더 부드러워짐 (7~10 권장)
-  final List<double> _dbBuffer = [];
-  final double _calibrationOffset = -15.0; // 너무 높게 나오면 -20.0 등으로 줄이세요.
-
-  StreamSubscription<NoiseReading>? _noiseSubscription;
-  late NoiseMeter _noiseMeter;
-  final NoiseTracker _noiseTracker = NoiseTracker();
+  // 백색소음 상태 관리를 위한 싱글톤 서비스
+  final WhiteNoiseService _noiseService = WhiteNoiseService();
 
   @override
   void initState() {
     super.initState();
-    _noiseMeter = NoiseMeter();
+    _checkInitialStatus();
+    _listenToBackgroundService();
   }
 
   @override
   void dispose() {
-    _noiseSubscription?.cancel();
+    _serviceSubscription?.cancel();
     super.dispose();
   }
 
-  Future<void> _startRecording() async {
-    var status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('마이크 권한을 허용해야 소음을 측정할 수 있습니다.')),
-        );
-      }
-      return;
-    }
-
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      final service = FlutterBackgroundService();
-      bool isRunning = await service.isRunning();
-      if (!isRunning) {
-        service.startService();
-      }
-    }
-
+  void _checkInitialStatus() async {
+    final service = FlutterBackgroundService();
+    final isRunning = await service.isRunning();
     setState(() {
-      _isRecording = true;
-      _maxDecibel = 0.0;
-      _dbBuffer.clear(); // 버퍼 초기화
+      _isNoiseMeasuring = isRunning;
     });
+  }
 
-    try {
-      _noiseSubscription = _noiseMeter.noise.listen(
-            (NoiseReading noiseReading) {
+  void _listenToBackgroundService() {
+    final service = FlutterBackgroundService();
 
-          // ★ [스무딩 로직]
-          double rawDb = noiseReading.meanDecibel + _calibrationOffset;
-          if (rawDb < 0) rawDb = 0.0;
+    _serviceSubscription = service.on('update_db').listen((event) {
+      if (event != null && event['db'] != null) {
+        setState(() {
+          _currentDecibel = double.parse(event['db'].toString());
+        });
+      }
+    });
+  }
 
-          _dbBuffer.add(rawDb);
-          if (_dbBuffer.length > _bufferSize) _dbBuffer.removeAt(0);
+  // 🚨 [위험 단계 판단 로직]
+  Map<String, dynamic> _getDangerLevel(double db) {
+    if (!_isNoiseMeasuring) {
+      return {
+        "color": Colors.blueGrey[50]!,
+        "textColor": Colors.grey[700]!,
+        "text": "측정 대기 중",
+        "icon": Icons.radar,
+      };
+    }
 
-          double smoothedDb = _dbBuffer.reduce((a, b) => a + b) / _dbBuffer.length;
-
-          setState(() {
-            _currentDecibel = smoothedDb;
-            if (_currentDecibel > _maxDecibel) {
-              _maxDecibel = _currentDecibel;
-            }
-          });
-
-          _noiseTracker.onNoiseLevelChanged(_currentDecibel);
-        },
-        onError: (Object error) {
-          debugPrint(error.toString());
-          _stopRecording();
-        },
-      );
-    } catch (err) {
-      debugPrint(err.toString());
+    if (db < 50.0) {
+      return {
+        "color": Colors.green[50]!,
+        "textColor": Colors.green[700]!,
+        "text": "안전 (쾌적한 수면 환경)",
+        "icon": Icons.check_circle,
+      };
+    } else if (db >= 50.0 && db < 70.0) {
+      return {
+        "color": Colors.orange[50]!,
+        "textColor": Colors.orange[800]!,
+        "text": "주의 (아기가 깰 수 있어요)",
+        "icon": Icons.warning_amber_rounded,
+      };
+    } else {
+      return {
+        "color": Colors.red[50]!,
+        "textColor": Colors.red[800]!,
+        "text": "위험 (소음 차단 필요!!)",
+        "icon": Icons.gpp_bad_rounded,
+      };
     }
   }
 
-  void _stopRecording() async {
-    double finalMaxDb = _maxDecibel;
+  void _toggleNoiseMeasurement() async {
+    final service = FlutterBackgroundService();
+    final isRunning = await service.isRunning();
 
-    setState(() {
-      _isRecording = false;
-      _currentDecibel = 0.0;
-    });
-    _noiseSubscription?.cancel();
-
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-      final service = FlutterBackgroundService();
-      service.invoke("stopService");
-    }
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NoiseResultPage(recordId: 1, maxDb: finalMaxDb),
-        ),
-      );
+    if (_isNoiseMeasuring) {
+      service.invoke('stopNoiseOnly');
+      setState(() {
+        _isNoiseMeasuring = false;
+        _currentDecibel = 0.0;
+      });
+    } else {
+      if (!isRunning) {
+        await service.startService();
+      }
+      service.invoke('startNoiseOnly');
+      setState(() {
+        _isNoiseMeasuring = true;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 💡 소음 데이터가 어떻게 처리되는지 한눈에 보는 로직 흐름도
-    //
+    final currentStatus = _getDangerLevel(_currentDecibel);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('수면 소음 측정 테스트')),
-      body: Center(
+      appBar: AppBar(
+        title: const Text('수면 소음 케어'),
+        backgroundColor: const Color(0xFF0059B9),
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              '현재 소음 (스무딩 적용)',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 20),
-            Text(
-              '${_currentDecibel.toStringAsFixed(1)} dB',
-              style: TextStyle(
-                fontSize: 60,
-                color: _currentDecibel > 55 ? Colors.red : Colors.green,
-                fontWeight: FontWeight.bold,
+
+            // 🔊 [1] 실시간 데시벨 측정 + 위험도 표시 스크린 UI
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              decoration: BoxDecoration(
+                color: currentStatus["color"] as Color,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: (currentStatus["textColor"] as Color).withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(currentStatus["icon"] as IconData, color: currentStatus["textColor"] as Color, size: 22),
+                      const SizedBox(width: 6),
+                      Text(
+                        currentStatus["text"] as String,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: currentStatus["textColor"] as Color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        _isNoiseMeasuring ? _currentDecibel.toStringAsFixed(1) : '0.0',
+                        style: TextStyle(
+                          fontSize: 56,
+                          fontWeight: FontWeight.w900,
+                          color: _isNoiseMeasuring ? currentStatus["textColor"] as Color : const Color(0xFF0059B9),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text('dB', style: TextStyle(fontSize: 20, color: Colors.black45, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  ElevatedButton.icon(
+                    onPressed: _toggleNoiseMeasurement,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isNoiseMeasuring ? Colors.grey[800] : const Color(0xFF0059B9),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(200, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: Icon(_isNoiseMeasuring ? Icons.mic_off : Icons.mic),
+                    label: Text(_isNoiseMeasuring ? '소음 측정 중지하기' : '실시간 소음 측정 시작'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 50),
-            ElevatedButton(
-              onPressed: _isRecording ? _stopRecording : _startRecording,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isRecording ? Colors.redAccent : Colors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+
+            const SizedBox(height: 32),
+
+            // 🎵 [2] 백색소음 제어 및 이동 섹션 (★ 싱글톤 상태 연동)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                _isRecording ? '측정 중지' : '측정 시작',
-                style: const TextStyle(color: Colors.white, fontSize: 18),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _noiseService.isPlaying ? Icons.music_note : Icons.music_off,
+                        color: _noiseService.isPlaying ? Colors.orange : Colors.grey,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _noiseService.isPlaying
+                              ? '백색소음이 재생 중입니다 🎵'
+                              : '백색소음이 꺼져 있습니다',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '원하는 백색소음을 틀어둔 상태로 실시간 데시벨을 측정해 보세요.',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // ★ 백색소음 선택 페이지로 갔다가 뒤로 돌아오면 UI 상태 즉시 업데이트
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const WhiteNoisePage()),
+                      );
+                      setState(() {});
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(Icons.graphic_eq_rounded),
+                    label: Text(
+                      _noiseService.isPlaying ? '백색소음 변경 / 관리하기' : '백색소음 선택하러 가기',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
+            ),
+
+            const SizedBox(height: 40),
+
+            TextButton.icon(
+              onPressed: () {
+                FlutterBackgroundService().invoke('stopService');
+                _noiseService.stopAll(() {}); // 수면 시스템 꺼질 때 백색소음도 같이 정지
+                setState(() {
+                  _isNoiseMeasuring = false;
+                  _currentDecibel = 0.0;
+                });
+              },
+              icon: const Icon(Icons.power_settings_new, color: Colors.red),
+              label: const Text('수면 케어 전체 시스템 완전히 끄기', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             )
           ],
         ),

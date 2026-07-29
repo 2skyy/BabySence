@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:noise_meter/noise_meter.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-// 기존 임포트 유지
 import 'core/theme/app_theme.dart';
 import 'features/auth/login/login_page.dart';
 import 'features/auth/signup/signup_page.dart';
@@ -17,20 +18,16 @@ import 'features/mypage/mypage_page.dart';
 import 'features/settings/settings_page.dart';
 import 'routes/app_routes.dart';
 
-// 새로 추가된 NoiseTracker 임포트 (경로 확인 필수!)
 import 'core/services/noise_tracker.dart';
-
-// --- 백그라운드 서비스 설정 시작 ---
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
-  // ★ 에러 해결의 핵심: 안드로이드 시스템에 알림 채널(방)을 먼저 만들어 줍니다.
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'babysense_noise', // 아래 설정의 notificationChannelId와 무조건 똑같아야 함!
-    '수면 소음 측정 알림', // 핸드폰 알림 설정에 표시될 이름
-    description: '백그라운드에서 소음을 측정 중임을 상단바에 알립니다.',
-    importance: Importance.low, // 소리나 진동 없이 조용히 띄움
+    'babysense_noise',
+    'BabySense 수면 모드 알림',
+    description: '백그라운드에서 선택한 수면 모드가 작동 중임을 알립니다.',
+    importance: Importance.low,
   );
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -43,16 +40,19 @@ Future<void> initializeService() async {
         ?.createNotificationChannel(channel);
   }
 
-  // ★ 만들어진 채널 위에 백그라운드 서비스를 올립니다.
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
-      autoStart: false, // 앱 켤 때가 아니라 사용자가 버튼 누를 때 시작
+      autoStart: false,
       isForegroundMode: true,
-      notificationChannelId: 'babysense_noise', // 🚨 위 채널 ID와 일치!
+      notificationChannelId: 'babysense_noise',
       initialNotificationTitle: 'BabySense 수면 모드',
-      initialNotificationContent: '수면 소음을 측정하기 위해 대기 중입니다.',
+      initialNotificationContent: '원하시는 수면 모드를 선택해 주세요.',
       foregroundServiceNotificationId: 888,
+      foregroundServiceTypes: [
+        AndroidForegroundType.microphone,
+        AndroidForegroundType.mediaPlayback,
+      ],
     ),
     iosConfiguration: IosConfiguration(
       autoStart: false,
@@ -73,36 +73,171 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
-
-  NoiseMeter noiseMeter = NoiseMeter();
+  final AudioPlayer audioPlayer = AudioPlayer();
   NoiseTracker noiseTracker = NoiseTracker();
 
-  try {
-    noiseMeter.noise.listen((NoiseReading noiseReading) {
-      noiseTracker.onNoiseLevelChanged(noiseReading.meanDecibel);
+  NoiseMeter? noiseMeter;
+  StreamSubscription<NoiseReading>? noiseSubscription;
 
-      if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: 'BabySense 수면 소음 측정 중',
-          content: '현재 소음: ${noiseReading.meanDecibel.toStringAsFixed(1)} dB',
-        );
-      }
-    });
-  } catch (err) {
-    debugPrint('백그라운드 마이크 에러: $err');
+  bool isNoiseMeasuring = false;
+  bool isWhiteNoisePlaying = false;
+
+  // 데시벨 수치 널뛰기 방지용 이동 평균 변수
+  double smoothedDb = 0.0;
+
+  void updateNotification() {
+    String title = 'BabySense 수면 모드 작동 중';
+    String content = '';
+
+    if (isNoiseMeasuring && isWhiteNoisePlaying) {
+      content = '소음 측정 중 & 백색소음 재생 중';
+    } else if (isNoiseMeasuring) {
+      content = '실시간 수면 소음 측정 중...';
+    } else if (isWhiteNoisePlaying) {
+      content = '아기를 위한 백색소음 재생 중...';
+    } else {
+      content = '대기 중입니다.';
+    }
+
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(title: title, content: content);
+    }
+  }
+
+  void startNoiseMeasurement() {
+    if (isNoiseMeasuring) return;
+
+    try {
+      noiseMeter = NoiseMeter();
+      smoothedDb = 0.0;
+
+      noiseSubscription = noiseMeter!.noise.listen(
+            (NoiseReading noiseReading) {
+          if (noiseReading.meanDecibel.isInfinite || noiseReading.meanDecibel.isNaN) return;
+
+          double rawDb = noiseReading.meanDecibel;
+
+          // 1. [강력한 오프셋 차감]: 마이크 하울링/증폭을 감쇄하기 위해 15dB 차감
+          double adjustedDb = rawDb - 15.0;
+
+          // 2. [노이즈 바닥 제한 (Min Cutoff)]: 방 안의 고요한 환경 수치인 30dB 이하로 떨어지지 않게 평탄화
+          if (adjustedDb < 30.0) {
+            adjustedDb = 30.0 + (adjustedDb % 2.0);
+          }
+
+          // 3. [초둔감 이동 평균 필터]: 이전 수치 85% + 새 수치 15%로 믹싱하여 갑자기 치솟는 수치 억제
+          smoothedDb = (smoothedDb == 0.0)
+              ? adjustedDb
+              : (smoothedDb * 0.85) + (adjustedDb * 0.15);
+
+          // 4. 보정된 수치를 UI 및 서버 버퍼로 전달
+          noiseTracker.onNoiseLevelChanged(smoothedDb);
+          service.invoke('update_db', {"db": smoothedDb.toStringAsFixed(1)});
+
+          if (service is AndroidServiceInstance && !isWhiteNoisePlaying) {
+            service.setForegroundNotificationInfo(
+              title: 'BabySense 소음 측정 중',
+              content: '현재 소음: ${smoothedDb.toStringAsFixed(1)} dB',
+            );
+          }
+        },
+        onError: (Object error) {
+          debugPrint('★ 백그라운드 소음 스트림 내부 에러 발생: $error');
+          isNoiseMeasuring = false;
+          updateNotification();
+        },
+        cancelOnError: false,
+      );
+
+      isNoiseMeasuring = true;
+      updateNotification();
+    } catch (err) {
+      debugPrint('★ 마이크 초기화 단계 치명적 에러: $err');
+      isNoiseMeasuring = false;
+      updateNotification();
+    }
+  }
+
+  void stopNoiseMeasurement() {
+    try {
+      noiseSubscription?.cancel();
+      noiseSubscription = null;
+      noiseMeter = null;
+    } catch (e) {
+      debugPrint('소음 중지 중 오류: $e');
+    }
+    isNoiseMeasuring = false;
+    updateNotification();
+  }
+
+  // --- UI 신호(이벤트) 리스너 설정 ---
+
+  service.on('startNoiseOnly').listen((event) {
+    startNoiseMeasurement();
+  });
+
+  service.on('stopNoiseOnly').listen((event) {
+    stopNoiseMeasurement();
+  });
+
+  service.on('startWhiteNoiseOnly').listen((event) async {
+    if (isWhiteNoisePlaying) return;
+    isWhiteNoisePlaying = true;
+    updateNotification();
+
+    try {
+      await audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await audioPlayer.play(AssetSource('audio/white_noise.mp3'));
+    } catch (e) {
+      debugPrint('백색소음 재생 에러: $e');
+    }
+  });
+
+  service.on('stopWhiteNoiseOnly').listen((event) async {
+    try {
+      await audioPlayer.stop();
+    } catch (e) {
+      debugPrint('백색소음 중지 오류: $e');
+    }
+    isWhiteNoisePlaying = false;
+    updateNotification();
+  });
+
+  service.on('stopService').listen((event) async {
+    try {
+      noiseSubscription?.cancel();
+      await audioPlayer.stop();
+      await audioPlayer.dispose();
+    } catch (e) {
+      debugPrint('오디오 해제 에러: $e');
+    }
+    service.stopSelf();
+  });
+}
+
+// ★ 앱 실행 시 필수 권한 팝업을 띄우는 강화된 권한 함수
+Future<void> _requestAppPermissions() async {
+  // 1. 마이크 권한 및 알림(상단 바) 권한 요청
+  Map<Permission, PermissionStatus> statuses = await [
+    Permission.microphone,
+    Permission.notification,
+  ].request();
+
+  // 2. 만약 마이크 권한이 완전히 거부되어 있다면 설정 페이지 안내 디버그 출력
+  if (statuses[Permission.microphone]!.isPermanentlyDenied) {
+    debugPrint("★ 마이크 권한이 영구 거부되었습니다. 설정에서 권한을 허용해 주세요.");
+    await openAppSettings();
   }
 }
 
-// --- 백그라운드 서비스 설정 끝 ---
-
 void main() async {
-  // Flutter 엔진 초기화 (필수)
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 방어 코드: 웹이 아니고, 안드로이드나 iOS일 때만 백그라운드 서비스 초기화
+  // ★ 앱이 완전히 구동되기 전에 시스템 권한 팝업 실행
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await _requestAppPermissions();
+  }
+
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     try {
       await initializeService();
@@ -111,7 +246,6 @@ void main() async {
     }
   }
 
-  // 앱 실행
   runApp(const MyApp());
 }
 

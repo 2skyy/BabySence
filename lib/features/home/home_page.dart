@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+// ★ 추가: 백그라운드 서비스 호출을 위한 임포트
+import 'package:flutter_background_service/flutter_background_service.dart';
+
 import '../../routes/app_routes.dart';
 import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
@@ -56,6 +59,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // ★ 수정: [수면] 버튼을 누를 때 띄우던 모드 선택창을 없애고 수면 기록 페이지로 즉시 이동시킵니다.
   void handleSleepRecordTap(BuildContext context) {
     Navigator.push(
       context,
@@ -77,11 +81,23 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  void handleNoiseTestTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const NoiseTestPage()),
-    );
+  // [소음] 버튼 선택 시 직통 이동 로직 유지
+  void handleNoiseTestTap(BuildContext context) async {
+    final service = FlutterBackgroundService();
+    final isRunning = await service.isRunning();
+
+    if (!isRunning) {
+      await service.startService();
+    }
+
+    service.invoke('startNoiseOnly');
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const NoiseTestPage()),
+      );
+    }
   }
 
   void handleSkinAnalysisTap(BuildContext context) {
@@ -133,7 +149,6 @@ class HomePage extends StatelessWidget {
               mainAxisSpacing: 12,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              // ★ 수정: 비율을 0.95에서 0.72로 낮춰서 세로 공간을 넉넉하게 확장합니다.
               childAspectRatio: 0.72,
               children: [
                 _buildSquareRecordButton(
@@ -166,7 +181,7 @@ class HomePage extends StatelessWidget {
                   iconColor: Colors.indigo,
                   title: '수면',
                   subtitle: '오전 11:20 ~ 오후 01:00',
-                  onTap: () => handleSleepRecordTap(context),
+                  onTap: () => handleSleepRecordTap(context), // 깔끔하게 직통 연동
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -369,7 +384,6 @@ class HomePage extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        // ★ 수정: 카드 내부 상하좌우 패딩을 살짝 줄여 여유 공간을 더 확보합니다.
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F3F4),
@@ -379,27 +393,18 @@ class HomePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              // ★ 수정: 아이콘 원형 바탕 패딩 조절 (14 -> 10)
               padding: const EdgeInsets.all(10),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 26), // ★ 크기 최적화 (28 -> 26)
+              child: Icon(icon, color: iconColor, size: 26),
             ),
-            const SizedBox(height: 8), // ★ 간격 조절 (10 -> 8)
+            const SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), // ★ (14 -> 13)
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: secondaryTextColor, fontSize: 10), // ★ (11 -> 10)
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ],
         ),
@@ -412,12 +417,7 @@ class HomePage extends StatelessWidget {
       children: [
         Expanded(
           child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const NoiseTestPage()),
-              );
-            },
+            onTap: () => handleNoiseTestTap(context), // 벤토 품질 클릭 시 소음 케어로 즉시 이동
             child: _buildBentoCard(
               icon: Icons.bedtime,
               title: '수면 품질',
