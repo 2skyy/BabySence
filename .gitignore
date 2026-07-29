@@ -1,6 +1,8 @@
 # IDE
 .idea/
-.vscode/
+.vscode/*
+# 실행 설정은 팀과 공유합니다 (env.json 주입에 필요)
+!.vscode/launch.json
 *.iml
 *.ipr
 *.iws

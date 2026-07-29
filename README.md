@@ -22,13 +22,18 @@
 
 **2. 실행할 때 `env.json`을 넘기기**
 
-```bash
-flutter run --dart-define-from-file=env.json
-```
+이 인자를 빠뜨리면 앱이 시작하자마자 멈춥니다.
 
-Android Studio에서는 `.run/main.dart (env.json)` 실행 설정을 선택하면 됩니다.
-목록에 없으면 Run/Debug Configurations → **Additional run args**에
-`--dart-define-from-file=env.json`을 직접 넣으세요.
+| 환경 | 방법 |
+|---|---|
+| 터미널 | `flutter run --dart-define-from-file=env.json` |
+| **VS Code** | 실행 구성에서 **BabySense (env.json)** 선택 (`.vscode/launch.json`에 포함) |
+| **Android Studio** | 실행 구성에서 **main.dart (env.json)** 선택 (`.run/`에 포함) |
+
+목록에 안 보이면 IDE를 다시 열거나 아래처럼 직접 설정하세요.
+
+- VS Code: `.vscode/launch.json`의 `toolArgs`에 `--dart-define-from-file=env.json`
+- Android Studio: Run/Debug Configurations → **Additional run args**에 같은 값
 
 **3. Supabase 스키마 (DB를 새로 만드는 사람만)**
 
