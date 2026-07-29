@@ -10,6 +10,7 @@ import '../detail/cry_analysis_page.dart';
 import '../detail/vaccination_page.dart';
 // 수면 소음 측정 페이지 임포트
 import '../detail/noise_test_page.dart';
+import '../detail/growth/growth_record_page.dart';
 
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
@@ -94,6 +95,13 @@ class HomePage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CryAnalysisPage()),
+    );
+  }
+
+  void handleGrowthRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const GrowthRecordPage()),
     );
   }
 
@@ -199,6 +207,14 @@ class HomePage extends StatelessWidget {
                   title: '울음소리',
                   subtitle: '의미 분석',
                   onTap: () => handleCryAnalysisTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.show_chart,
+                  iconColor: Colors.blue,
+                  title: '성장',
+                  subtitle: 'WHO 성장곡선',
+                  onTap: () => handleGrowthRecordTap(context),
                 ),
               ],
             ),
