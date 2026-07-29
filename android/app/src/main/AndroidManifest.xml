@@ -35,6 +35,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- 소셜 로그인(OAuth) 콜백용 딥링크.
+                 브라우저에서 로그인을 마치면 babysense://login-callback 으로 앱에 돌아옵니다.
+                 Supabase 대시보드의 Redirect URLs에도 같은 주소를 등록해야 합니다. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="babysense" android:host="login-callback"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

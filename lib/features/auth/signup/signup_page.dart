@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../core/constants/api_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../routes/app_routes.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -11,7 +10,6 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  final String _baseUrl = ApiConfig.baseUrl;
   // 1. 사용자가 입력할 4가지 칸의 데이터를 담을 컨트롤러
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -28,12 +26,14 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  // 3. ⭐️ 가입하기 버튼을 눌렀을 때 실행될 백엔드 통신 함수
+  // 3. ⭐️ 가입하기 버튼을 눌렀을 때 실행될 Supabase Auth 회원가입 함수
   Future<void> handleSignupSubmit() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
     // 빈칸 검사
-    if (_nameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty) {
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('모든 정보를 입력해주세요.')),
       );
@@ -41,48 +41,67 @@ class _SignupPageState extends State<SignupPage> {
     }
 
     // 비밀번호가 서로 일치하는지 프론트엔드에서 1차 검사
-    if (_passwordController.text != _passwordConfirmController.text) {
+    if (password != _passwordConfirmController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('비밀번호가 서로 일치하지 않습니다.')),
       );
       return;
     }
 
-    final url = Uri.parse('$_baseUrl/api/users/join');
+    // Supabase 기본 정책과 동일한 최소 길이를 미리 확인합니다.
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('비밀번호는 6자 이상이어야 합니다.')),
+      );
+      return;
+    }
 
     try {
-      // 스프링 부트 서버로 POST 요청 보내기
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': _nameController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text, // 엔티티 변수명과 완벽히 일치
-        }),
+      final response = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+        // 이 값이 auth.users.raw_user_meta_data에 저장되고,
+        // handle_new_user 트리거가 profiles.name으로 복사합니다.
+        data: {'name': name},
       );
 
-      // 서버 응답 확인
-      if (response.statusCode == 200) {
-        // 서버에서 return "회원가입 성공!"; 이라고 보냈으므로 200(성공)이 뜹니다.
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('회원가입이 완료되었습니다! 로그인해주세요.')),
-          );
-          Navigator.pop(context); // 가입 성공 시 로그인 화면으로 자동 이동
-        }
+      if (!mounted) return;
+
+      if (response.session != null) {
+        // 이메일 인증이 꺼져 있으면 가입 즉시 로그인 상태가 됩니다.
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (route) => false,
+        );
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('회원가입 실패 (상태 코드: ${response.statusCode})')),
-          );
-        }
+        // 이메일 인증이 켜져 있으면 인증을 마쳐야 로그인할 수 있습니다.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('가입 확인 메일을 보냈습니다. 인증 후 로그인해주세요.')),
+        );
+        Navigator.pop(context);
       }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      final lower = e.message.toLowerCase();
+      final String message;
+      if (lower.contains('already registered') || lower.contains('already exists')) {
+        message = '이미 가입된 이메일입니다.';
+      } else if (lower.contains('email')) {
+        message = '이메일 형식이 올바르지 않습니다.';
+      } else if (lower.contains('password')) {
+        message = '비밀번호는 6자 이상이어야 합니다.';
+      } else {
+        message = '회원가입에 실패했습니다. (${e.message})';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } catch (e) {
-      debugPrint('서버 연결 에러: $e');
+      debugPrint('회원가입 에러: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('서버와 연결할 수 없습니다. 서버가 켜져 있는지 확인해주세요.')),
+          const SnackBar(content: Text('네트워크 연결을 확인해주세요.')),
         );
       }
     }
@@ -101,113 +120,128 @@ class _SignupPageState extends State<SignupPage> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              const Text(
-                '회원가입을 위해\n정보를 입력해주세요',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  height: 1.4,
+        // ★ 키보드가 올라와 화면이 좁아져도 오버플로가 나지 않도록 스크롤 레이아웃을 씁니다.
+        //   (로그인 화면과 동일한 구조)
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
                 ),
-              ),
-              const SizedBox(height: 40),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 10),
+                        const Text(
+                          '회원가입을 위해\n정보를 입력해주세요',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
 
-              // 이름 입력창
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: '이름',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                        // 이름 입력창
+                        TextField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            hintText: '이름',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-              // 이메일 입력창
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: '이메일',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                        // 이메일 입력창
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            hintText: '이메일',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-              // 비밀번호 입력창
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: '비밀번호',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                        // 비밀번호 입력창
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: '비밀번호',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-              // 비밀번호 확인 입력창
-              TextField(
-                controller: _passwordConfirmController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: '비밀번호 확인',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
-                  ),
-                ),
-              ),
+                        // 비밀번호 확인 입력창
+                        TextField(
+                          controller: _passwordConfirmController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: '비밀번호 확인',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            ),
+                          ),
+                        ),
 
-              const Spacer(),
+                        const Spacer(),
 
-              // 가입하기 버튼
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: handleSignupSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3182F6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                        // 가입하기 버튼
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: handleSignupSubmit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3182F6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              '가입하기',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    '가입하기',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

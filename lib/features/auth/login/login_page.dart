@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/common_button.dart';
 import '../../../routes/app_routes.dart';
@@ -14,24 +13,50 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  // 💡 팀원 코드를 받으면서 바뀐 주소를 우리 컴퓨터 로컬(adb reverse) 주소로 고쳐줍니다.
-  final String _baseUrl = 'http://127.0.0.1:8080';
+/// 소셜 로그인 후 브라우저가 앱으로 돌아올 때 사용하는 딥링크 주소.
+/// AndroidManifest.xml의 intent-filter, Supabase 대시보드의 Redirect URLs와
+/// 세 곳이 모두 같아야 합니다.
+const String _oauthRedirectUrl = 'babysense://login-callback';
 
+class _LoginPageState extends State<LoginPage> {
   // 1. 입력값을 저장할 텍스트 컨트롤러 생성
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoggingIn = false;
 
+  StreamSubscription<AuthState>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 로그인 성공 시 홈으로 보내는 지점을 여기 한 곳으로 모읍니다.
+    // 소셜 로그인은 브라우저를 다녀온 뒤에야 완료되므로 버튼 함수에서는
+    // 이동 시점을 알 수 없기 때문입니다.
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      if (!mounted || state.event != AuthChangeEvent.signedIn) return;
+
+      // 회원가입 화면이 위에 떠 있는 동안에는 그쪽이 이동을 처리합니다.
+      if (ModalRoute.of(context)?.isCurrent != true) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.home,
+            (route) => false,
+      );
+    });
+  }
+
   // 2. 메모리 누수를 막기 위해 화면이 꺼질 때 컨트롤러 해제
   @override
   void dispose() {
+    _authSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  // 3. 서버와 통신하는 이메일 로그인 함수
+  // 3. Supabase Auth 이메일 로그인 함수
   Future<void> handleLoginTap() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -46,46 +71,32 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    final url = Uri.parse('$_baseUrl/api/users/login');
-
     try {
       setState(() => _isLoggingIn = true);
 
-      final response = await http
-          .post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      )
-          .timeout(const Duration(seconds: 10));
-
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      // 성공 시 홈 이동은 initState의 onAuthStateChange 리스너가 처리합니다.
+    } on AuthException catch (e) {
       if (!mounted) return;
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.home,
-              (route) => false,
-        );
+      final lower = e.message.toLowerCase();
+      final String message;
+      if (lower.contains('invalid login credentials')) {
+        message = '이메일 또는 비밀번호가 올바르지 않습니다.';
+      } else if (lower.contains('email not confirmed')) {
+        message = '이메일 인증이 필요합니다. 메일함을 확인해주세요.';
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('로그인에 실패했습니다. (상태 코드: ${response.statusCode})'),
-          ),
-        );
+        message = '로그인에 실패했습니다. (${e.message})';
       }
-    } on TimeoutException {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인 요청이 지연되고 있습니다. 서버 상태를 확인해주세요.')),
+        SnackBar(content: Text(message)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('서버와 연결할 수 없습니다. $e')),
+        SnackBar(content: Text('네트워크 연결을 확인해주세요. $e')),
       );
     } finally {
       if (mounted) setState(() => _isLoggingIn = false);
@@ -97,10 +108,35 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.pushNamed(context, AppRoutes.signup);
   }
 
-  // 임시 소셜 로그인 처리 함수
-  void handleSocialLogin(BuildContext context, String provider) {
-    debugPrint('$provider 로그인 클릭됨');
-    // 추후 서버 연동 시 로직 추가
+  // 소셜 로그인. 브라우저에서 로그인을 마치면 딥링크로 앱에 돌아오고,
+  // onAuthStateChange 리스너가 홈으로 이동시킵니다.
+  //
+  // 소셜 로그인은 가입과 로그인이 구분되지 않습니다. 처음 누르는 사용자는
+  // 그 자리에서 계정이 만들어지고 handle_new_user 트리거가 profiles를 채웁니다.
+  Future<void> handleSocialLogin(OAuthProvider provider) async {
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(
+        provider,
+        redirectTo: _oauthRedirectUrl,
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인에 실패했습니다. (${e.message})')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인 창을 열 수 없습니다. $e')),
+      );
+    }
+  }
+
+  // 애플 로그인은 Apple Developer Program(연 $99) 가입이 필요해 보류 중입니다.
+  void handleApplePending() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('애플 로그인은 iOS 배포 시 지원 예정입니다.')),
+    );
   }
 
   @override
@@ -229,20 +265,20 @@ class _LoginPageState extends State<LoginPage> {
                             _buildSocialImageButton(
                               imagePath: 'assets/images/kakao_logo.png',
                               backgroundColor: const Color(0xFFFEE500),
-                              onTap: () => handleSocialLogin(context, 'Kakao'),
+                              onTap: () => handleSocialLogin(OAuthProvider.kakao),
                             ),
                             const SizedBox(width: 20),
                             _buildSocialImageButton(
                               imagePath: 'assets/images/google_logo.png',
                               backgroundColor: Colors.white,
-                              onTap: () => handleSocialLogin(context, 'Google'),
+                              onTap: () => handleSocialLogin(OAuthProvider.google),
                               hasBorder: true,
                             ),
                             const SizedBox(width: 20),
                             _buildSocialImageButton(
                               imagePath: 'assets/images/apple_logo.png',
                               backgroundColor: Colors.black,
-                              onTap: () => handleSocialLogin(context, 'Apple'),
+                              onTap: handleApplePending,
                             ),
                           ],
                         ),
