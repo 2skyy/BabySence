@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
 import '../../../core/widgets/common_app_bar.dart';
 import '../../../core/widgets/common_button.dart';
@@ -17,9 +18,10 @@ class GrowthRecordPage extends StatefulWidget {
 }
 
 class _GrowthRecordPageState extends State<GrowthRecordPage> {
-  GrowthProfile? _profile;
+  Baby? _baby;
   List<GrowthRecord> _records = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -28,14 +30,30 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
   }
 
   Future<void> _load() async {
-    final profile = await GrowthRecordService.loadProfile();
-    final records = await GrowthRecordService.loadRecords();
-    if (!mounted) return;
     setState(() {
-      _profile = profile;
-      _records = records;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+
+    try {
+      final baby = await BabyService.loadCurrent();
+      final records = baby == null
+          ? <GrowthRecord>[]
+          : await GrowthRecordService.loadRecords(baby.id);
+
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _records = records;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '데이터를 불러오지 못했습니다.\n$e';
+        _loading = false;
+      });
+    }
   }
 
   double _ageInMonths(DateTime birthDate, DateTime date) {
@@ -48,28 +66,51 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       appBar: const CommonAppBar(title: '성장 기록'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _profile == null
-              ? _buildProfileSetup()
-              : _buildContent(_profile!),
+          : _error != null
+              ? _buildError(_error!)
+              : _baby == null
+                  ? _buildProfileSetup()
+                  : _buildContent(_baby!),
     );
   }
 
-  // --- 프로필(성별/생년월일) 최초 설정 ---
+  Widget _buildError(String message) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.lg),
+          CommonButton(text: '다시 시도', onPressed: _load),
+        ],
+      ),
+    );
+  }
 
+  // --- 아이 정보(이름/성별/생년월일) 최초 등록 ---
+
+  final _setupNameController = TextEditingController();
   ChildSex _setupSex = ChildSex.male;
   DateTime _setupBirthDate = DateTime.now();
+  bool _creatingBaby = false;
 
   Widget _buildProfileSetup() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'WHO 성장 표준과 비교하려면\n아이의 성별과 생년월일이 필요해요',
+            'WHO 성장 표준과 비교하려면\n아이의 정보가 필요해요',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.xl),
+          TextField(
+            controller: _setupNameController,
+            decoration: const InputDecoration(labelText: '아이 이름'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
@@ -97,16 +138,43 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           const SizedBox(height: AppSpacing.xxl),
           CommonButton(
             text: '시작하기',
-            onPressed: () async {
-              final profile = GrowthProfile(sex: _setupSex, birthDate: _setupBirthDate);
-              await GrowthRecordService.saveProfile(profile);
-              if (!mounted) return;
-              setState(() => _profile = profile);
-            },
+            isLoading: _creatingBaby,
+            onPressed: _handleCreateBaby,
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleCreateBaby() async {
+    final name = _setupNameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('아이 이름을 입력해주세요.')),
+      );
+      return;
+    }
+
+    setState(() => _creatingBaby = true);
+    try {
+      final baby = await BabyService.create(
+        name: name,
+        sex: _setupSex,
+        birthDate: _setupBirthDate,
+      );
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _records = [];
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('아이 정보를 저장하지 못했습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _creatingBaby = false);
+    }
   }
 
   Widget _buildSexOption(ChildSex sex, String label) {
@@ -138,21 +206,21 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
   final _weightController = TextEditingController();
   DateTime _recordDate = DateTime.now();
 
-  Widget _buildContent(GrowthProfile profile) {
+  Widget _buildContent(Baby baby) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAddRecordCard(profile),
+          _buildAddRecordCard(baby),
           const SizedBox(height: AppSpacing.xxl),
           Text('몸무게 (kg)', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
-          _buildChart(profile, isWeight: true),
+          _buildChart(baby, isWeight: true),
           const SizedBox(height: AppSpacing.xxl),
           Text('키 (cm)', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
-          _buildChart(profile, isWeight: false),
+          _buildChart(baby, isWeight: false),
           const SizedBox(height: AppSpacing.xxl),
           Text('기록 이력', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
@@ -162,7 +230,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     );
   }
 
-  Widget _buildAddRecordCard(GrowthProfile profile) {
+  Widget _buildAddRecordCard(Baby baby) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -178,7 +246,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
               final picked = await showDatePicker(
                 context: context,
                 initialDate: _recordDate,
-                firstDate: profile.birthDate,
+                firstDate: baby.birthDate,
                 lastDate: DateTime.now(),
               );
               if (picked != null) setState(() => _recordDate = picked);
@@ -206,13 +274,19 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          CommonButton(text: '기록 추가', onPressed: _handleAddRecord),
+          CommonButton(
+            text: '기록 추가',
+            isLoading: _savingRecord,
+            onPressed: () => _handleAddRecord(baby),
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _handleAddRecord() async {
+  bool _savingRecord = false;
+
+  Future<void> _handleAddRecord(Baby baby) async {
     final height = double.tryParse(_heightController.text);
     final weight = double.tryParse(_weightController.text);
     if (height == null && weight == null) {
@@ -222,16 +296,25 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       return;
     }
 
-    final record = GrowthRecord(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      date: _recordDate,
-      heightCm: height,
-      weightKg: weight,
-    );
-    await GrowthRecordService.addRecord(record);
-    _heightController.clear();
-    _weightController.clear();
-    await _load();
+    setState(() => _savingRecord = true);
+    try {
+      await GrowthRecordService.saveRecord(
+        babyId: baby.id,
+        date: _recordDate,
+        heightCm: height,
+        weightKg: weight,
+      );
+      _heightController.clear();
+      _weightController.clear();
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('기록을 저장하지 못했습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingRecord = false);
+    }
   }
 
   Widget _buildRecordTile(GrowthRecord record) {
@@ -245,14 +328,21 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
         onPressed: () async {
-          await GrowthRecordService.deleteRecord(record.id);
-          await _load();
+          try {
+            await GrowthRecordService.deleteRecord(record.id);
+            await _load();
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('삭제하지 못했습니다. $e')),
+            );
+          }
         },
       ),
     );
   }
 
-  Widget _buildChart(GrowthProfile profile, {required bool isWeight}) {
+  Widget _buildChart(Baby baby, {required bool isWeight}) {
     final months = List<int>.generate(25, (i) => i);
 
     List<FlSpot> percentileLine(double z) {
@@ -260,8 +350,8 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           .map((m) => FlSpot(
                 m.toDouble(),
                 isWeight
-                    ? GrowthCalculator.weightAtZ(profile.sex, m.toDouble(), z)
-                    : GrowthCalculator.lengthAtZ(profile.sex, m.toDouble(), z),
+                    ? GrowthCalculator.weightAtZ(baby.sex, m.toDouble(), z)
+                    : GrowthCalculator.lengthAtZ(baby.sex, m.toDouble(), z),
               ))
           .toList();
     }
@@ -269,7 +359,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     final childSpots = _records
         .where((r) => isWeight ? r.weightKg != null : r.heightCm != null)
         .map((r) => FlSpot(
-              _ageInMonths(profile.birthDate, r.date).clamp(0, 24),
+              _ageInMonths(baby.birthDate, r.date).clamp(0, 24),
               (isWeight ? r.weightKg : r.heightCm)!,
             ))
         .toList()
@@ -325,6 +415,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
 
   @override
   void dispose() {
+    _setupNameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
