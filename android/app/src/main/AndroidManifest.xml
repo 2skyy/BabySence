@@ -55,5 +55,12 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- 소셜 로그인은 url_launcher로 외부 브라우저를 엽니다.
+             Android 11(API 30)부터는 이 선언이 없으면 브라우저를 찾지 못합니다. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>
