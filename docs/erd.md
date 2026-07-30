@@ -6,13 +6,13 @@ Supabase(PostgreSQL) 기준 스키마 설계 문서입니다.
 
 ```
 Flutter
- ├─> Supabase       Auth(인증) · PostgreSQL(모든 기록) · Storage(피부 사진)
- ├─> Spring (:8080) 피부 AI 중계 ──> Python (:8000)
- └─> Firebase       FCM 푸시 알림 수신
+ ├─> Supabase        Auth(인증) · PostgreSQL(모든 기록) · Storage(피부 사진)
+ ├─> FastAPI (:8000) 피부 AI 추론  ← 저장소의 server/
+ └─> Firebase        FCM 푸시 알림 수신
 ```
 
 - **모든 데이터 저장은 Supabase PostgreSQL이 담당합니다.** MySQL은 사용하지 않습니다.
-- Spring 서버는 DB를 갖지 않는 **AI 중계 서버**입니다. 파이썬 AI 서버의 분석 결과를 Flutter로 되돌려주기만 하고, 그 결과를 DB에 저장하는 것은 Flutter가 Supabase에 직접 수행합니다.
+- FastAPI 서버는 DB를 갖지 않는 **추론 전용 서버**입니다. 분석 결과를 Flutter로 되돌려주기만 하고, 그 결과를 DB에 저장하는 것은 Flutter가 Supabase에 직접 수행합니다. 중계 계층이던 Spring 서버는 폐기했습니다.
 - Firebase는 **FCM 푸시 알림 전용**입니다. 인증은 Supabase Auth로 일원화하며 Firebase Auth는 사용하지 않습니다.
 
 ## 2. ERD

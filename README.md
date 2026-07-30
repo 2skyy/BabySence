@@ -46,34 +46,61 @@ SQL Editor에 붙여넣고 실행합니다. 테이블 설계는 [`docs/erd.md`](
 
 ```
 Flutter
- ├─> Supabase       Auth(인증) · PostgreSQL(모든 기록) · Storage(피부 사진)
- ├─> Spring (:8080) 피부 AI 중계 ──> Python (:8000)
- └─> Firebase       FCM 푸시 알림 (예정)
+ ├─> Supabase        Auth(인증) · PostgreSQL(모든 기록) · Storage(피부 사진)
+ ├─> FastAPI (:8000) 피부 AI 추론  ← 저장소의 server/
+ └─> Firebase        FCM 푸시 알림 (예정)
 ```
 
-MySQL은 사용하지 않습니다. Spring 서버는 파이썬 AI 서버로 요청을 넘기는 중계 역할이며,
-분석 결과 저장은 Flutter가 Supabase에 직접 수행합니다.
+MySQL과 Spring 서버는 사용하지 않습니다. **FastAPI 서버는 DB에 붙지 않는 추론 전용**이며,
+인증·기록 CRUD·Storage는 앱이 Supabase와 직접 처리합니다. 분석 결과를 저장하는 것도
+앱이 하므로 서버가 사용자 JWT를 중계할 필요가 없고 RLS가 그대로 적용됩니다.
+서버 실행 방법은 [`server/README.md`](server/README.md)를 참고하세요.
+
+> 피부 모델이 아직 준비되지 않아 `/api/skin/diagnose`는 503을 반환합니다.
+> 즉 **현재 동작하는 추론 엔드포인트가 없습니다.** 인증·기록 기능은 서버 없이 동작합니다.
+
+### 서버가 필요한 경우
+
+터미널 두 개가 필요합니다.
+
+```bash
+# 1) AI 서버 (피부 분석을 볼 때만)
+cd server && source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 2) 앱
+flutter run --dart-define-from-file=env.json
+```
+
+실기기에서는 기본 주소(`10.0.2.2` / `127.0.0.1`)가 닿지 않으므로 개발 PC의 LAN IP를
+넘겨야 합니다: `--dart-define=API_BASE_URL=http://192.168.0.10:8000`
 
 ## 프로젝트 구조
 
 ```
 lib/
   core/
-    constants/   # AppColors, AppRadius, AppSpacing, AppTextStyles, SupabaseConfig, WhoGrowthStandards
-    services/    # BabyService, NoiseTracker, GrowthCalculator
+    constants/   # AppColors, AppRadius, AppSpacing, AppTextStyles, ApiConfig,
+                 # SupabaseConfig, WhoGrowthStandards
+    services/    # BabyService, NoiseTracker(+SleepType), GrowthCalculator
     theme/       # AppTheme
     widgets/     # CommonButton, CommonTextField, CommonAppBar
-  features/      # 화면 단위 폴더 (auth, detail, home, mypage, settings)
-    detail/growth/  # 성장 기록 모델 · Supabase 저장소 · 페이지
+  features/      # 화면 단위 폴더 (auth, onboarding, detail, home, mypage, settings)
+    auth/           # 로그인 · 회원가입 · post_auth_route(로그인 후 분기)
+    onboarding/     # 아이 정보 최초 등록 (등록 폼은 이 화면 한 곳에만 존재)
+    detail/growth/  # 성장 기록 모델 · GrowthRepository · 페이지
   routes/        # AppRoutes (라우트 문자열 상수)
   main.dart      # 앱 진입점 + Supabase 초기화 + 백그라운드 소음 측정 서비스
-docs/            # ERD, 소셜 로그인 설정 가이드
-supabase/        # schema.sql (테이블 · RLS · 마스터 데이터)
+server/          # FastAPI 추론 서버 (피부)
+test/            # lib/ 구조를 1:1로 반영 (test/core/services, test/features/...)
+docs/            # ERD, 소셜 로그인 설정, Supabase 남은 작업, 논문용 문서
+supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrations/
 ```
 
-- 화면은 `StatefulWidget` + `http` 패키지 직접 호출 패턴 (별도 상태관리/레포지토리 계층 없음)
 - 공통 스타일은 `core/constants`의 상수와 `core/widgets`의 공통 위젯으로 관리
 - 네비게이션은 `AppRoutes` 상수 경유가 원칙 (일부 화면은 `MaterialPageRoute` 직접 사용도 혼재)
+- 서버 주소는 `ApiConfig` 한 곳에서만 정의합니다. 화면에 URL을 하드코딩하지 마세요
+- Supabase 접근은 화면에서 직접 호출하지 않고 `core/services` 또는 feature별 서비스를 경유합니다
 
 ## 코딩 가이드라인
 
@@ -81,7 +108,57 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터)
 
 ## 최근 변경 사항
 
-### Supabase 연동 (이번 작업)
+### Spring 의존 제거 · 플랫폼 설정 · FastAPI 서버 (이번 작업)
+
+방향을 **Supabase(DB·인증) + FastAPI(AI 추론), Android·iOS 동시 지원**으로 확정하고,
+앱에서 Spring/MySQL 흔적을 걷어낸 뒤 서버를 저장소 안에 새로 두었습니다.
+
+**iOS 네이티브 설정** — Android만 설정되어 있어 두 가지가 실제로 터지고 있었습니다.
+
+- `Info.plist`에 `CFBundleURLTypes`(`babysense`)가 없어 소셜 로그인이 iOS에서 앱으로 복귀하지 못했습니다.
+- `NSMicrophoneUsageDescription`이 없어 iOS에서 마이크 권한을 요청하는 순간 OS가 프로세스를 죽였습니다. 예외 처리로 잡히지 않습니다. 카메라·사진 권한 설명도 함께 넣었습니다(`image_picker` 사용).
+- `UIBackgroundModes`(audio/fetch/processing)와 `BGTaskSchedulerPermittedIdentifiers` 추가.
+- 배포 타깃 13.0 → **15.0**. `firebase_core`/`firebase_messaging`의 podspec 요구사항이며, 13.0이면 `pod install`이 실패합니다.
+- Android에는 `url_launcher`가 브라우저를 찾도록 `<queries>`를 추가했습니다. Android 11부터 이 선언 없이는 브라우저를 열 수 없습니다.
+
+**Spring 의존 제거**
+
+- 온보딩(`child_info_page`)을 HTTP 호출에서 `BabyService.create()`로 재배선. `int userId`(uuid와 불일치), 성별 `'MALE'/'FEMALE'`(CHECK는 소문자), `weight`(`babies`에 없는 컬럼) 전제를 정리했습니다. 몸무게는 버리지 않고 오늘 날짜의 `growth_records` 한 건으로 저장합니다.
+- 어디서도 참조되지 않던 `SessionManager` 삭제(Supabase가 세션 관리).
+- 온보딩이 고아 상태였던 문제를 `post_auth_route`로 해결. 로그인·회원가입 성공 시 아이가 없으면 온보딩, 있으면 홈으로 보냅니다.
+- 하드코딩된 서버 주소 4곳을 `ApiConfig` 한 곳으로 모았습니다.
+- 아이 등록 폼이 온보딩과 성장 기록 화면에 중복되어 있어 **온보딩 한 곳만** 남겼습니다.
+
+**소음 측정 데이터가 틀렸던 문제** — 논문에 이 데이터를 쓴다면 확인이 필요합니다.
+
+- `main.dart`에서 `-15dB` + EMA(85:15)를 적용한 값을 `NoiseTracker`가 다시 `-8dB` + EMA(70:30)로 처리해 **총 -23dB에 이중 평활**이 걸려 있었습니다. 보정을 한 곳으로 모으고 UI 표시값과 저장값을 같게 했습니다.
+- 30dB 미만이면 실측값을 버리고 `30.0 + (adjustedDb % 2.0)`으로 **값을 지어내던** 코드를 제거했습니다. 조용한 방에서는 항상 이 분기를 타므로 저장된 야간 데이터 상당수가 측정값이 아니었습니다.
+- 전송 **전에** 버퍼를 비워 실패 시 30건이 유실됐습니다. 성공 후에만 비우고 재시도합니다.
+- `recordId = 1` 하드코딩을 제거하고, 측정 시작 시 `sleep_records` 행을 만들어 그 uuid를 씁니다. 종료 시 `ended_at`을 채웁니다.
+- **밤잠/낮잠 구분**을 위한 `SleepType` enum 추가. enum 이름이 곧 DB CHECK 값(`night`/`nap`)입니다. 측정 중에는 선택이 잠깁니다.
+- 백그라운드 서비스는 별도 isolate라 `main()`의 초기화가 닿지 않습니다. `onStart`에서 Supabase를 다시 초기화하지 않으면 소음 저장이 전부 실패합니다.
+
+**그 외 수정**
+
+- `statuses[Permission.microphone]!` 강제 언래핑 → 안전한 접근
+- 로그인 화면의 뒤로가기 버튼 제거(`initialRoute`라 스택이 비어 검은 화면이 됐습니다)
+- `flutter_local_notifications`의 `initialize()` 호출이 아예 없어 **iOS에서 알림이 전혀 뜨지 않았습니다**
+- `analysis_options.yaml`에 `build/` 제외 추가 — 빌드 산출물에서 152개 오류가 나오고 있었습니다
+
+**FastAPI 추론 서버** ([`server/`](server/))
+
+- 역할을 좁게 잡았습니다. 추론만 하고 DB에 붙지 않습니다. 서버가 사용자 JWT를 중계할 필요가 없고 RLS가 그대로 적용됩니다.
+- 폐기하는 Spring에서 이식한 것: 확률 50% 미만이면 진단명 대신 재촬영 안내(오진 방지, 앱도 `status`로 구분), 업로드 상한 50MB, 응답 계약 `{status, disease, probability}`.
+- **피부 모델이 없어 현재 동작하는 추론 엔드포인트가 없습니다.** 이전 파이썬 서버는 항상 `Atopic Dermatitis 88.4%`를 돌려줬지만, 고정값을 진단처럼 보여주는 것은 사용자를 오도하므로 옮기지 않았습니다.
+
+**울음소리 분석 제거** — 사용하지 않기로 결정. 앱 화면·홈 버튼·서버 모듈·`librosa`/`scikit-learn` 의존성·모델 파일·스키마·문서에서 모두 제거했습니다.
+
+**테스트** — `lib/` 구조를 1:1로 반영하도록 재배치했습니다.
+
+- `GrowthRepository`를 도입해 `GrowthRecordPage`가 Supabase에 직접 붙지 않게 했습니다. static 메서드 탓에 위젯 테스트가 불가능했습니다.
+- 카운터를 검사하던 기본 템플릿 `widget_test.dart`와 사라진 폼을 검사하던 구 테스트를 정리하고, 가짜 저장소 기반 위젯 테스트 6건 + `SleepType` 단위 테스트 4건을 추가했습니다. **총 15건 전부 통과.**
+
+### Supabase 연동
 
 - **DB 설계**: [`docs/erd.md`](docs/erd.md)에 ERD와 14개 테이블 명세서, [`supabase/schema.sql`](supabase/schema.sql)에 실행 가능한 DDL·RLS 정책·예방접종 마스터 데이터(0~24개월 30건) 추가. MySQL은 사용하지 않기로 결정
 - **연결 정보 분리**: `main.dart`에 하드코딩돼 있던 Supabase URL/키를 `SupabaseConfig` + `env.json`(`--dart-define-from-file`)으로 이전. 연결 정보가 없으면 시작 시점에 안내와 함께 즉시 중단하도록 변경(초기화 실패를 삼킨 채 앱이 뜨면 나중에 원인 모를 에러가 나기 때문)
@@ -99,7 +176,7 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터)
 - **`deprecated_member_use` 정리**: `settings_page.dart`, `mypage_page.dart`, `feeding_record_page.dart`, `sleep_record_page.dart`, `diaper_record_page.dart`에서 `withOpacity` → `withValues(alpha:)`로 교체
 - **detail 화면 색상 통일**: `temperature_record_page.dart`의 로컬 중복 색상(`primaryColor`/`borderColor`/`secondaryTextColor`)을 값이 동일한 `AppColors.error`/`AppColors.border`/`AppColors.textSecondary`로 교체(시각적 변화 없음). `feeding_record_page.dart`, `sleep_record_page.dart`, `diaper_record_page.dart`, `eusick_page.dart`의 로컬 `primaryColor`(구 미사용 값과 동일한 `0xFF3B82F6`)를 `AppColors.primary`로 통일(4개 화면의 파란색이 브랜드 컬러로 변경됨)
 
-이번 라운드에서는 `home_page.dart`, `cry_analysis_page.dart`, `skin_analysis_page.dart`의 색상, `signup_page.dart`의 색상은 다른 미완성 작업(WIP)과 겹쳐 있어 의도적으로 제외했습니다.
+이번 라운드에서는 `home_page.dart`, `skin_analysis_page.dart`의 색상, `signup_page.dart`의 색상은 다른 미완성 작업(WIP)과 겹쳐 있어 의도적으로 제외했습니다.
 
 - **성장 추이 시각화 기능 추가**: 홈 화면 "성장" 타일에서 진입. 최초 진입 시 아이 성별·생년월일을 로컬에 저장하고, 이후 키/몸무게를 기록하면 WHO 성장 표준(2006, 0~24개월) 백분위 곡선(3rd/15th/50th/85th/97th)과 우리 아이 데이터를 겹쳐서 보여줌
   - `lib/core/constants/who_growth_standards.dart`: WHO 공식 저장소([WorldHealthOrganization/anthro](https://github.com/WorldHealthOrganization/anthro))에서 가져온 체중/신장 LMS 파라미터를 내장 (월별 체크포인트, 남/녀 각각)
@@ -109,7 +186,29 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터)
 
 ## 알려진 이슈
 
-- `lib/core/services/session_manager.dart`, `lib/features/onboarding/`는 git에 커밋된 적이 없는 미추적 파일입니다. 현재는 `login_page.dart`를 포함해 어떤 파일도 이 둘을 참조하지 않아 컴파일에는 영향이 없지만, 커밋되지 않은 채 로컬에만 남아 있는 미사용 파일입니다.
-- `ApiConfig`는 현재 아무 화면도 참조하지 않습니다. 로그인/회원가입이 Supabase Auth로 넘어가면서 사용처가 사라졌고, 남은 Spring 호출(`cry_analysis_page.dart`, `skin_analysis_page.dart`)은 `http://localhost:8080`을 각자 하드코딩하고 있습니다. 이 둘을 `ApiConfig.baseUrl`로 모으는 정리가 필요합니다.
-- `mypage_page.dart`의 Logout 메뉴가 `onTap: () {}` 상태입니다. `Supabase.instance.client.auth.signOut()` 연결이 필요합니다.
+남은 작업 목록은 [`docs/supabase-todo.md`](docs/supabase-todo.md)에 정리되어 있습니다.
+
+**미구현**
+
+- **기록 화면 5종(수유·배변·수면·체온·예방접종)은 UI만 있고 저장 코드가 없습니다.** Supabase 테이블 14개 중 앱이 실제로 쓰는 것은 `babies`, `growth_records`, `sleep_records`, `sleep_noise_logs` **4개**뿐입니다.
+- 홈 화면의 값(`'아이이름'`, `'분유 · 160ml'`, `'36.5°C'` 등)이 전부 하드코딩입니다.
+- `mypage_page.dart`의 Logout 메뉴가 `onTap: () {}` 상태입니다. `auth.signOut()` 연결이 필요합니다.
 - 앱 재시작 시 저장된 세션을 확인하지 않고 항상 로그인 화면으로 진입합니다.
+- `sleep_record_page.dart`가 `selectedSleepType`을 `'밤잠'`/`'낮잠'` **한글 문자열**로 들고 있습니다. Supabase에 연동할 때 `SleepType` enum으로 바꿔야 합니다. 한글을 그대로 넣으면 CHECK 제약에 걸려 insert가 실패합니다.
+
+**설정이 필요한 것**
+
+- 피부 AI 모델이 없어 `POST /api/skin/diagnose`가 503을 반환합니다.
+- Supabase 대시보드에서 Google·Kakao provider가 꺼져 있어 소셜 로그인이 실패합니다. Redirect URLs에 `babysense://login-callback` 등록도 필요합니다.
+- 애플 로그인 미구현(Apple Developer Program 필요). iOS 앱스토어는 소셜 로그인이 있으면 Sign in with Apple을 요구합니다.
+- Firebase 설정 파일(`google-services.json`, `GoogleService-Info.plist`)이 없어 FCM이 동작하지 않습니다.
+
+**검증되지 않은 것**
+
+- **소음 저장은 실기기에서 확인하지 못했습니다.** 개발 맥에 Android SDK가 없고 백그라운드 서비스가 macOS·시뮬레이터에서 정상 동작하지 않습니다. `sleep_records`/`sleep_noise_logs`에 실제로 행이 쌓이는지 확인이 필요합니다.
+- iOS는 시뮬레이터에서 실행·Supabase 초기화·로그인 화면 렌더링까지 확인했습니다. 로그인 이후 흐름은 미확인입니다.
+- `NoiseTracker`의 `-15dB` 보정값은 근거가 없는 경험값입니다. 논문에 소음 수치를 쓴다면 실제 소음계와 대조해 정해야 합니다.
+
+**플랫폼 차이**
+
+- iOS는 `BGAppRefreshTask` 기반이라 **연속 소음 측정이 불가능**합니다. Android는 foreground service로 계속 측정할 수 있습니다. 두 플랫폼의 기능을 동일하게 문서화하면 안 됩니다.
