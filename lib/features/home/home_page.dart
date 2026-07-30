@@ -9,7 +9,6 @@ import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
 import '../detail/eusick_page.dart';
 import '../detail/skin_analysis_page.dart';
-import '../detail/cry_analysis_page.dart';
 import '../detail/vaccination_page.dart';
 // 수면 소음 측정 페이지 임포트
 import '../detail/noise_test_page.dart';
@@ -104,13 +103,6 @@ class HomePage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SkinAnalysisPage()),
-    );
-  }
-
-  void handleCryAnalysisTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CryAnalysisPage()),
     );
   }
 
@@ -214,14 +206,6 @@ class HomePage extends StatelessWidget {
                   title: '피부',
                   subtitle: 'AI 판단',
                   onTap: () => handleSkinAnalysisTap(context),
-                ),
-                _buildSquareRecordButton(
-                  context: context,
-                  icon: Icons.record_voice_over,
-                  iconColor: Colors.deepOrange,
-                  title: '울음소리',
-                  subtitle: '의미 분석',
-                  onTap: () => handleCryAnalysisTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
