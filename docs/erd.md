@@ -6,8 +6,8 @@ Supabase(PostgreSQL) 기준 스키마 설계 문서입니다.
 
 ```
 Flutter
- ├─> Supabase       Auth(인증) · PostgreSQL(모든 기록) · Storage(사진/오디오)
- ├─> Spring (:8080) 피부·울음 AI 중계 ──> Python (:8000, :5001)
+ ├─> Supabase       Auth(인증) · PostgreSQL(모든 기록) · Storage(피부 사진)
+ ├─> Spring (:8080) 피부 AI 중계 ──> Python (:8000)
  └─> Firebase       FCM 푸시 알림 수신
 ```
 
@@ -30,7 +30,7 @@ erDiagram
     babies      ||--o{  temperature_records : "체온 기록"
     babies      ||--o{  vaccination_records : "접종 이력"
     babies      ||--o{  skin_analyses       : "피부 분석"
-    babies      ||--o{  cry_analyses        : "울음 분석"
+    babies      ||--o{  assessments         : "판정 결과"
 
     sleep_records       ||--o{ sleep_noise_logs      : "소음 로그"
     temperature_records ||--o{ temperature_symptoms  : "동반 증상"
@@ -141,12 +141,15 @@ erDiagram
         timestamptz analyzed_at
     }
 
-    cry_analyses {
+    assessments {
         uuid id PK
         uuid baby_id FK
-        text audio_path "Storage 경로"
-        text result_label
-        timestamptz analyzed_at
+        text domain "temperature / feeding / ... / overall"
+        text level "normal / caution / consult"
+        text guide_text "행동 가이드"
+        jsonb inputs "판정 시점 입력 스냅샷"
+        text rule_version
+        timestamptz assessed_at
     }
 
     device_tokens {
@@ -302,7 +305,7 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 - `babies` ↔ `vaccines`의 **M:N 관계를 해소하는 연결 테이블**입니다.
 - 현재 `vaccination_page.dart`는 BCG/B형간염 등을 위젯 코드에 하드코딩하고 있는데, 이 두 테이블로 대체됩니다.
 
-### 3.10 `skin_analyses` / `cry_analyses` — AI 분석 이력
+### 3.10 `skin_analyses` — 피부 AI 분석 이력
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -313,12 +316,29 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 | `probability` | numeric(5,2) | NOT NULL, CHECK 0~100 | |
 | `analyzed_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
 
-`cry_analyses`는 `image_path` → `audio_path`, `disease_result` → `result_label`, `probability` 없음(현재 파이썬 서버가 `result` 문자열만 반환)인 것 외에 동일합니다.
-
 - **병명 한글 변환(`_koDiseases`)은 DB에 저장하지 않고 앱에서 처리합니다.** 원본 라벨을 저장해야 나중에 모델을 교체해도 이력이 깨지지 않습니다.
 - 기존 `BabySkinLog`에는 `baby_id`가 없어 누구의 진단인지 알 수 없었고, 사진 원본도 버려졌습니다. 두 문제 모두 해소됩니다.
 
-### 3.11 `device_tokens` — FCM 토큰
+### 3.11 `assessments` — 판정 결과
+
+규칙 엔진의 **정상 / 주의 / 상담 권장** 3단계 판정과 행동 가이드를 보관합니다. 앱의 핵심 기능이 산출하는 데이터입니다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `baby_id` | uuid | NOT NULL, FK → `babies(id)` ON DELETE CASCADE | |
+| `domain` | text | NOT NULL, CHECK IN (`temperature`, `feeding`, `sleep`, `diaper`, `growth`, `noise`, `skin`, `overall`) | 어떤 영역의 판정인지 |
+| `level` | text | NOT NULL, CHECK IN (`normal`, `caution`, `consult`) | 정상 / 주의 / 상담 권장 |
+| `guide_text` | text | NOT NULL | 판정에 대응하는 행동 가이드 문장 |
+| `inputs` | jsonb | NOT NULL | **판정 시점의 입력값 스냅샷** |
+| `rule_version` | text | NOT NULL | 적용된 임계값 규칙의 버전 |
+| `assessed_at` | timestamptz | NOT NULL, DEFAULT `now()` | |
+
+- INDEX `(baby_id, assessed_at desc)`
+- **일별 집계 테이블에 종속시키지 않았습니다.** 체온이나 소음처럼 입력 즉시 판정하는 기능은 하루에 여러 건의 판정이 발생하며, 발열 추이를 보려면 그 이력이 모두 남아야 합니다.
+- **원본 기록을 조인하지 않고 입력 스냅샷을 보관합니다.** 판정은 그 시점의 입력값에 대한 것이므로, 나중에 원본을 수정했다고 과거 판정이 바뀌면 안 됩니다. `rule_version`과 함께 보관하면 판단 근거를 추적할 수 있습니다.
+
+### 3.12 `device_tokens` — FCM 토큰
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
