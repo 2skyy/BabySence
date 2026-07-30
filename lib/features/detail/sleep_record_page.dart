@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/noise_tracker.dart' show SleepType;
 import 'sleep_record_service.dart';
+import 'widgets/record_history.dart';
 
 class SleepRecordPage extends StatefulWidget {
   const SleepRecordPage({super.key});
@@ -35,6 +36,48 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     startMinuteController.addListener(() => setState(() {}));
     endHourController.addListener(() => setState(() {}));
     endMinuteController.addListener(() => setState(() {}));
+    _loadHistory();
+  }
+
+  Baby? _baby;
+  List<SleepRecord> _records = [];
+  bool _loadingHistory = true;
+  String? _historyError;
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _loadingHistory = true;
+      _historyError = null;
+    });
+
+    try {
+      final baby = await BabyService.loadCurrent();
+      final records = baby == null
+          ? <SleepRecord>[]
+          : await SleepRecordService.loadRecent(baby.id);
+
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _records = records;
+        _loadingHistory = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _historyError = '기록을 불러오지 못했습니다.\n$e';
+        _loadingHistory = false;
+      });
+    }
+  }
+
+  Future<void> _deleteRecord(String id) async {
+    try {
+      await SleepRecordService.delete(id);
+      await _loadHistory();
+    } catch (e) {
+      _showMessage('삭제하지 못했습니다. $e');
+    }
   }
 
   @override
@@ -81,7 +124,8 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
 
     setState(() => isSaving = true);
     try {
-      final baby = await BabyService.loadCurrent();
+      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
+      final baby = _baby ?? await BabyService.loadCurrent();
       if (baby == null) {
         _showMessage('먼저 아이 정보를 등록해주세요.');
         return;
@@ -96,7 +140,8 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
 
       if (!mounted) return;
       _showMessage('수면 기록을 저장했습니다.');
-      Navigator.pop(context);
+      // 화면을 닫지 않고 아래 이력에 바로 보여줍니다.
+      await _loadHistory();
     } catch (e) {
       _showMessage('저장하지 못했습니다. $e');
     } finally {
@@ -285,6 +330,22 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 36),
+              RecordHistorySection(
+                title: '최근 수면 기록',
+                loading: _loadingHistory,
+                error: _historyError,
+                onRetry: _loadHistory,
+                onDelete: _deleteRecord,
+                entries: [
+                  for (final r in _records)
+                    RecordHistoryEntry(
+                      id: r.id,
+                      title: formatRecordTime(r.startedAt),
+                      subtitle: r.summary,
+                    ),
+                ],
               ),
             ],
           ),

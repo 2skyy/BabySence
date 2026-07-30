@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'feeding_record_service.dart';
+import 'widgets/record_history.dart';
 
 class FeedingRecordPage extends StatefulWidget {
   const FeedingRecordPage({super.key});
@@ -31,6 +32,53 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
 
   bool isSaving = false;
 
+  Baby? _baby;
+  List<FeedingRecord> _records = [];
+  bool _loadingHistory = true;
+  String? _historyError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _loadingHistory = true;
+      _historyError = null;
+    });
+
+    try {
+      final baby = await BabyService.loadCurrent();
+      final records = baby == null
+          ? <FeedingRecord>[]
+          : await FeedingRecordService.loadRecent(baby.id);
+
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _records = records;
+        _loadingHistory = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _historyError = '기록을 불러오지 못했습니다.\n$e';
+        _loadingHistory = false;
+      });
+    }
+  }
+
+  Future<void> _deleteRecord(String id) async {
+    try {
+      await FeedingRecordService.delete(id);
+      await _loadHistory();
+    } catch (e) {
+      _showMessage('삭제하지 못했습니다. $e');
+    }
+  }
+
   void handleFeedingTypeTap(String feedingType) {
     setState(() {
       selectedFeedingType = feedingType;
@@ -56,7 +104,8 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
 
     setState(() => isSaving = true);
     try {
-      final baby = await BabyService.loadCurrent();
+      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
+      final baby = _baby ?? await BabyService.loadCurrent();
       if (baby == null) {
         _showMessage('먼저 아이 정보를 등록해주세요.');
         return;
@@ -70,8 +119,10 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
       );
 
       if (!mounted) return;
+      feedingAmountController.clear();
       _showMessage('수유 기록을 저장했습니다.');
-      Navigator.pop(context);
+      // 화면을 닫지 않고 아래 이력에 바로 보여줍니다.
+      await _loadHistory();
     } catch (e) {
       _showMessage('저장하지 못했습니다. $e');
     } finally {
@@ -230,6 +281,22 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                           ),
                         ),
                 ),
+              ),
+              const SizedBox(height: 36),
+              RecordHistorySection(
+                title: '최근 수유 기록',
+                loading: _loadingHistory,
+                error: _historyError,
+                onRetry: _loadHistory,
+                onDelete: _deleteRecord,
+                entries: [
+                  for (final r in _records)
+                    RecordHistoryEntry(
+                      id: r.id,
+                      title: formatRecordTime(r.fedAt),
+                      subtitle: r.summary,
+                    ),
+                ],
               ),
             ],
           ),

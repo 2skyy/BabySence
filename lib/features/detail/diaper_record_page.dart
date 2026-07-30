@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'diaper_record_service.dart';
+import 'widgets/record_history.dart';
 
 class DiaperRecordPage extends StatefulWidget {
   const DiaperRecordPage({super.key});
@@ -40,6 +41,53 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   bool isSaving = false;
 
+  Baby? _baby;
+  List<DiaperRecord> _records = [];
+  bool _loadingHistory = true;
+  String? _historyError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _loadingHistory = true;
+      _historyError = null;
+    });
+
+    try {
+      final baby = await BabyService.loadCurrent();
+      final records = baby == null
+          ? <DiaperRecord>[]
+          : await DiaperRecordService.loadRecent(baby.id);
+
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _records = records;
+        _loadingHistory = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _historyError = '기록을 불러오지 못했습니다.\n$e';
+        _loadingHistory = false;
+      });
+    }
+  }
+
+  Future<void> _deleteRecord(String id) async {
+    try {
+      await DiaperRecordService.delete(id);
+      await _loadHistory();
+    } catch (e) {
+      _showMessage("삭제하지 못했습니다. $e");
+    }
+  }
+
   /// 화면의 AM/PM + 시:분을 오늘 날짜의 시각으로 만듭니다.
   /// 미래 시각이 나오면 어제로 봅니다(자정 직후에 전날 기록을 넣는 경우).
   DateTime? _recordedAt() {
@@ -67,7 +115,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
     setState(() => isSaving = true);
     try {
-      final baby = await BabyService.loadCurrent();
+      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
+      final baby = _baby ?? await BabyService.loadCurrent();
       if (baby == null) {
         _showMessage("먼저 아이 정보를 등록해주세요.");
         return;
@@ -83,7 +132,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
       if (!mounted) return;
       _showMessage("배변 기록을 저장했습니다.");
-      Navigator.pop(context);
+      // 화면을 닫지 않고 아래 이력에 바로 보여줍니다.
+      await _loadHistory();
     } catch (e) {
       _showMessage("저장하지 못했습니다. $e");
     } finally {
@@ -298,6 +348,22 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 36),
+              RecordHistorySection(
+                title: "최근 배변 기록",
+                loading: _loadingHistory,
+                error: _historyError,
+                onRetry: _loadHistory,
+                onDelete: _deleteRecord,
+                entries: [
+                  for (final r in _records)
+                    RecordHistoryEntry(
+                      id: r.id,
+                      title: formatRecordTime(r.recordedAt),
+                      subtitle: r.summary,
+                    ),
+                ],
               ),
             ],
           ),

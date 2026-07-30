@@ -23,9 +23,52 @@ enum FeedingType {
   bool get allowsAmount => this != FeedingType.breast;
 }
 
+/// feeding_records 테이블의 한 행.
+class FeedingRecord {
+  final String id;
+  final FeedingType type;
+  final DateTime fedAt;
+  final int? amountMl;
+
+  const FeedingRecord({
+    required this.id,
+    required this.type,
+    required this.fedAt,
+    this.amountMl,
+  });
+
+  factory FeedingRecord.fromMap(Map<String, dynamic> map) => FeedingRecord(
+        id: map['id'] as String,
+        type: FeedingType.values.byName(map['feeding_type'] as String),
+        fedAt: DateTime.parse(map['fed_at'] as String).toLocal(),
+        amountMl: map['amount_ml'] as int?,
+      );
+
+  /// 이력 목록에 보여줄 요약. 모유(직수)는 수량이 없습니다.
+  String get summary =>
+      amountMl == null ? type.label : '${type.label} · ${amountMl}ml';
+}
+
 /// feeding_records 테이블 접근. RLS가 본인 아이의 기록만 다루게 합니다.
 class FeedingRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
+
+  /// 최근 기록을 최신순으로 가져옵니다.
+  static Future<List<FeedingRecord>> loadRecent(String babyId,
+      {int limit = 20}) async {
+    final rows = await _client
+        .from('feeding_records')
+        .select()
+        .eq('baby_id', babyId)
+        .order('fed_at', ascending: false)
+        .limit(limit);
+
+    return rows.map(FeedingRecord.fromMap).toList();
+  }
+
+  static Future<void> delete(String id) async {
+    await _client.from('feeding_records').delete().eq('id', id);
+  }
 
   /// insert할 행을 만듭니다.
   ///

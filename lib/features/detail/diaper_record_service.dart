@@ -38,9 +38,54 @@ enum StoolState {
       );
 }
 
+/// diaper_records 테이블의 한 행.
+class DiaperRecord {
+  final String id;
+  final DiaperType type;
+  final StoolState? stoolState;
+  final DateTime recordedAt;
+
+  const DiaperRecord({
+    required this.id,
+    required this.type,
+    required this.recordedAt,
+    this.stoolState,
+  });
+
+  factory DiaperRecord.fromMap(Map<String, dynamic> map) {
+    final state = map['stool_state'] as String?;
+    return DiaperRecord(
+      id: map['id'] as String,
+      type: DiaperType.values.byName(map['diaper_type'] as String),
+      stoolState: state == null ? null : StoolState.values.byName(state),
+      recordedAt: DateTime.parse(map['recorded_at'] as String).toLocal(),
+    );
+  }
+
+  /// 이력 목록에 보여줄 요약. 소변은 대변 상태가 없습니다.
+  String get summary =>
+      stoolState == null ? type.label : '${type.label} · ${stoolState!.label}';
+}
+
 /// diaper_records 테이블 접근.
 class DiaperRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
+
+  static Future<List<DiaperRecord>> loadRecent(String babyId,
+      {int limit = 20}) async {
+    final rows = await _client
+        .from('diaper_records')
+        .select()
+        .eq('baby_id', babyId)
+        .order('recorded_at', ascending: false)
+        .limit(limit);
+
+    return rows.map(DiaperRecord.fromMap).toList();
+  }
+
+  static Future<void> delete(String id) async {
+    await _client.from('diaper_records').delete().eq('id', id);
+  }
 
   /// insert할 행을 만듭니다. 전송과 분리해 CHECK 제약을 테스트로 확인합니다.
   static Map<String, dynamic> buildRow({
