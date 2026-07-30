@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/baby_service.dart';
+import 'temperature_record_service.dart';
 
 class TemperatureRecordPage extends StatefulWidget {
   const TemperatureRecordPage({super.key});
@@ -47,20 +49,56 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
     super.dispose();
   }
 
-  void handleAnalyzeButtonTap() {
+  bool isSaving = false;
+
+  Future<void> handleAnalyzeButtonTap() async {
     final value = double.tryParse(temperatureController.text);
 
     if (value == null) {
-      debugPrint("체온 입력 필요");
+      _showMessage('체온을 입력해주세요.');
       return;
     }
 
+    // temperature_c의 CHECK 제약(30.0~45.0)과 같은 범위입니다.
     if (value < 30 || value > 45) {
-      debugPrint("체온 범위 오류 (30~45)");
+      _showMessage('체온은 30~45도 사이로 입력해주세요.');
       return;
     }
 
-    debugPrint('체온: $value / 증상: $selectedSymptoms');
+    // UI의 '없음'은 저장하지 않습니다. 행이 하나도 없는 상태가 곧 '없음'입니다.
+    final symptoms = selectedSymptoms
+        .map(Symptom.fromLabel)
+        .whereType<Symptom>()
+        .toList();
+
+    setState(() => isSaving = true);
+    try {
+      final baby = await BabyService.loadCurrent();
+      if (baby == null) {
+        _showMessage('먼저 아이 정보를 등록해주세요.');
+        return;
+      }
+
+      await TemperatureRecordService.save(
+        babyId: baby.id,
+        temperatureC: value,
+        measuredAt: DateTime.now(),
+        symptoms: symptoms,
+      );
+
+      if (!mounted) return;
+      _showMessage('체온 기록을 저장했습니다.');
+      Navigator.pop(context);
+    } catch (e) {
+      _showMessage('저장하지 못했습니다. $e');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void handleSymptomTap(String symptom) {
@@ -197,7 +235,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: handleAnalyzeButtonTap,
+                  onPressed: isSaving ? null : handleAnalyzeButtonTap,
                   style: ButtonStyle(
                     backgroundColor: const WidgetStatePropertyAll(buttonBlue),
                     elevation: const WidgetStatePropertyAll(0),
@@ -207,14 +245,23 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                       ),
                     ),
                   ),
-                  child: const Text(
-                    '기록하고 분석하기',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          '기록하기',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ],

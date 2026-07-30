@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/baby_service.dart';
+import 'feeding_record_service.dart';
 
 class FeedingRecordPage extends StatefulWidget {
   const FeedingRecordPage({super.key});
@@ -27,14 +29,59 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
     super.dispose();
   }
 
+  bool isSaving = false;
+
   void handleFeedingTypeTap(String feedingType) {
     setState(() {
       selectedFeedingType = feedingType;
     });
   }
 
-  void handleAnalyzeButtonTap() {
-    debugPrint('수유 기록 분석');
+  Future<void> handleAnalyzeButtonTap() async {
+    final type = FeedingType.fromLabel(selectedFeedingType);
+    final amount = int.tryParse(feedingAmountController.text);
+
+    // 모유(직수)는 계량이 불가능해 수유량을 받지 않습니다(테이블도 NULL 허용).
+    if (type.allowsAmount) {
+      if (amount == null) {
+        _showMessage('수유량을 입력해주세요.');
+        return;
+      }
+      // amount_ml의 CHECK 제약(0~2000)과 같은 범위입니다.
+      if (amount < 0 || amount > 2000) {
+        _showMessage('수유량은 0~2000ml 사이로 입력해주세요.');
+        return;
+      }
+    }
+
+    setState(() => isSaving = true);
+    try {
+      final baby = await BabyService.loadCurrent();
+      if (baby == null) {
+        _showMessage('먼저 아이 정보를 등록해주세요.');
+        return;
+      }
+
+      await FeedingRecordService.save(
+        babyId: baby.id,
+        type: type,
+        fedAt: DateTime.now(),
+        amountMl: amount,
+      );
+
+      if (!mounted) return;
+      _showMessage('수유 기록을 저장했습니다.');
+      Navigator.pop(context);
+    } catch (e) {
+      _showMessage('저장하지 못했습니다. $e');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -127,6 +174,8 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
                 child: TextField(
                   controller: feedingAmountController,
+                  // 모유(직수)는 계량이 불가능해 입력을 막습니다.
+                  enabled: FeedingType.fromLabel(selectedFeedingType).allowsAmount,
                   keyboardType: TextInputType.number,
                   // ✅ 숫자만 입력 가능
                   inputFormatters: [
@@ -155,7 +204,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: handleAnalyzeButtonTap,
+                  onPressed: isSaving ? null : handleAnalyzeButtonTap,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     elevation: 0,
@@ -163,14 +212,23 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: const Text(
-                    '기록하고 분석하기',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          '기록하기',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ],

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/baby_service.dart';
+import '../../core/services/noise_tracker.dart' show SleepType;
+import 'sleep_record_service.dart';
 
 class SleepRecordPage extends StatefulWidget {
   const SleepRecordPage({super.key});
@@ -16,7 +19,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   static const Color textColor = Color(0xFF1F2937);
   static const Color secondaryTextColor = Color(0xFF6B7280);
 
-  String selectedSleepType = '밤잠';
+  SleepType selectedSleepType = SleepType.night;
   String startPeriod = '오후';
   String endPeriod = '오전';
 
@@ -43,11 +46,70 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     super.dispose();
   }
 
-  void handleAnalyze() {
-    debugPrint('수면 기록 분석');
+  bool isSaving = false;
+
+  /// 화면의 오전/오후 + 시:분을 실제 시각으로 만듭니다.
+  ///
+  /// 취침이 미래로 계산되면 어제로 봅니다(아침에 전날 밤잠을 기록하는 경우).
+  /// 기상이 취침보다 이르면 서비스가 하루를 더합니다(자정을 넘긴 밤잠).
+  ({DateTime start, DateTime end})? _sleepPeriod() {
+    final sh = int.tryParse(startHourController.text);
+    final sm = int.tryParse(startMinuteController.text);
+    final eh = int.tryParse(endHourController.text);
+    final em = int.tryParse(endMinuteController.text);
+    if (sh == null || sm == null || eh == null || em == null) return null;
+    if (sh < 1 || sh > 12 || eh < 1 || eh > 12) return null;
+    if (sm < 0 || sm > 59 || em < 0 || em > 59) return null;
+
+    final now = DateTime.now();
+    var start = DateTime(
+      now.year, now.month, now.day, _convertTo24Hour(startPeriod, sh), sm);
+    if (start.isAfter(now)) start = start.subtract(const Duration(days: 1));
+
+    final end = DateTime(
+      start.year, start.month, start.day, _convertTo24Hour(endPeriod, eh), em);
+
+    return (start: start, end: end);
   }
 
-  void handleSleepTypeTap(String type) {
+  Future<void> handleAnalyze() async {
+    final period = _sleepPeriod();
+    if (period == null) {
+      _showMessage('시간을 1~12시, 0~59분으로 입력해주세요.');
+      return;
+    }
+
+    setState(() => isSaving = true);
+    try {
+      final baby = await BabyService.loadCurrent();
+      if (baby == null) {
+        _showMessage('먼저 아이 정보를 등록해주세요.');
+        return;
+      }
+
+      await SleepRecordService.save(
+        babyId: baby.id,
+        type: selectedSleepType,
+        startedAt: period.start,
+        endedAt: period.end,
+      );
+
+      if (!mounted) return;
+      _showMessage('수면 기록을 저장했습니다.');
+      Navigator.pop(context);
+    } catch (e) {
+      _showMessage('저장하지 못했습니다. $e');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void handleSleepTypeTap(SleepType type) {
     setState(() {
       selectedSleepType = type;
     });
@@ -126,9 +188,9 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _sleepTypeButton('밤잠')),
+                  Expanded(child: _sleepTypeButton(SleepType.night)),
                   const SizedBox(width: 12),
-                  Expanded(child: _sleepTypeButton('낮잠')),
+                  Expanded(child: _sleepTypeButton(SleepType.nap)),
                 ],
               ),
               const SizedBox(height: 28),
@@ -197,7 +259,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: handleAnalyze,
+                  onPressed: isSaving ? null : handleAnalyze,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     elevation: 0,
@@ -205,8 +267,17 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: const Text(
-                    '기록하고 분석하기',
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                    '기록하기',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -222,7 +293,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     );
   }
 
-  Widget _sleepTypeButton(String type) {
+  Widget _sleepTypeButton(SleepType type) {
     final selected = selectedSleepType == type;
     return GestureDetector(
       onTap: () => handleSleepTypeTap(type),
@@ -238,7 +309,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
           ),
         ),
         child: Text(
-          type,
+          type.label,
           textAlign: TextAlign.center,
           style: TextStyle(
             fontWeight: FontWeight.w700,
