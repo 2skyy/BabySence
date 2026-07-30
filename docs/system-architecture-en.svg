@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1100" width="1200" height="1100" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <!--
+    Layout is derived from the usable width so cards never exceed the layer box.
+      Layer box : x = 100 .. 1100  (w = 1000), height 186
+      Card area : x = 130 .. 1070  (30 inner padding, 940 usable)
+        3 cards : w = 302, gap 17  ->  130, 449, 768
+        4 cards : w = 223, gap 16  ->  130, 369, 608, 847
+      Per layer T : badge cy = T+38, title y = T+45, cards y = T+70 (height 100)
+  -->
+
+  <text font-size="28px" font-weight="700" fill="#1A2230" x="600" y="46" text-anchor="middle">BabySense System Architecture</text>
+  <text font-size="15px" fill="#6B7280" x="600" y="78" text-anchor="middle">Four-layer structure: input → analysis → classification → action guide</text>
+
+  <!-- ============ (a) Client Layer : 106 .. 292 ============ -->
+  <rect x="100" y="106" width="1000" height="186" rx="10" fill="#E9F0F9" stroke="#5A6B85" stroke-width="1.6"/>
+  <circle fill="#ffffff" stroke="#1A2230" stroke-width="1.8" cx="152" cy="144" r="22"/>
+  <text font-size="16px" font-weight="700" fill="#1A2230" x="152" y="150" text-anchor="middle">a</text>
+  <text font-size="19px" font-weight="700" fill="#1A2230" x="190" y="151">Client Layer</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="176" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="202" text-anchor="middle">Flutter · Dart</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="224" text-anchor="middle">Cross-platform mobile app</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="242" text-anchor="middle">iOS and Android</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="176" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="202" text-anchor="middle">Social Sign-in</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="224" text-anchor="middle">Kakao · Google · Apple</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="242" text-anchor="middle">via Supabase Auth</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="176" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="202" text-anchor="middle">Input · View · Measure</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="224" text-anchor="middle">Status input · result views</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="242" text-anchor="middle">Noise metering · FCM push</text>
+
+  <path stroke="#2E6E9E" stroke-width="3" fill="none" d="M 340 344 L 340 306"/>
+  <path d="M 332 308 L 340 296 L 348 308 z" fill="#2E6E9E"/>
+  <text font-size="14px" fill="#2E6E9E" x="328" y="326" text-anchor="end">Result + action guide</text>
+  <path stroke="#B03A2E" stroke-width="3" fill="none" d="M 860 296 L 860 334"/>
+  <path d="M 852 332 L 860 344 L 868 332 z" fill="#B03A2E"/>
+  <text font-size="14px" fill="#B03A2E" x="874" y="326">Input data (HTTPS)</text>
+
+  <!-- ============ (b) Application Layer : 348 .. 534 ============ -->
+  <rect x="100" y="348" width="1000" height="186" rx="10" fill="#E3EFE6" stroke="#5A7562" stroke-width="1.6"/>
+  <circle fill="#ffffff" stroke="#1A2230" stroke-width="1.8" cx="152" cy="386" r="22"/>
+  <text font-size="16px" font-weight="700" fill="#1A2230" x="152" y="392" text-anchor="middle">b</text>
+  <text font-size="19px" font-weight="700" fill="#1A2230" x="190" y="393">Application Layer</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="418" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="444" text-anchor="middle">FastAPI Unified Backend</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="466" text-anchor="middle">Request routing</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="484" text-anchor="middle">Response assembly</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="418" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="444" text-anchor="middle">Auth · Input Validation</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="466" text-anchor="middle">Supabase Auth token check</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="484" text-anchor="middle">Range checks on all inputs</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="418" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="444" text-anchor="middle">API Key Protection</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="466" text-anchor="middle">External calls server-side</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="484" text-anchor="middle">Safe from decompilation</text>
+
+  <path stroke="#2E6E9E" stroke-width="3" fill="none" d="M 340 586 L 340 548"/>
+  <path d="M 332 550 L 340 538 L 348 550 z" fill="#2E6E9E"/>
+  <text font-size="14px" fill="#2E6E9E" x="328" y="568" text-anchor="end">Analysis result</text>
+  <path stroke="#B03A2E" stroke-width="3" fill="none" d="M 860 538 L 860 576"/>
+  <path d="M 852 574 L 860 586 L 868 574 z" fill="#B03A2E"/>
+  <text font-size="14px" fill="#B03A2E" x="874" y="568">Analysis request</text>
+
+  <!-- ============ (c) Analysis Layer : 590 .. 776 ============ -->
+  <rect x="100" y="590" width="1000" height="186" rx="10" fill="#FCF0DC" stroke="#8A7A5A" stroke-width="1.6"/>
+  <circle fill="#ffffff" stroke="#1A2230" stroke-width="1.8" cx="152" cy="628" r="22"/>
+  <text font-size="16px" font-weight="700" fill="#1A2230" x="152" y="634" text-anchor="middle">c</text>
+  <text font-size="19px" font-weight="700" fill="#1A2230" x="190" y="635">Analysis Layer</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="660" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="686" text-anchor="middle">Rule-based Engine</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="708" text-anchor="middle">Age-specific thresholds</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="726" text-anchor="middle">Temp · growth · sleep · feed</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="744" text-anchor="middle">Normal · Caution · Consult</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="660" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="686" text-anchor="middle">External LLM API</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="708" text-anchor="middle">Turns the judgment into</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="726" text-anchor="middle">sentence-level guidance</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="744" text-anchor="middle">Falls back to consult notice</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="660" width="302" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="686" text-anchor="middle">Skin Image Classifier</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="708" text-anchor="middle">10-class CNN model</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="726" text-anchor="middle">In-house · on-server</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="744" text-anchor="middle">No external API used</text>
+
+  <path stroke="#2E6E9E" stroke-width="3" fill="none" d="M 340 828 L 340 790"/>
+  <path d="M 332 792 L 340 780 L 348 792 z" fill="#2E6E9E"/>
+  <text font-size="14px" fill="#2E6E9E" x="328" y="810" text-anchor="end">Stored records</text>
+  <path stroke="#B03A2E" stroke-width="3" fill="none" d="M 860 780 L 860 818"/>
+  <path d="M 852 816 L 860 828 L 868 816 z" fill="#B03A2E"/>
+  <text font-size="14px" fill="#B03A2E" x="874" y="810">Query · Store</text>
+
+  <!-- ============ (d) Data & Infra Layer : 832 .. 1018 ============ -->
+  <rect x="100" y="832" width="1000" height="186" rx="10" fill="#EFE6F2" stroke="#7A6A85" stroke-width="1.6"/>
+  <circle fill="#ffffff" stroke="#1A2230" stroke-width="1.8" cx="152" cy="870" r="22"/>
+  <text font-size="16px" font-weight="700" fill="#1A2230" x="152" y="876" text-anchor="middle">d</text>
+  <text font-size="19px" font-weight="700" fill="#1A2230" x="190" y="877">Data &amp; Infra Layer</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="902" width="223" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="242" y="940" text-anchor="middle">Supabase Postgres</text>
+  <text font-size="13px" fill="#4A5260" x="242" y="966" text-anchor="middle">14 tables with RLS</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="369" y="902" width="223" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="481" y="940" text-anchor="middle">Supabase Auth</text>
+  <text font-size="13px" fill="#4A5260" x="481" y="966" text-anchor="middle">Social login · sessions</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="608" y="902" width="223" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="720" y="940" text-anchor="middle">Supabase Storage</text>
+  <text font-size="13px" fill="#4A5260" x="720" y="966" text-anchor="middle">Skin image files</text>
+
+  <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="847" y="902" width="223" height="100" rx="7"/>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="959" y="940" text-anchor="middle">Firebase FCM</text>
+  <text font-size="13px" fill="#4A5260" x="959" y="966" text-anchor="middle">Vaccination · alerts</text>
+
+  <text font-size="14px" fill="#6B7280" x="600" y="1058" text-anchor="middle">* Results are for reference only and do not replace medical diagnosis.</text>
+</svg>
