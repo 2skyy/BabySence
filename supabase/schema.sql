@@ -22,7 +22,7 @@
 -- drop table if exists public.vaccination_records   cascade;
 -- drop table if exists public.vaccines              cascade;
 -- drop table if exists public.skin_analyses         cascade;
--- drop table if exists public.cry_analyses          cascade;
+-- drop table if exists public.assessments           cascade;
 -- drop table if exists public.device_tokens         cascade;
 -- drop table if exists public.babies                cascade;
 -- drop table if exists public.profiles              cascade;
@@ -245,18 +245,33 @@ create table public.skin_analyses (
 
 comment on column public.skin_analyses.image_path is 'Storage 경로. 형식: {user_id}/{baby_id}/{파일명}';
 
-create table public.cry_analyses (
+
+-- 2.11 판정 결과 -------------------------------------------------------------
+-- 규칙 엔진의 '정상 / 주의 / 상담 권장' 3단계 판정과 행동 가이드를 보관한다.
+--
+-- 일별 집계에 종속시키지 않고 아기를 직접 참조한다. 체온이나 소음처럼 입력
+-- 즉시 판정하는 기능은 하루에 여러 건의 판정이 발생하며, 발열 추이를 보려면
+-- 그 이력이 모두 남아야 하기 때문이다.
+create table public.assessments (
   id            uuid        primary key default gen_random_uuid(),
   baby_id       uuid        not null references public.babies (id) on delete cascade,
-  audio_path    text        not null,
-  result_label  text        not null,
-  analyzed_at   timestamptz not null default now()
+  domain        text        not null check (domain in (
+                              'temperature', 'feeding', 'sleep', 'diaper',
+                              'growth', 'noise', 'skin', 'overall')),
+  level         text        not null check (level in ('normal', 'caution', 'consult')),
+  guide_text    text        not null,
+  inputs        jsonb       not null,
+  rule_version  text        not null,
+  assessed_at   timestamptz not null default now()
 );
 
-comment on column public.cry_analyses.result_label is '현재 파이썬 서버는 result 문자열만 반환하므로 확률 컬럼 없음';
+comment on column public.assessments.level        is 'normal=정상, caution=주의, consult=상담 권장';
+comment on column public.assessments.guide_text   is '판정에 대응하는 행동 가이드 문장';
+comment on column public.assessments.inputs       is '판정 시점의 입력값 스냅샷. 원본 기록이 수정되어도 판정 이력이 보존된다';
+comment on column public.assessments.rule_version is '적용된 임계값 규칙의 버전. 판단 근거의 추적에 사용';
 
 
--- 2.11 FCM 토큰 --------------------------------------------------------------
+-- 2.12 FCM 토큰 --------------------------------------------------------------
 create table public.device_tokens (
   id          uuid        primary key default gen_random_uuid(),
   user_id     uuid        not null references auth.users (id) on delete cascade,
@@ -280,8 +295,8 @@ create index idx_diaper_baby_time         on public.diaper_records      (baby_id
 create index idx_sleep_baby_time          on public.sleep_records       (baby_id, started_at  desc);
 create index idx_temperature_baby_time    on public.temperature_records (baby_id, measured_at desc);
 create index idx_skin_baby_time           on public.skin_analyses       (baby_id, analyzed_at desc);
-create index idx_cry_baby_time            on public.cry_analyses        (baby_id, analyzed_at desc);
 create index idx_vaccination_baby         on public.vaccination_records (baby_id);
+create index idx_assessments_baby_time    on public.assessments         (baby_id, assessed_at desc);
 create index idx_device_tokens_user       on public.device_tokens       (user_id);
 
 -- 소음 그래프는 시간 오름차순으로 그리므로 desc를 붙이지 않습니다.
@@ -366,7 +381,7 @@ alter table public.temperature_symptoms  enable row level security;
 alter table public.vaccines              enable row level security;
 alter table public.vaccination_records   enable row level security;
 alter table public.skin_analyses         enable row level security;
-alter table public.cry_analyses          enable row level security;
+alter table public.assessments           enable row level security;
 alter table public.device_tokens         enable row level security;
 
 
@@ -423,7 +438,7 @@ create policy skin_own on public.skin_analyses
   using (public.owns_baby(baby_id))
   with check (public.owns_baby(baby_id));
 
-create policy cry_own on public.cry_analyses
+create policy assessments_own on public.assessments
   for all to authenticated
   using (public.owns_baby(baby_id))
   with check (public.owns_baby(baby_id));
@@ -492,12 +507,11 @@ on conflict (code) do nothing;
 -- ============================================================================
 -- 6. Storage 버킷
 -- ============================================================================
--- 피부 사진과 울음 오디오 원본을 보관합니다.
+-- 피부 사진 원본을 보관합니다.
 -- 경로 규칙: {user_id}/{baby_id}/{파일명}  ← 첫 번째 폴더명으로 소유권을 판정합니다.
 
 insert into storage.buckets (id, name, public) values
-  ('skin-images', 'skin-images', false),
-  ('cry-audio',   'cry-audio',   false)
+  ('skin-images', 'skin-images', false)
 on conflict (id) do nothing;
 
 -- 자기 폴더({user_id}/...) 안에서만 읽고 쓸 수 있습니다.
@@ -505,8 +519,3 @@ create policy storage_skin_own on storage.objects
   for all to authenticated
   using      (bucket_id = 'skin-images' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'skin-images' and (storage.foldername(name))[1] = auth.uid()::text);
-
-create policy storage_cry_own on storage.objects
-  for all to authenticated
-  using      (bucket_id = 'cry-audio' and (storage.foldername(name))[1] = auth.uid()::text)
-  with check (bucket_id = 'cry-audio' and (storage.foldername(name))[1] = auth.uid()::text);
