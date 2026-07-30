@@ -203,10 +203,21 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 - 애플 로그인 미구현(Apple Developer Program 필요). iOS 앱스토어는 소셜 로그인이 있으면 Sign in with Apple을 요구합니다.
 - Firebase 설정 파일(`google-services.json`, `GoogleService-Info.plist`)이 없어 FCM이 동작하지 않습니다.
 
-**검증되지 않은 것**
+**검증 상태**
 
-- **소음 저장은 실기기에서 확인하지 못했습니다.** 개발 맥에 Android SDK가 없고 백그라운드 서비스가 macOS·시뮬레이터에서 정상 동작하지 않습니다. `sleep_records`/`sleep_noise_logs`에 실제로 행이 쌓이는지 확인이 필요합니다.
-- iOS는 시뮬레이터에서 실행·Supabase 초기화·로그인 화면 렌더링까지 확인했습니다. 로그인 이후 흐름은 미확인입니다.
+확인됨 (실기기)
+
+- 소음 측정을 시작하면 `sleep_records`에 행이 생기고, `sleep_type`이 화면에서 고른 값(`night`/`nap`)과 일치합니다. 백그라운드 isolate의 Supabase 초기화가 동작한다는 뜻이기도 합니다.
+
+확인됨 (iOS 시뮬레이터)
+
+- 앱 실행, Supabase 초기화, 마이크 권한 요청 시 강제 종료 없음(`Info.plist` 수정 확인), 로그인 화면 렌더링.
+
+아직 확인되지 않음
+
+- 30건마다 `sleep_noise_logs`에 배치가 쌓이는지, 전송 실패 후 재시도가 동작하는지.
+- 측정을 중지하면 `sleep_records.ended_at`이 채워지는지.
+- 로그인 이후 흐름(온보딩 → `babies` 저장 → 성장 기록).
 - `NoiseTracker`의 `-15dB` 보정값은 근거가 없는 경험값입니다. 논문에 소음 수치를 쓴다면 실제 소음계와 대조해 정해야 합니다.
 
 **플랫폼 차이**

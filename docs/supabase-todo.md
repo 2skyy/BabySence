@@ -74,13 +74,16 @@ FastAPI는 추론만 하고 DB에 쓰지 않습니다. 결과 저장은 앱이 �
       `ios/Runner/GoogleService-Info.plist` 둘 다 없어 FCM이 동작하지 않습니다.
       `device_tokens` 테이블과 예방접종 알림이 여기에 걸려 있습니다.
 
-## 검증되지 않은 것
+## 검증 상태
 
-소음 저장(`sleep_records` / `sleep_noise_logs`)은 코드를 넣었지만 **실기기에서 확인하지 못했습니다.**
-개발 맥에 Android SDK가 없고, 백그라운드 서비스가 macOS에서 동작하지 않기 때문입니다.
-안드로이드 기기나 iOS 시뮬레이터에서 다음을 확인해야 합니다.
+소음 저장(`sleep_records` / `sleep_noise_logs`)의 실기기 확인 진행 상황입니다.
 
-- 측정을 시작하면 `sleep_records`에 행이 하나 생기고 `sleep_type`이 고른 값(night/nap)과 맞는지
-- 30건마다 `sleep_noise_logs`에 배치가 쌓이는지
-- 측정을 중지하면 `ended_at`이 채워지는지
-- 백그라운드 isolate에서 Supabase 초기화가 성공하는지 (로그: `백그라운드 Supabase 초기화 실패`가 없어야 함)
+- [x] 측정을 시작하면 `sleep_records`에 행이 하나 생기고 `sleep_type`이 고른 값(`night`/`nap`)과 맞는지
+      → **확인됨.** 백그라운드 isolate에서 Supabase 초기화가 성공한다는 뜻이기도 합니다
+      (실패하면 행 자체가 만들어지지 않습니다).
+- [ ] 30건마다 `sleep_noise_logs`에 배치가 쌓이는지
+- [ ] 전송이 실패했을 때 버퍼를 유지하고 다음 배치에서 재시도하는지
+- [ ] 측정을 중지하면 `sleep_records.ended_at`이 채워지는지
+
+개발 맥에는 Android SDK가 없고 백그라운드 서비스가 macOS·시뮬레이터에서 정상 동작하지
+않으므로, 남은 항목도 실기기에서 확인해야 합니다.
