@@ -88,6 +88,7 @@ lib/
   features/      # 화면 단위 폴더 (auth, onboarding, detail, home, mypage, settings)
     auth/           # 로그인 · 회원가입 · post_auth_route(로그인 후 분기)
     onboarding/     # 아이 정보 최초 등록 (등록 폼은 이 화면 한 곳에만 존재)
+    detail/         # 기록 화면 + 화면별 *_service.dart (Supabase 접근)
     detail/growth/  # 성장 기록 모델 · GrowthRepository · 페이지
   routes/        # AppRoutes (라우트 문자열 상수)
   main.dart      # 앱 진입점 + Supabase 초기화 + 백그라운드 소음 측정 서비스
@@ -108,7 +109,50 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 
 ## 최근 변경 사항
 
-### Spring 의존 제거 · 플랫폼 설정 · FastAPI 서버 (이번 작업)
+### 기록 화면 5종 Supabase 연동 (이번 작업)
+
+수유·배변·수면·체온·예방접종 화면은 UI만 있고 저장 코드가 없어, 입력해도 화면을
+나가면 사라졌습니다. 5종 모두 Supabase에 저장하도록 연결했습니다.
+**앱이 사용하는 테이블이 4개 → 11개가 되었습니다.**
+
+| 화면 | 테이블 | 서비스 |
+|---|---|---|
+| 수유 | `feeding_records` | `feeding_record_service.dart` |
+| 배변 | `diaper_records` | `diaper_record_service.dart` |
+| 수면 | `sleep_records` | `sleep_record_service.dart` |
+| 체온 | `temperature_records` + `temperature_symptoms` | `temperature_record_service.dart` |
+| 예방접종 | `vaccines` 조회 + `vaccination_records` | `vaccination_service.dart` |
+
+**CHECK 제약을 enum으로 막았습니다.** 한글 문자열을 그대로 넣으면 insert가 실패하고,
+앱에는 원인 없는 "저장하지 못했습니다"만 뜹니다. `SleepType`과 같은 방식으로
+**enum 이름 = DB 값**으로 맞췄습니다.
+
+- `FeedingType`(`formula`/`breast`/`solid`) — **모유(직수)는 `amount_ml`을 NULL로** 두고 입력 필드도 비활성화합니다(계량 불가)
+- `DiaperType`(`urine`/`stool`/`mixed`) · `StoolState`(`golden`/`green`/`loose`/`hard`) — **소변이면 `stool_state`를 NULL로** (`diaper_stool_state_consistent`는 양방향 제약이라 그 외에는 반드시 값이 있어야 합니다)
+- `Symptom` — `runnyNose` → `runny_nose` 변환. **UI의 '없음'은 저장하지 않습니다.** 행이 하나도 없는 상태가 곧 '없음'입니다
+- 수면 화면이 들고 있던 `'밤잠'`/`'낮잠'` **한글 문자열을 `SleepType`으로 교체**했습니다
+
+**시각 처리** — 배변·수면 화면은 오전/오후 + 시:분만 받고 날짜가 없습니다. 오늘 날짜로
+만들되 미래가 되면 어제로 봅니다(아침에 전날 밤잠을 기록하는 것이 정상적인 사용).
+수면은 기상이 취침보다 이르면 하루를 더합니다(`sleep_period_valid` 제약). 취침과
+기상이 같은 시각인 경우도 마찬가지입니다.
+
+**예방접종 화면을 다시 썼습니다.** `StatelessWidget`에 BCG/DTaP 등이 하드코딩되어
+있었는데, 스키마에 이미 시딩된 **표준 일정 30건**을 읽어오도록 바꿨습니다. 디자인은
+유지했고, 예정일은 `생년월일 + 권장 개월 수`로 계산하며 항목을 누르면 접종 완료/취소가
+토글됩니다. 예정일이 지난 항목은 따로 표시합니다.
+
+`addMonths`를 직접 구현한 이유가 있습니다 — Dart의 `DateTime(2026, 2, 31)`은 3월 3일로
+넘어가버립니다. 1월 31일생 아이의 1개월 예정일이 3월로 밀리는 버그가 생기므로 그 달의
+마지막 날로 맞췄습니다.
+
+**테스트 23건 추가** (15 → 38). Supabase 자격증명 없이 검증할 수 있도록, 행을 만드는
+부분을 `buildRow`로 분리해 전송과 나눴습니다.
+
+- `record_enums_test.dart` — enum 이름이 CHECK 값과 일치하는지, `addMonths` 경계
+- `record_rows_test.dart` — 실제 전송되는 행. 위에 적은 네 가지 함정과 **그 반대쪽**까지 검사합니다(한쪽만 맞으면 제약을 절반만 지키는 셈이라서)
+
+### Spring 의존 제거 · 플랫폼 설정 · FastAPI 서버
 
 방향을 **Supabase(DB·인증) + FastAPI(AI 추론), Android·iOS 동시 지원**으로 확정하고,
 앱에서 Spring/MySQL 흔적을 걷어낸 뒤 서버를 저장소 안에 새로 두었습니다.
@@ -190,11 +234,12 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 
 **미구현**
 
-- **기록 화면 5종(수유·배변·수면·체온·예방접종)은 UI만 있고 저장 코드가 없습니다.** Supabase 테이블 14개 중 앱이 실제로 쓰는 것은 `babies`, `growth_records`, `sleep_records`, `sleep_noise_logs` **4개**뿐입니다.
+- **기록을 저장할 수는 있지만 볼 수가 없습니다.** 수유·배변·수면·체온은 입력 화면만 있고 이력 조회가 없어, 사용자 입장에서는 저장한 데이터가 사라진 것처럼 보입니다. 성장 기록에만 이력 목록이 있습니다.
 - 홈 화면의 값(`'아이이름'`, `'분유 · 160ml'`, `'36.5°C'` 등)이 전부 하드코딩입니다.
 - `mypage_page.dart`의 Logout 메뉴가 `onTap: () {}` 상태입니다. `auth.signOut()` 연결이 필요합니다.
 - 앱 재시작 시 저장된 세션을 확인하지 않고 항상 로그인 화면으로 진입합니다.
-- `sleep_record_page.dart`가 `selectedSleepType`을 `'밤잠'`/`'낮잠'` **한글 문자열**로 들고 있습니다. Supabase에 연동할 때 `SleepType` enum으로 바꿔야 합니다. 한글을 그대로 넣으면 CHECK 제약에 걸려 insert가 실패합니다.
+- `assessments` 테이블(정상/주의/상담 권장 3단계 판정)에 접근하는 코드가 아직 없습니다. 판정 규칙과 임계값을 먼저 정해야 합니다.
+- 앱이 사용하는 테이블은 14개 중 **11개**입니다. 남은 것은 `assessments`, `device_tokens`, `profiles`(트리거가 자동 생성하며 앱은 읽지 않음)입니다.
 
 **설정이 필요한 것**
 
