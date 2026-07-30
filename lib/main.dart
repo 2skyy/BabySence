@@ -20,10 +20,15 @@ import 'features/auth/signup/signup_page.dart';
 import 'features/detail/detail_page.dart';
 import 'features/home/home_page.dart';
 import 'features/mypage/mypage_page.dart';
+import 'features/onboarding/child_info_page.dart';
 import 'features/settings/settings_page.dart';
 import 'routes/app_routes.dart';
 
 import 'core/services/noise_tracker.dart';
+
+/// 스마트폰 마이크가 실제보다 크게 잡는 만큼을 빼주는 보정값(dB).
+/// 기기마다 달라 경험적으로 정한 값이며, 보정은 이 한 곳에서만 적용합니다.
+const double _micOffsetDb = 15.0;
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
@@ -37,6 +42,19 @@ Future<void> initializeService() async {
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
+
+  // 플러그인 초기화. 이걸 하지 않으면 iOS에서는 알림이 전혀 뜨지 않습니다.
+  await flutterLocalNotificationsPlugin.initialize(
+    settings: const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+        // 권한은 _requestAppPermissions에서 따로 받으므로 여기서는 요청하지 않습니다.
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
+    ),
+  );
 
   if (Platform.isAndroid) {
     await flutterLocalNotificationsPlugin
@@ -78,6 +96,18 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  // 백그라운드 서비스는 UI와 다른 isolate에서 돕니다. main()에서 한 초기화는
+  // 여기까지 오지 않으므로, 소음을 저장하려면 이 isolate에서 다시 초기화해야 합니다.
+  // 로그인 세션은 로컬 저장소에서 자동으로 복원됩니다.
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.publishableKey,
+    );
+  } catch (e) {
+    debugPrint('백그라운드 Supabase 초기화 실패(소음 저장 불가): $e');
+  }
+
   final AudioPlayer audioPlayer = AudioPlayer();
   NoiseTracker noiseTracker = NoiseTracker();
 
@@ -87,8 +117,10 @@ void onStart(ServiceInstance service) async {
   bool isNoiseMeasuring = false;
   bool isWhiteNoisePlaying = false;
 
-  // 데시벨 수치 널뛰기 방지용 이동 평균 변수
+  // 데시벨 수치 널뛰기 방지용 이동 평균 변수.
+  // 0.0은 "조용함"이라는 정상 측정값이기도 하므로, 첫 측정 여부는 따로 둡니다.
   double smoothedDb = 0.0;
+  bool isFirstReading = true;
 
   void updateNotification() {
     String title = 'BabySense 수면 모드 작동 중';
@@ -115,6 +147,7 @@ void onStart(ServiceInstance service) async {
     try {
       noiseMeter = NoiseMeter();
       smoothedDb = 0.0;
+      isFirstReading = true;
 
       noiseSubscription = noiseMeter!.noise.listen(
             (NoiseReading noiseReading) {
@@ -122,20 +155,18 @@ void onStart(ServiceInstance service) async {
 
           double rawDb = noiseReading.meanDecibel;
 
-          // 1. [강력한 오프셋 차감]: 마이크 하울링/증폭 감쇄를 위해 15dB 차감
-          double adjustedDb = rawDb - 15.0;
+          // 1. [오프셋 차감]: 스마트폰 마이크의 증폭분을 상쇄합니다.
+          //    보정은 여기 한 곳에서만 합니다. NoiseTracker는 받은 값을 그대로 저장합니다.
+          double adjustedDb = rawDb - _micOffsetDb;
+          if (adjustedDb < 0) adjustedDb = 0;
 
-          // 2. [노이즈 바닥 제한 (Min Cutoff)]: 방 안의 고요한 환경 수치인 30dB 이하로 떨어지지 않게 평탄화
-          if (adjustedDb < 30.0) {
-            adjustedDb = 30.0 + (adjustedDb % 2.0);
-          }
-
-          // 3. [초둔감 이동 평균 필터]: 이전 수치 85% + 새 수치 15%로 믹싱하여 갑자기 치솟는 수치 억제
-          smoothedDb = (smoothedDb == 0.0)
+          // 2. [이동 평균 필터]: 이전 수치 85% + 새 수치 15%로 갑작스러운 치솟음을 억제합니다.
+          smoothedDb = isFirstReading
               ? adjustedDb
               : (smoothedDb * 0.85) + (adjustedDb * 0.15);
+          isFirstReading = false;
 
-          // 4. 보정된 수치를 UI 및 서버 버퍼로 전달
+          // 3. 보정된 수치를 UI와 저장 버퍼에 같은 값으로 전달합니다.
           noiseTracker.onNoiseLevelChanged(smoothedDb);
           service.invoke('update_db', {"db": smoothedDb.toStringAsFixed(1)});
 
@@ -173,11 +204,16 @@ void onStart(ServiceInstance service) async {
     }
     isNoiseMeasuring = false;
     updateNotification();
+
+    // 버퍼에 남은 로그를 마저 저장하고 수면 기록의 종료 시각을 채웁니다.
+    noiseTracker.finish();
   }
 
   // --- UI 신호(이벤트) 리스너 설정 ---
 
   service.on('startNoiseOnly').listen((event) {
+    // UI에서 고른 밤잠/낮잠 값을 받습니다. 없으면 밤잠으로 봅니다.
+    noiseTracker.beginSession(SleepType.parse(event?['sleepType'] as String?));
     startNoiseMeasurement();
   });
 
@@ -211,6 +247,7 @@ void onStart(ServiceInstance service) async {
   service.on('stopService').listen((event) async {
     try {
       noiseSubscription?.cancel();
+      await noiseTracker.finish();
       await audioPlayer.stop();
       await audioPlayer.dispose();
     } catch (e) {
@@ -227,7 +264,8 @@ Future<void> _requestAppPermissions() async {
     Permission.notification,
   ].request();
 
-  if (statuses[Permission.microphone]!.isPermanentlyDenied) {
+  // 플랫폼에 따라 요청 결과에 항목이 없을 수 있어 ?.로 접근합니다.
+  if (statuses[Permission.microphone]?.isPermanentlyDenied ?? false) {
     debugPrint("★ 마이크 권한이 영구 거부되었습니다. 설정에서 권한을 허용해 주세요.");
     await openAppSettings();
   }
@@ -287,6 +325,7 @@ class MyApp extends StatelessWidget {
       routes: {
         AppRoutes.login: (context) => const LoginPage(),
         AppRoutes.signup: (context) => const SignupPage(),
+        AppRoutes.onboarding: (context) => const ChildInfoPage(),
         AppRoutes.home: (context) => const HomePage(),
         AppRoutes.detail: (context) => const DetailPage(),
         AppRoutes.mypage: (context) => const MyPagePage(),

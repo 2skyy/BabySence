@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # 빌드 산출물은 우리 코드가 아닙니다. 특히 build/macos/SourcePackages 아래로
+  # 플러그인 원본이 딸려 들어와 flutter analyze가 남의 코드 오류를 쏟아냅니다.
+  exclude:
+    - build/**
+    - my_app/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

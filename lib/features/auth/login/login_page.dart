@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/common_button.dart';
 import '../../../routes/app_routes.dart';
+import '../post_auth_route.dart';
 
 // 입력 컨트롤러를 사용하기 위해 StatefulWidget으로 변경되었습니다.
 class LoginPage extends StatefulWidget {
@@ -33,15 +34,19 @@ class _LoginPageState extends State<LoginPage> {
     // 로그인 성공 시 홈으로 보내는 지점을 여기 한 곳으로 모읍니다.
     // 소셜 로그인은 브라우저를 다녀온 뒤에야 완료되므로 버튼 함수에서는
     // 이동 시점을 알 수 없기 때문입니다.
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) async {
       if (!mounted || state.event != AuthChangeEvent.signedIn) return;
 
       // 회원가입 화면이 위에 떠 있는 동안에는 그쪽이 이동을 처리합니다.
       if (ModalRoute.of(context)?.isCurrent != true) return;
 
+      // 등록된 아이가 없으면 먼저 온보딩을 거칩니다.
+      final destination = await nextRouteAfterSignIn();
+      if (!mounted) return;
+
       Navigator.pushNamedAndRemoveUntil(
         context,
-        AppRoutes.home,
+        destination,
             (route) => false,
       );
     });
@@ -146,10 +151,9 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        // 로그인은 첫 화면이라 뒤로 갈 곳이 없습니다.
+        // 뒤로가기 버튼을 두면 스택이 비어 빈 화면이 됩니다.
+        automaticallyImplyLeading: false,
       ),
       body: SafeArea(
         // ★ 핵심 고정: 팀원 코드로 유실되었던 키보드 밀림 에러 방지용 스크롤 레이아웃을 다시 복구합니다.

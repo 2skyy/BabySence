@@ -5,6 +5,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 // ★ 백색소음 선택 페이지 및 싱글톤 서비스 import
 import './white_noise_page.dart';
 import './white_noise_service.dart';
+import '../../core/services/noise_tracker.dart' show SleepType;
 
 class NoiseTestPage extends StatefulWidget {
   const NoiseTestPage({super.key});
@@ -17,6 +18,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   double _currentDecibel = 0.0; // 실시간 데시벨 수치 저장
   bool _isNoiseMeasuring = false;
   StreamSubscription? _serviceSubscription;
+
+  /// 이번 측정을 어떤 수면으로 기록할지. 측정 중에는 바꿀 수 없습니다
+  /// (sleep_records 행이 이미 만들어진 뒤라 값만 바뀌면 어긋납니다).
+  SleepType _sleepType = SleepType.night;
 
   // 백색소음 상태 관리를 위한 싱글톤 서비스
   final WhiteNoiseService _noiseService = WhiteNoiseService();
@@ -103,11 +108,65 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       if (!isRunning) {
         await service.startService();
       }
-      service.invoke('startNoiseOnly');
+      service.invoke('startNoiseOnly', {'sleepType': _sleepType.name});
       setState(() {
         _isNoiseMeasuring = true;
       });
     }
+  }
+
+  /// 밤잠 / 낮잠 선택. 측정 중에는 잠깁니다.
+  Widget _buildSleepTypeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _isNoiseMeasuring ? '${_sleepType.label} 기록 중' : '어떤 잠을 기록할까요?',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final type in SleepType.values) ...[
+              Expanded(
+                child: GestureDetector(
+                  onTap: _isNoiseMeasuring
+                      ? null
+                      : () => setState(() => _sleepType = type),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _sleepType == type
+                          ? const Color(0xFF0059B9).withValues(alpha: 0.1)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _sleepType == type
+                            ? const Color(0xFF0059B9)
+                            : Colors.grey[300]!,
+                        width: _sleepType == type ? 2 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      type.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        // 측정 중에는 선택된 쪽만 또렷하게 보여줍니다.
+                        color: _sleepType == type
+                            ? const Color(0xFF0059B9)
+                            : (_isNoiseMeasuring ? Colors.grey[350] : Colors.grey[600]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (type != SleepType.values.last) const SizedBox(width: 12),
+            ],
+          ],
+        ),
+      ],
+    );
   }
 
   @override
@@ -125,6 +184,9 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            const SizedBox(height: 20),
+
+            _buildSleepTypeSelector(),
             const SizedBox(height: 20),
 
             // 🔊 [1] 실시간 데시벨 측정 + 위험도 표시 스크린 UI

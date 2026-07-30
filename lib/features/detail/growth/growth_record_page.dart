@@ -7,11 +7,18 @@ import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
 import '../../../core/widgets/common_app_bar.dart';
 import '../../../core/widgets/common_button.dart';
+import '../../../routes/app_routes.dart';
 import 'growth_record.dart';
-import 'growth_record_service.dart';
+import 'growth_repository.dart';
 
 class GrowthRecordPage extends StatefulWidget {
-  const GrowthRecordPage({super.key});
+  /// 데이터 접근 경로. 기본값은 Supabase이고, 테스트에서 가짜 구현을 넣습니다.
+  final GrowthRepository repository;
+
+  const GrowthRecordPage({
+    super.key,
+    this.repository = const SupabaseGrowthRepository(),
+  });
 
   @override
   State<GrowthRecordPage> createState() => _GrowthRecordPageState();
@@ -36,10 +43,10 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     });
 
     try {
-      final baby = await BabyService.loadCurrent();
+      final baby = await widget.repository.loadBaby();
       final records = baby == null
           ? <GrowthRecord>[]
-          : await GrowthRecordService.loadRecords(baby.id);
+          : await widget.repository.loadRecords(baby.id);
 
       if (!mounted) return;
       setState(() {
@@ -88,114 +95,29 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     );
   }
 
-  // --- 아이 정보(이름/성별/생년월일) 최초 등록 ---
-
-  final _setupNameController = TextEditingController();
-  ChildSex _setupSex = ChildSex.male;
-  DateTime _setupBirthDate = DateTime.now();
-  bool _creatingBaby = false;
-
+  /// 아이가 아직 없을 때. 등록 화면은 온보딩([AppRoutes.onboarding]) 한 곳에만
+  /// 두고, 여기서는 그쪽으로 보냅니다.
   Widget _buildProfileSetup() {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
             'WHO 성장 표준과 비교하려면\n아이의 정보가 필요해요',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          TextField(
-            controller: _setupNameController,
-            decoration: const InputDecoration(labelText: '아이 이름'),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSexOption(ChildSex.male, '남아'),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildSexOption(ChildSex.female, '여아'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          OutlinedButton(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _setupBirthDate,
-                firstDate: DateTime.now().subtract(const Duration(days: 365 * 3)),
-                lastDate: DateTime.now(),
-              );
-              if (picked != null) setState(() => _setupBirthDate = picked);
-            },
-            child: Text('생년월일: ${_formatDate(_setupBirthDate)}'),
           ),
           const SizedBox(height: AppSpacing.xxl),
           CommonButton(
-            text: '시작하기',
-            isLoading: _creatingBaby,
-            onPressed: _handleCreateBaby,
+            text: '아이 정보 등록하기',
+            onPressed: () async {
+              await Navigator.pushNamed(context, AppRoutes.onboarding);
+              // 등록을 마치고 돌아오면 다시 읽어옵니다.
+              if (mounted) _load();
+            },
           ),
         ],
-      ),
-    );
-  }
-
-  Future<void> _handleCreateBaby() async {
-    final name = _setupNameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('아이 이름을 입력해주세요.')),
-      );
-      return;
-    }
-
-    setState(() => _creatingBaby = true);
-    try {
-      final baby = await BabyService.create(
-        name: name,
-        sex: _setupSex,
-        birthDate: _setupBirthDate,
-      );
-      if (!mounted) return;
-      setState(() {
-        _baby = baby;
-        _records = [];
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('아이 정보를 저장하지 못했습니다. $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _creatingBaby = false);
-    }
-  }
-
-  Widget _buildSexOption(ChildSex sex, String label) {
-    final selected = _setupSex == sex;
-    return GestureDetector(
-      onTap: () => setState(() => _setupSex = sex),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.border),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? AppColors.primary : AppColors.textSecondary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
     );
   }
@@ -298,7 +220,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
 
     setState(() => _savingRecord = true);
     try {
-      await GrowthRecordService.saveRecord(
+      await widget.repository.saveRecord(
         babyId: baby.id,
         date: _recordDate,
         heightCm: height,
@@ -329,7 +251,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         icon: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
         onPressed: () async {
           try {
-            await GrowthRecordService.deleteRecord(record.id);
+            await widget.repository.deleteRecord(record.id);
             await _load();
           } catch (e) {
             if (!mounted) return;
@@ -415,7 +337,6 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
 
   @override
   void dispose() {
-    _setupNameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();

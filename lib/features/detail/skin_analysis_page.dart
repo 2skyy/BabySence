@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:dio/dio.dart';
 
+import '../../core/constants/api_config.dart';
+
 class SkinAnalysisPage extends StatefulWidget {
   const SkinAnalysisPage({super.key});
 
@@ -88,8 +90,8 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       }
     }
   }
-  // 3. 스프링부트 분석 요청
-  Future<void> _sendToSpringServer() async {
+  // 3. AI 서버(FastAPI) 분석 요청
+  Future<void> _sendToAiServer() async {
     if (_image == null) return;
 
     setState(() {
@@ -98,7 +100,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     });
 
     Dio dio = Dio();
-    String serverUrl = "http://localhost:8080/api/skin/diagnose";
+    String serverUrl = ApiConfig.skinDiagnose;
 
     try {
       FormData formData = FormData.fromMap({
@@ -109,6 +111,18 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
 
       if (response.statusCode == 200) {
         var data = response.data;
+
+        // 확률이 서버 기준에 못 미치면 진단명을 보여주지 않습니다.
+        // 조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 처리입니다.
+        if (data['status'] == 'low_confidence') {
+          setState(() {
+            _isNormal = false;
+            _resultText = data['message'] ??
+                '정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요.';
+          });
+          return;
+        }
+
         String rawDisease = data['disease'] ?? "normal";
         double prob = (data['probability'] as num).toDouble();
 
@@ -219,7 +233,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
-                onPressed: (_image != null || _imageBytes != null) && !_isLoading ? _sendToSpringServer : null,
+                onPressed: (_image != null || _imageBytes != null) && !_isLoading ? _sendToAiServer : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isNormal ? Colors.green : const Color(0xFFECEFF8),
                   elevation: 0,

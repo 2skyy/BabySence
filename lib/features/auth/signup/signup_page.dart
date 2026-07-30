@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../routes/app_routes.dart';
+import '../post_auth_route.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -69,9 +69,13 @@ class _SignupPageState extends State<SignupPage> {
 
       if (response.session != null) {
         // 이메일 인증이 꺼져 있으면 가입 즉시 로그인 상태가 됩니다.
+        // 갓 가입한 계정이라 아이가 없으므로 보통 온보딩으로 이어집니다.
+        final destination = await nextRouteAfterSignIn();
+        if (!mounted) return;
+
         Navigator.pushNamedAndRemoveUntil(
           context,
-          AppRoutes.home,
+          destination,
           (route) => false,
         );
       } else {

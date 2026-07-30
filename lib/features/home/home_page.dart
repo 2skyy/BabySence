@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-// ★ 추가: 백그라운드 서비스 호출을 위한 임포트
-import 'package:flutter_background_service/flutter_background_service.dart';
 
 import '../../routes/app_routes.dart';
 import '../detail/feeding_record_page.dart';
@@ -9,7 +7,6 @@ import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
 import '../detail/eusick_page.dart';
 import '../detail/skin_analysis_page.dart';
-import '../detail/cry_analysis_page.dart';
 import '../detail/vaccination_page.dart';
 // 수면 소음 측정 페이지 임포트
 import '../detail/noise_test_page.dart';
@@ -81,36 +78,20 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // [소음] 버튼 선택 시 직통 이동 로직 유지
-  void handleNoiseTestTap(BuildContext context) async {
-    final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
-
-    if (!isRunning) {
-      await service.startService();
-    }
-
-    service.invoke('startNoiseOnly');
-
-    if (context.mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const NoiseTestPage()),
-      );
-    }
+  // [소음] 버튼은 화면 이동만 합니다.
+  // 측정 시작은 소음 화면에서 밤잠/낮잠을 고른 뒤에 해야 하므로,
+  // 여기서 미리 시작하면 사용자가 고를 틈이 없습니다.
+  void handleNoiseTestTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NoiseTestPage()),
+    );
   }
 
   void handleSkinAnalysisTap(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SkinAnalysisPage()),
-    );
-  }
-
-  void handleCryAnalysisTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CryAnalysisPage()),
     );
   }
 
@@ -214,14 +195,6 @@ class HomePage extends StatelessWidget {
                   title: '피부',
                   subtitle: 'AI 판단',
                   onTap: () => handleSkinAnalysisTap(context),
-                ),
-                _buildSquareRecordButton(
-                  context: context,
-                  icon: Icons.record_voice_over,
-                  iconColor: Colors.deepOrange,
-                  title: '울음소리',
-                  subtitle: '의미 분석',
-                  onTap: () => handleCryAnalysisTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
