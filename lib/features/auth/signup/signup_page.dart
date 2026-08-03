@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../auth_error_message.dart';
 import '../post_auth_route.dart';
 
 class SignupPage extends StatefulWidget {
@@ -87,19 +88,10 @@ class _SignupPageState extends State<SignupPage> {
       }
     } on AuthException catch (e) {
       if (!mounted) return;
-      final lower = e.message.toLowerCase();
-      final String message;
-      if (lower.contains('already registered') || lower.contains('already exists')) {
-        message = '이미 가입된 이메일입니다.';
-      } else if (lower.contains('email')) {
-        message = '이메일 형식이 올바르지 않습니다.';
-      } else if (lower.contains('password')) {
-        message = '비밀번호는 6자 이상이어야 합니다.';
-      } else {
-        message = '회원가입에 실패했습니다. (${e.message})';
-      }
+      // 원인 추적을 위해 원본 코드와 메시지를 로그에 남깁니다.
+      debugPrint('회원가입 실패: code=${e.code} message=${e.message}');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(authErrorMessage(e))),
       );
     } catch (e) {
       debugPrint('회원가입 에러: $e');

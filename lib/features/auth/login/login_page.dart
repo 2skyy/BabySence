@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/common_button.dart';
 import '../../../routes/app_routes.dart';
+import '../auth_error_message.dart';
 import '../post_auth_route.dart';
 
 // 입력 컨트롤러를 사용하기 위해 StatefulWidget으로 변경되었습니다.
@@ -86,17 +87,10 @@ class _LoginPageState extends State<LoginPage> {
       // 성공 시 홈 이동은 initState의 onAuthStateChange 리스너가 처리합니다.
     } on AuthException catch (e) {
       if (!mounted) return;
-      final lower = e.message.toLowerCase();
-      final String message;
-      if (lower.contains('invalid login credentials')) {
-        message = '이메일 또는 비밀번호가 올바르지 않습니다.';
-      } else if (lower.contains('email not confirmed')) {
-        message = '이메일 인증이 필요합니다. 메일함을 확인해주세요.';
-      } else {
-        message = '로그인에 실패했습니다. (${e.message})';
-      }
+      // 원인 추적을 위해 원본 코드와 메시지를 로그에 남깁니다.
+      debugPrint('로그인 실패: code=${e.code} message=${e.message}');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(authErrorMessage(e))),
       );
     } catch (e) {
       if (!mounted) return;
@@ -126,8 +120,9 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on AuthException catch (e) {
       if (!mounted) return;
+      debugPrint('소셜 로그인 실패: code=${e.code} message=${e.message}');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('로그인에 실패했습니다. (${e.message})')),
+        SnackBar(content: Text(authErrorMessage(e))),
       );
     } catch (e) {
       if (!mounted) return;
