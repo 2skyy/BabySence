@@ -6,6 +6,7 @@ import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
 import 'temperature_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/temperature_picker.dart';
 
 class TemperatureRecordPage extends StatefulWidget {
   const TemperatureRecordPage({super.key});
@@ -21,10 +22,8 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   static const double defaultTemperature = 36.5;
 
   final TextEditingController temperatureController = TextEditingController();
-  late final FixedExtentScrollController temperatureScrollController;
 
   final List<String> selectedSymptoms = [];
-  late final List<double> temperatures;
   late double selectedTemperature;
 
   final List<String> symptoms = ['없음', '기침', '콧물', '발진', '구토', '설사'];
@@ -32,17 +31,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   @override
   void initState() {
     super.initState();
-    temperatures = List.generate(151, (index) => (300 + index) / 10);
     selectedTemperature = defaultTemperature;
-
-    final initialIndex = temperatures.indexWhere(
-      (temperature) =>
-          temperature.toStringAsFixed(1) ==
-          defaultTemperature.toStringAsFixed(1),
-    );
-    temperatureScrollController = FixedExtentScrollController(
-      initialItem: initialIndex >= 0 ? initialIndex : 0,
-    );
     temperatureController.text = selectedTemperature.toStringAsFixed(1);
     _loadHistory();
   }
@@ -93,7 +82,6 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
   @override
   void dispose() {
-    temperatureScrollController.dispose();
     temperatureController.dispose();
     super.dispose();
   }
@@ -170,10 +158,11 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
   /// 방금 저장한 체온의 판정과 행동 가이드.
   Widget _buildAssessmentCard(Assessment assessment) {
-    final (color, icon) = switch (assessment.level) {
-      AssessmentLevel.normal => (const Color(0xFF16A34A), Icons.check_circle),
-      AssessmentLevel.caution => (const Color(0xFFF59E0B), Icons.warning_amber_rounded),
-      AssessmentLevel.consult => (const Color(0xFFDC2626), Icons.local_hospital),
+    final color = TemperaturePicker.colorFor(assessment.level);
+    final icon = switch (assessment.level) {
+      AssessmentLevel.normal => Icons.check_circle,
+      AssessmentLevel.caution => Icons.warning_amber_rounded,
+      AssessmentLevel.consult => Icons.local_hospital,
     };
 
     return Container(
@@ -233,11 +222,21 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
     });
   }
 
-  void handleTemperatureChanged(int index) {
+  // --- 체온 선택 ---
+
+  /// 0.1℃ 단위로 맞추고 화면 상태와 입력 컨트롤러를 함께 갱신합니다.
+  void _setTemperature(double value) {
     setState(() {
-      selectedTemperature = temperatures[index];
+      selectedTemperature = TemperaturePicker.snap(value);
       temperatureController.text = selectedTemperature.toStringAsFixed(1);
     });
+  }
+
+  /// 아이 나이(개월). 아직 아이 정보를 못 읽었으면 null입니다.
+  int? get _ageInMonths {
+    final baby = _baby;
+    if (baby == null) return null;
+    return ageInMonthsAt(baby.birthDate, DateTime.now());
   }
 
   @override
@@ -281,43 +280,10 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
               const SizedBox(height: 20),
 
-              // 🔥 체온 입력 (빨간색 복구 완료)
-              const SizedBox(height: 8),
-
-              SizedBox(
-                height: 170,
-                child: ListWheelScrollView.useDelegate(
-                  itemExtent: 44,
-                  diameterRatio: 1.4,
-                  perspective: 0.003,
-                  physics: const FixedExtentScrollPhysics(),
-                  controller: temperatureScrollController,
-                  onSelectedItemChanged: handleTemperatureChanged,
-                  childDelegate: ListWheelChildBuilderDelegate(
-                    childCount: temperatures.length,
-                    builder: (context, index) {
-                      final temperature = temperatures[index];
-                      final isSelected =
-                          temperature.toStringAsFixed(1) ==
-                          selectedTemperature.toStringAsFixed(1);
-
-                      return Center(
-                        child: Text(
-                          '${temperature.toStringAsFixed(1)}℃',
-                          style: TextStyle(
-                            fontSize: isSelected ? 28 : 20,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? AppColors.error
-                                : AppColors.textSecondary,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+              TemperaturePicker(
+                value: selectedTemperature,
+                ageInMonths: _ageInMonths,
+                onChanged: _setTemperature,
               ),
 
               const SizedBox(height: 36),
