@@ -21,7 +21,7 @@
 | `vaccines` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `vaccination_records` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `skin_analyses` | **미연동** (모델 자체가 없음) | — |
-| `assessments` | **미연동** (판정 규칙 미정) | — |
+| `assessments` | 연동됨 (체온 판정) | `lib/features/detail/assessment/assessment_service.dart` |
 | `device_tokens` | **미연동** (FCM 설정 자체가 없음) | — |
 
 ## 해야 할 일
@@ -47,14 +47,13 @@ FastAPI는 추론만 하고 DB에 쓰지 않습니다. 결과 저장은 앱이 �
 `disease_result`에는 **모델이 준 원본 라벨**을 넣습니다. 한글 변환은 앱에서 합니다
 (모델을 교체해도 과거 이력이 깨지지 않게 하려는 것 — schema.sql 2.10절 주석 참고).
 
-### C. 기록 조회 — 지금 가장 아쉬운 부분
+### C. 기록 조회 — 완료
 
-**저장은 되지만 볼 수가 없습니다.** 수유·배변·수면·체온은 입력 화면만 있어서,
-사용자 입장에서는 저장한 데이터가 사라진 것처럼 보입니다. 성장 기록에만 이력 목록이
-있으니(`growth_record_page.dart`의 `_buildRecordTile`) 그 형태를 참고하면 됩니다.
+각 입력 화면 아래에 최근 20건 목록과 삭제를 붙였습니다. 저장 후 화면을 닫지 않고
+방금 넣은 기록이 바로 보입니다.
 
-- [ ] 수유·배변·수면·체온 기록의 이력 조회 (날짜별 목록 + 삭제)
-- [ ] 체온 이력은 `temperature_symptoms`를 함께 읽어 증상을 보여줘야 합니다
+- [x] 수유·배변·수면·체온 이력 조회 (`lib/features/detail/widgets/record_history.dart`)
+- [x] 체온 이력은 중첩 select로 `temperature_symptoms`를 함께 읽습니다
 
 ### D. 화면에 실제 데이터 연결
 
@@ -65,8 +64,9 @@ FastAPI는 추론만 하고 DB에 쓰지 않습니다. 결과 저장은 앱이 �
       `Supabase.instance.client.auth.signOut()` 호출이 필요합니다.
 - [ ] 소음 리포트를 실제 `sleep_noise_logs` 데이터로 계산
       (`noise_result_page.dart`는 지금 최대 dB만 보고 규칙 기반 문구를 냅니다)
-- [ ] `assessments`(정상/주의/상담 권장 3단계 판정) 활용. 판정 규칙과 임계값을 먼저
-      정해야 합니다 — 코드보다 결정이 먼저 필요한 항목입니다.
+- [x] `assessments` — **체온만 연동됨.** 나머지 영역(소음·성장·수면·수유·배변)은
+      임계값이 정해지지 않아 미구현입니다. 출처와 검증 상태는
+      [assessment-rules.md](assessment-rules.md) 참고.
 
 ### E. 인프라
 
