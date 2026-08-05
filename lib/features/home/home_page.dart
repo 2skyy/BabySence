@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/baby_service.dart';
 import '../../routes/app_routes.dart';
 import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
@@ -14,8 +15,38 @@ import '../detail/growth/growth_record_page.dart';
 
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  /// 온보딩에서 등록한 아이. 아직 못 불러왔으면 null입니다.
+  Baby? _baby;
+
+  /// 이름을 못 불러온 동안 쓸 표시값. 빈 칸을 두면 화면이 흔들려 보입니다.
+  static const String _fallbackName = '우리 아이';
+
+  String get _babyName => _baby?.name ?? _fallbackName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBaby();
+  }
+
+  Future<void> _loadBaby() async {
+    try {
+      final baby = await BabyService.loadCurrent();
+      if (!mounted) return;
+      setState(() => _baby = baby);
+    } catch (e) {
+      // 이름을 못 불러와도 홈은 보여줍니다. 기록 기능은 각 화면에서 다시 조회합니다.
+      debugPrint('아이 정보 조회 실패: $e');
+    }
+  }
 
   // --- 테마 및 스타일 상수 ---
   static const Color primaryColor = Color(0xFF0059B9);
@@ -215,7 +246,6 @@ class HomePage extends StatelessWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _buildFloatingActionButton(context),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -231,9 +261,9 @@ class HomePage extends StatelessWidget {
             child: Icon(Icons.child_care, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
-          const Text(
-            '아이이름',
-            style: TextStyle(
+          Text(
+            _babyName,
+            style: const TextStyle(
               color: onSurfaceColor,
               fontWeight: FontWeight.bold,
             ),
@@ -250,21 +280,23 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildHeroSection() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 조사(은/는)를 피해 '의'를 씁니다. 받침 유무와 무관하게 자연스럽고,
+        // 아이가 지금 무엇을 하는지 앱은 알 수 없으므로 단정하지 않습니다.
         Text(
-          'baby(아이이름)is\nsleeping very well',
-          style: TextStyle(
+          '$_babyName의\n오늘 하루',
+          style: const TextStyle(
             fontSize: 32,
             height: 1.2,
             fontWeight: FontWeight.w900,
             color: onSurfaceColor,
           ),
         ),
-        SizedBox(height: 8),
-        Text(
-          '아이이름은(는) 지금 아주 잘 자고 있어요',
+        const SizedBox(height: 8),
+        const Text(
+          '기록을 남기면 상태를 분석해 드려요',
           style: TextStyle(fontSize: 16, color: secondaryTextColor),
         ),
       ],
@@ -472,47 +504,6 @@ class HomePage extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.only(top: 10, bottom: 30),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.home, 'Home', true),
-          _navItem(Icons.analytics, 'Insights', false),
-          _navItem(Icons.medical_services, 'Health', false),
-          _navItem(Icons.more_horiz, 'More', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: isActive ? primaryColor : Colors.grey),
-        Text(
-          label,
-          style: TextStyle(
-            color: isActive ? primaryColor : Colors.grey,
-            fontSize: 11,
-          ),
-        ),
-      ],
     );
   }
 

@@ -15,10 +15,11 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/auth_gate.dart';
 import 'features/auth/login/login_page.dart';
 import 'features/auth/signup/signup_page.dart';
 import 'features/detail/detail_page.dart';
-import 'features/home/home_page.dart';
+import 'features/shell/main_shell.dart';
 import 'features/mypage/mypage_page.dart';
 import 'features/onboarding/child_info_page.dart';
 import 'features/settings/settings_page.dart';
@@ -321,12 +322,13 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'BabySence',
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.login,
+      // 저장된 세션이 있으면 로그인 화면을 건너뛰도록 AuthGate가 판단합니다.
+      home: const AuthGate(),
       routes: {
         AppRoutes.login: (context) => const LoginPage(),
         AppRoutes.signup: (context) => const SignupPage(),
         AppRoutes.onboarding: (context) => const ChildInfoPage(),
-        AppRoutes.home: (context) => const HomePage(),
+        AppRoutes.home: (context) => const MainShell(),
         AppRoutes.detail: (context) => const DetailPage(),
         AppRoutes.mypage: (context) => const MyPagePage(),
         AppRoutes.settings: (context) => const SettingsPage(),

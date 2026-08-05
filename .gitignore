@@ -36,3 +36,5 @@ app.*.map.json
 
 # 환경 설정 (env.example.json을 복사해서 만드세요)
 env.json
+# 골든 테스트 실패 시 생성되는 비교 이미지
+**/failures/

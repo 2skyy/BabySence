@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../routes/app_routes.dart';
 
 class MyPagePage extends StatelessWidget {
   const MyPagePage({super.key});
+
+  /// 로그아웃 후 로그인 화면으로 보내고 이전 화면들을 모두 걷어냅니다.
+  /// 스택을 남겨두면 뒤로가기로 다른 사용자의 화면에 돌아갈 수 있습니다.
+  Future<void> _handleLogout(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await Supabase.instance.client.auth.signOut();
+      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('로그아웃하지 못했습니다. $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +72,7 @@ class MyPagePage extends StatelessWidget {
                     icon: Icons.logout,
                     title: 'Logout',
                     color: const Color(0xFFE53935),
-                    onTap: () {},
+                    onTap: () => _handleLogout(context),
                   ),
 
                   const SizedBox(height: 40),
