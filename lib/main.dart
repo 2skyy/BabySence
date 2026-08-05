@@ -18,7 +18,6 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/auth_gate.dart';
 import 'features/auth/login/login_page.dart';
 import 'features/auth/signup/signup_page.dart';
-import 'features/detail/detail_page.dart';
 import 'features/shell/main_shell.dart';
 import 'features/mypage/mypage_page.dart';
 import 'features/onboarding/child_info_page.dart';
@@ -329,7 +328,6 @@ class MyApp extends StatelessWidget {
         AppRoutes.signup: (context) => const SignupPage(),
         AppRoutes.onboarding: (context) => const ChildInfoPage(),
         AppRoutes.home: (context) => const MainShell(),
-        AppRoutes.detail: (context) => const DetailPage(),
         AppRoutes.mypage: (context) => const MyPagePage(),
         AppRoutes.settings: (context) => const SettingsPage(),
       },

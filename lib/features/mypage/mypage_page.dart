@@ -1,162 +1,278 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/constants/app_spacing.dart';
-import '../../routes/app_routes.dart';
 
-class MyPagePage extends StatelessWidget {
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_spacing.dart';
+import '../../core/services/baby_service.dart';
+import '../../core/services/growth_calculator.dart';
+import '../../core/widgets/common_app_bar.dart';
+import '../../routes/app_routes.dart';
+import 'baby_member_service.dart';
+import 'co_parenting_page.dart';
+
+/// 마이페이지 — **누구인지**에 대한 것만 둡니다.
+///
+/// 내 정보 / 아이 / 함께 키우는 사람. 알림·화면·버전 같은 앱 동작 설정은
+/// SettingsPage로 보냅니다. 예전에는 두 화면이 같은 항목을 나눠 갖고 있어
+/// 어디로 가야 할지 알기 어려웠습니다.
+class MyPagePage extends StatefulWidget {
   const MyPagePage({super.key});
 
-  /// 로그아웃 후 로그인 화면으로 보내고 이전 화면들을 모두 걷어냅니다.
-  /// 스택을 남겨두면 뒤로가기로 다른 사용자의 화면에 돌아갈 수 있습니다.
-  Future<void> _handleLogout(BuildContext context) async {
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+  @override
+  State<MyPagePage> createState() => _MyPagePageState();
+}
 
+class _MyPagePageState extends State<MyPagePage> {
+  Baby? _baby;
+  bool _loading = true;
+
+  /// 함께 보는 사람 수. 아이가 없거나 조회에 실패하면 null입니다.
+  int? _memberCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
     try {
-      await Supabase.instance.client.auth.signOut();
-      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+      final baby = await BabyService.loadCurrent();
+      final count = baby == null
+          ? null
+          : (await BabyMemberService.loadMembers(baby.id)).length;
+      if (!mounted) return;
+      setState(() {
+        _baby = baby;
+        _memberCount = count;
+      });
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('로그아웃하지 못했습니다. $e')),
-      );
+      debugPrint('아이 정보 조회 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
+
+  User? get _user => Supabase.instance.client.auth.currentUser;
+
+  String get _displayName {
+    final name = (_user?.userMetadata?['name'] as String?)?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final email = _user?.email ?? '';
+    return email.isNotEmpty ? email.split('@').first : '사용자';
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F7),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-
-            const SizedBox(height: AppSpacing.md),
-
-            // 👉 리스트를 확장해서 아래까지 채움
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
-                children: [
-                  _buildSectionTitle('Account'),
-                  _buildMenuItem(
-                    icon: Icons.settings,
-                    title: 'Settings',
-                    color: const Color(0xFF6C63FF),
-                    onTap: () => navigateToSettings(context),
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  _buildSectionTitle('General'),
-                  _buildMenuItem(
-                    icon: Icons.notifications,
-                    title: 'Notifications',
-                    color: const Color(0xFF4CAF50),
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _buildMenuItem(
-                    icon: Icons.favorite,
-                    title: 'Favorites',
-                    color: const Color(0xFFFF9800),
-                    onTap: () {},
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  _buildSectionTitle('Other'),
-                  _buildMenuItem(
-                    icon: Icons.logout,
-                    title: 'Logout',
-                    color: const Color(0xFFE53935),
-                    onTap: () => _handleLogout(context),
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ],
-        ),
+      backgroundColor: AppColors.background,
+      appBar: const CommonAppBar(title: '마이페이지'),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: [
+          _sectionTitle('내 정보'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildProfileCard(),
+          const SizedBox(height: AppSpacing.xl),
+          _sectionTitle('아이'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildBabyCard(),
+          const SizedBox(height: AppSpacing.xl),
+          _sectionTitle('함께 키우기'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildCoParentCard(),
+        ],
       ),
     );
   }
 
-  // 🔥 헤더 줄이고 좌측 정렬로 변경 (덜 부담스럽게)
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+  Widget _sectionTitle(String title) => Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      );
+
+  /// 내 정보. 이름은 가입 시 넣은 값이 세션에 남아 있어 조회 없이 씁니다.
+  Widget _buildProfileCard() {
+    return _card(
       child: Row(
-        children: const [
-          CircleAvatar(
+        children: [
+          const CircleAvatar(
             radius: 28,
-            backgroundColor: Color(0xFF6C63FF),
+            backgroundColor: AppColors.brand,
             child: Icon(Icons.person, color: Colors.white),
           ),
-          SizedBox(width: AppSpacing.md),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'User Name',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _displayName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'user@email.com',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  _user?.email ?? '',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // 📌 섹션 타이틀 추가 → 밋밋함 해결
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.grey,
-          fontWeight: FontWeight.bold,
+  /// 등록된 아이. 없으면 온보딩으로 보냅니다.
+  Widget _buildBabyCard() {
+    if (_loading) {
+      return _card(
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
+      );
+    }
+
+    final baby = _baby;
+    if (baby == null) {
+      return _card(
+        onTap: () async {
+          await Navigator.pushNamed(context, AppRoutes.onboarding);
+          if (mounted) _load();
+        },
+        child: const Row(
+          children: [
+            Icon(Icons.add_circle_outline, color: AppColors.primary),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                '아이 정보를 등록해 주세요',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
+      );
+    }
+
+    return _card(
+      child: Row(
+        children: [
+          const Icon(Icons.child_care, color: AppColors.brand, size: 28),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  baby.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${baby.sex == ChildSex.male ? '남아' : '여아'} · '
+                  '${_formatDate(baby.birthDate)} 출생',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // 🎨 카드 색 살짝 넣어서 무채색 탈출
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08), // 👉 핵심 (톤 컬러)
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(title),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+  /// 함께 키우는 사람 관리.
+  ///
+  /// 돌아올 때 다시 읽습니다. 초대를 수락해 아이가 새로 생겼거나, 함께 보기를
+  /// 그만두어 아이가 사라졌을 수 있습니다.
+  Widget _buildCoParentCard() {
+    final count = _memberCount;
+
+    return _card(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CoParentingPage()),
+        );
+        if (mounted) _load();
+      },
+      child: Row(
+        children: [
+          const Icon(Icons.group_outlined, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '함께 보는 사람 관리',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  count == null
+                      ? '배우자나 조부모를 초대할 수 있어요'
+                      : count <= 1
+                          ? '아직 나 혼자예요'
+                          : '$count명이 함께 보고 있어요',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        ],
       ),
     );
   }
 
-  // 🚀 컨벤션 유지
-  void navigateToSettings(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.settings);
+  Widget _card({required Widget child, VoidCallback? onTap}) {
+    final content = Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: child,
+    );
+
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: content,
+            ),
+    );
   }
 }

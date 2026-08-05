@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 
 import '../../core/services/baby_service.dart';
 import '../../core/services/growth_calculator.dart';
@@ -156,8 +157,8 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                   hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                   border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),
@@ -203,8 +204,8 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                   hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                   border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),
@@ -217,7 +218,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _handleSave,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3182F6),
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -258,9 +259,9 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
         height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3182F6).withValues(alpha: 0.1) : Colors.white,
+          color: selected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
           border: Border.all(
-            color: selected ? const Color(0xFF3182F6) : Colors.grey[300]!,
+            color: selected ? AppColors.primary : Colors.grey[300]!,
             width: selected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -270,7 +271,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: selected ? const Color(0xFF3182F6) : Colors.grey[600],
+            color: selected ? AppColors.primary : Colors.grey[600],
           ),
         ),
       ),

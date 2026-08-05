@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../analysis/analysis_page.dart';
 import '../community/community_page.dart';
 import '../home/home_page.dart';
-import 'coming_soon_page.dart';
+import '../records/records_page.dart';
+import 'more_page.dart';
 
 /// 하단 탭 5개를 담는 껍데기.
 ///
@@ -34,19 +36,10 @@ class _MainShellState extends State<MainShell> {
         index: _index,
         children: const [
           HomePage(),
-          ComingSoonPage(
-            title: '기록',
-            description: '수유 · 배변 · 수면 · 체온 기록을\n한 곳에서 모아 보는 화면입니다.',
-          ),
-          ComingSoonPage(
-            title: '분석',
-            description: '기록을 모아 추이와 판정을\n한눈에 보여주는 화면입니다.',
-          ),
+          RecordsPage(),
+          AnalysisPage(),
           CommunityPage(),
-          ComingSoonPage(
-            title: '전체',
-            description: '마이페이지 · 설정 등\n전체 메뉴를 모아 놓을 화면입니다.',
-          ),
+          MorePage(),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(),

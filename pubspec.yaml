@@ -45,5 +45,8 @@ flutter:
     - assets/images/google_logo.png
     - assets/images/apple_logo.png
 
+    # 앱 아이콘 원본. 실행 직후 로딩 화면에서도 씁니다.
+    - assets/icon/app_icon.png
+
     # ★ 수정: assets/audio/ 폴더 전체 등록 (개별 파일 대신 폴더 경로 지정)
     - assets/audio/

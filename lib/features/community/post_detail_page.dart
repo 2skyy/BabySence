@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import 'community_models.dart';
 import 'community_service.dart';
+import 'post_write_page.dart';
 
 /// 글 상세 + 댓글.
 class PostDetailPage extends StatefulWidget {
@@ -18,6 +19,10 @@ class PostDetailPage extends StatefulWidget {
 class _PostDetailPageState extends State<PostDetailPage> {
   final _commentController = TextEditingController();
 
+  /// 수정하면 내용이 바뀌므로 상태로 들고 있습니다.
+  /// widget.post는 처음 값이라 수정 후에는 화면과 어긋납니다.
+  late Post _post;
+
   List<Comment> _comments = [];
   bool _loading = true;
   bool _sending = false;
@@ -28,7 +33,58 @@ class _PostDetailPageState extends State<PostDetailPage> {
   @override
   void initState() {
     super.initState();
+    _post = widget.post;
     _load();
+  }
+
+  /// 글 수정 화면을 열고, 바뀐 내용을 받아 화면에 반영합니다.
+  Future<void> _editPost() async {
+    final updated = await Navigator.push<Post>(
+      context,
+      MaterialPageRoute(builder: (_) => PostWritePage(post: _post)),
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _post = updated);
+  }
+
+  /// 댓글 수정. 입력창 하나뿐이라 다이얼로그로 받습니다.
+  Future<void> _editComment(Comment comment) async {
+    final controller = TextEditingController(text: comment.body);
+
+    final body = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('댓글 수정'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: null,
+          maxLength: 500, // DB CHECK와 같은 값
+          decoration: const InputDecoration(hintText: '댓글을 입력하세요'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('수정'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (body == null || body.isEmpty || body == comment.body) return;
+
+    try {
+      await CommunityService.updateComment(id: comment.id, body: body);
+      await _load();
+    } catch (e) {
+      _showMessage('댓글을 수정하지 못했습니다. $e');
+    }
   }
 
   @override
@@ -44,7 +100,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
     });
 
     try {
-      final comments = await CommunityService.loadComments(widget.post.id);
+      final comments = await CommunityService.loadComments(_post.id);
       if (!mounted) return;
       setState(() {
         _comments = comments;
@@ -65,7 +121,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
     setState(() => _sending = true);
     try {
-      await CommunityService.addComment(postId: widget.post.id, body: body);
+      await CommunityService.addComment(postId: _post.id, body: body);
       _commentController.clear();
       await _load();
     } catch (e) {
@@ -80,7 +136,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
     if (ok != true) return;
 
     try {
-      await CommunityService.deletePost(widget.post.id);
+      await CommunityService.deletePost(_post.id);
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
@@ -127,7 +183,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final post = widget.post;
+    final post = _post;
     final names = AnonymousNames(
       postAuthorId: post.authorId,
       comments: _comments,
@@ -142,11 +198,16 @@ class _PostDetailPageState extends State<PostDetailPage> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
-          if (post.authorId == _myId)
+          if (post.authorId == _myId) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: _editPost,
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: _confirmDeletePost,
             ),
+          ],
         ],
       ),
       body: Column(
@@ -285,7 +346,16 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
               const Spacer(),
-              if (isMine)
+              if (isMine) ...[
+                InkWell(
+                  onTap: () => _editComment(comment),
+                  child: const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(Icons.edit_outlined,
+                        size: 15, color: AppColors.textSecondary),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 InkWell(
                   onTap: () => _confirmDeleteComment(comment),
                   child: const Padding(
@@ -293,6 +363,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     child: Icon(Icons.close, size: 15, color: AppColors.textSecondary),
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.xs),

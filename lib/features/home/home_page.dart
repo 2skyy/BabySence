@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 
 import '../../core/services/baby_service.dart';
-import '../../routes/app_routes.dart';
+import '../detail/diaper_record_service.dart';
+import '../detail/feeding_record_service.dart';
+import '../detail/sleep_record_service.dart';
+import '../detail/temperature_record_service.dart';
+import 'today_summary.dart';
 import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
@@ -37,19 +42,62 @@ class _HomePageState extends State<HomePage> {
     _loadBaby();
   }
 
+  /// 오늘의 기록 요약. 아직 못 읽었으면 비어 있습니다.
+  TodaySummary _today = TodaySummary.empty;
+
+  /// 요약을 불러오는 중인지. 불러오기 전에 '기록 없음'을 보여주면
+  /// 실제로 기록이 있는데도 없다고 오해하게 됩니다.
+  bool _loadingToday = true;
+
   Future<void> _loadBaby() async {
     try {
       final baby = await BabyService.loadCurrent();
       if (!mounted) return;
       setState(() => _baby = baby);
+
+      if (baby != null) await _loadToday(baby.id);
     } catch (e) {
       // 이름을 못 불러와도 홈은 보여줍니다. 기록 기능은 각 화면에서 다시 조회합니다.
       debugPrint('아이 정보 조회 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loadingToday = false);
     }
   }
 
+  /// 오늘의 마지막 기록 네 가지를 함께 읽습니다.
+  /// 서로 독립이라 순서대로 기다릴 이유가 없어 동시에 요청합니다.
+  Future<void> _loadToday(String babyId) async {
+    try {
+      final results = await Future.wait([
+        FeedingRecordService.loadRecent(babyId, limit: 5),
+        TemperatureRecordService.loadRecent(babyId, limit: 5),
+        DiaperRecordService.loadRecent(babyId, limit: 5),
+        SleepRecordService.loadRecent(babyId, limit: 5),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _today = TodaySummary.from(
+          feedings: results[0] as List<FeedingRecord>,
+          temperatures: results[1] as List<TemperatureRecord>,
+          diapers: results[2] as List<DiaperRecord>,
+          sleeps: results[3] as List<SleepRecord>,
+        );
+      });
+    } catch (e) {
+      // 요약을 못 읽어도 홈의 다른 기능은 그대로 씁니다.
+      debugPrint('오늘 기록 조회 실패: $e');
+    }
+  }
+
+  /// 타일 부제목. 아직 불러오는 중이면 비우고, 기록이 없으면 그렇다고 적습니다.
+  String _tileSubtitle(String? value) {
+    if (_loadingToday) return '불러오는 중…';
+    return value ?? '기록 없음';
+  }
+
   // --- 테마 및 스타일 상수 ---
-  static const Color primaryColor = Color(0xFF0059B9);
+  static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF9F9F9);
   static const Color surfaceColor = Colors.white;
   static const Color onSurfaceColor = Color(0xFF1A1C1C);
@@ -57,14 +105,6 @@ class _HomePageState extends State<HomePage> {
   static const Color successColor = Color(0xFF31E193);
 
   // --- 이벤트 처리 / 네비게이션 함수 ---
-
-  void handleSettingsTap(BuildContext context) {
-    navigateToSettings(context);
-  }
-
-  void handleRecordStateTap(BuildContext context) {
-    debugPrint("Record state tapped");
-  }
 
   void handleFeedingRecordTap(BuildContext context) {
     Navigator.push(
@@ -133,10 +173,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void navigateToSettings(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.settings);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,7 +204,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.baby_changing_station,
                   iconColor: primaryColor,
                   title: '수유',
-                  subtitle: '분유 · 160ml',
+                  subtitle: _tileSubtitle(_today.feedingLabel),
                   onTap: () => handleFeedingRecordTap(context),
                 ),
                 _buildSquareRecordButton(
@@ -176,7 +212,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.thermostat,
                   iconColor: Colors.red,
                   title: '체온',
-                  subtitle: '36.5°C',
+                  subtitle: _tileSubtitle(_today.temperatureLabel),
                   onTap: () => handleTemperatureRecordTap(context),
                 ),
                 _buildSquareRecordButton(
@@ -184,7 +220,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.opacity,
                   iconColor: Colors.amber,
                   title: '배변',
-                  subtitle: '소변',
+                  subtitle: _tileSubtitle(_today.diaperLabel),
                   onTap: () => handleDiaperRecordTap(context),
                 ),
                 _buildSquareRecordButton(
@@ -192,7 +228,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.bedtime,
                   iconColor: Colors.indigo,
                   title: '수면',
-                  subtitle: '오전 11:20 ~ 오후 01:00',
+                  subtitle: _tileSubtitle(_today.sleepLabel),
                   onTap: () => handleSleepRecordTap(context), // 깔끔하게 직통 연동
                 ),
                 _buildSquareRecordButton(
@@ -244,8 +280,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _buildFloatingActionButton(context),
     );
   }
 
@@ -270,12 +304,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.settings, color: Colors.grey),
-          onPressed: () => handleSettingsTap(context),
-        ),
-      ],
     );
   }
 
@@ -332,7 +360,7 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  'FEEDING AI',
+                  '오늘의 수유',
                   style: TextStyle(
                     color: primaryColor,
                     fontSize: 10,
@@ -341,41 +369,62 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.circle, size: 8, color: successColor),
+              if (_today.feeding != null)
+                const Icon(Icons.circle, size: 8, color: successColor),
             ],
           ),
           const SizedBox(height: 16),
-          RichText(
-            text: const TextSpan(
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: onSurfaceColor,
-              ),
-              children: [
-                TextSpan(text: '다음 수유까지 '),
-                TextSpan(
-                  text: '1시간',
-                  style: TextStyle(color: primaryColor),
-                ),
-                TextSpan(text: ' 남았어요'),
-              ],
+          Text(
+            _feedingHeadline,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: onSurfaceColor,
             ),
           ),
           const SizedBox(height: 16),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '마지막 수유: 오전 10:30',
-                style: TextStyle(color: secondaryTextColor),
+              Expanded(
+                child: Text(
+                  _feedingDetail,
+                  style: const TextStyle(color: secondaryTextColor),
+                ),
               ),
-              Icon(Icons.schedule, color: primaryColor, size: 32),
+              const Icon(Icons.schedule, color: primaryColor, size: 32),
             ],
           ),
         ],
       ),
     );
+  }
+
+  /// 수유 카드의 큰 문구.
+  ///
+  /// '다음 수유까지 N시간' 같은 예측은 넣지 않습니다. 아이마다 수유 간격이
+  /// 다르고 그 기준을 정한 바가 없어, 숫자를 지어내는 것이 되기 때문입니다.
+  String get _feedingHeadline {
+    if (_loadingToday) return '기록을 불러오는 중이에요';
+    final f = _today.feeding;
+    if (f == null) return '오늘 수유 기록이 없어요';
+
+    final elapsed = DateTime.now().difference(f.fedAt);
+    if (elapsed.inMinutes < 60) return '${elapsed.inMinutes}분 전에 먹었어요';
+    return '${elapsed.inHours}시간 전에 먹었어요';
+  }
+
+  /// 카드 아래 보조 문구.
+  String get _feedingDetail {
+    if (_loadingToday) return '';
+    final f = _today.feeding;
+    if (f == null) return '수유 타일을 눌러 기록을 남겨보세요';
+
+    final at = f.fedAt;
+    final period = at.hour < 12 ? '오전' : '오후';
+    final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+    final time = '$period $h:${at.minute.toString().padLeft(2, '0')}';
+    return '마지막 수유: $time · ${f.summary}';
   }
 
   Widget _buildSquareRecordButton({
@@ -481,28 +530,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingActionButton(BuildContext context) {
-    return Container(
-      height: 64,
-      margin: const EdgeInsets.only(bottom: 80),
-      child: FloatingActionButton.extended(
-        onPressed: () => handleRecordStateTap(context),
-        backgroundColor: primaryColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          '아이 상태 기록하기',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
     );
   }

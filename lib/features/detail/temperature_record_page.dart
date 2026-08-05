@@ -16,7 +16,7 @@ class TemperatureRecordPage extends StatefulWidget {
 }
 
 class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
-  static const Color buttonBlue = Color(0xFF2F80ED);
+  static const Color buttonBlue = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
   static const Color textColor = Color(0xFF1F2937);
   static const double defaultTemperature = 36.5;

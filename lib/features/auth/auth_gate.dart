@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../routes/app_routes.dart';
+import '../shell/brand_splash.dart';
 import 'post_auth_route.dart';
 
 /// 앱을 열었을 때 저장된 로그인 세션이 있는지 보고 첫 화면을 정합니다.
@@ -42,8 +43,7 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    // 첫 화면을 정하는 동안 보이는 화면입니다.
+    return const BrandSplash();
   }
 }

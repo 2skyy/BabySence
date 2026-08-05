@@ -3,20 +3,36 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/widgets/common_button.dart';
+import 'community_models.dart';
 import 'community_service.dart';
 
-/// 글 작성. 저장에 성공하면 true를 돌려주고 닫힙니다.
+/// 글 작성 · 수정.
+///
+/// [post]가 있으면 수정 모드입니다. 입력 폼이 같아 화면을 따로 두지 않았습니다.
+/// 작성에 성공하면 true를, 수정에 성공하면 바뀐 [Post]를 돌려주고 닫힙니다.
 class PostWritePage extends StatefulWidget {
-  const PostWritePage({super.key});
+  /// null이면 새 글, 있으면 그 글을 수정합니다.
+  final Post? post;
+
+  const PostWritePage({super.key, this.post});
 
   @override
   State<PostWritePage> createState() => _PostWritePageState();
 }
 
 class _PostWritePageState extends State<PostWritePage> {
-  final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _bodyController;
   bool _saving = false;
+
+  bool get _isEditing => widget.post != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.post?.title ?? '');
+    _bodyController = TextEditingController(text: widget.post?.body ?? '');
+  }
 
   // DB의 CHECK 제약과 같은 값입니다.
   static const int titleMax = 100;
@@ -40,11 +56,21 @@ class _PostWritePageState extends State<PostWritePage> {
 
     setState(() => _saving = true);
     try {
-      await CommunityService.createPost(title: title, body: body);
-      if (!mounted) return;
-      Navigator.pop(context, true);
+      if (_isEditing) {
+        final updated = await CommunityService.updatePost(
+          id: widget.post!.id,
+          title: title,
+          body: body,
+        );
+        if (!mounted) return;
+        Navigator.pop(context, updated);
+      } else {
+        await CommunityService.createPost(title: title, body: body);
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      _showMessage('글을 올리지 못했습니다. $e');
+      _showMessage(_isEditing ? '글을 수정하지 못했습니다. $e' : '글을 올리지 못했습니다. $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -60,7 +86,7 @@ class _PostWritePageState extends State<PostWritePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('글쓰기'),
+        title: Text(_isEditing ? '글 수정' : '글쓰기'),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
@@ -120,7 +146,7 @@ class _PostWritePageState extends State<PostWritePage> {
               ),
               const SizedBox(height: AppSpacing.lg),
               CommonButton(
-                text: '올리기',
+                text: _isEditing ? '수정하기' : '올리기',
                 isLoading: _saving,
                 onPressed: _submit,
               ),

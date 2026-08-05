@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 // ★ 백색소음 선택 페이지 및 싱글톤 서비스 import
@@ -137,12 +138,12 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: _sleepType == type
-                          ? const Color(0xFF0059B9).withValues(alpha: 0.1)
+                          ? AppColors.primary.withValues(alpha: 0.1)
                           : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _sleepType == type
-                            ? const Color(0xFF0059B9)
+                            ? AppColors.primary
                             : Colors.grey[300]!,
                         width: _sleepType == type ? 2 : 1,
                       ),
@@ -154,7 +155,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                         fontWeight: FontWeight.bold,
                         // 측정 중에는 선택된 쪽만 또렷하게 보여줍니다.
                         color: _sleepType == type
-                            ? const Color(0xFF0059B9)
+                            ? AppColors.primary
                             : (_isNoiseMeasuring ? Colors.grey[350] : Colors.grey[600]),
                       ),
                     ),
@@ -176,7 +177,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('수면 소음 케어'),
-        backgroundColor: const Color(0xFF0059B9),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -231,7 +232,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                         style: TextStyle(
                           fontSize: 56,
                           fontWeight: FontWeight.w900,
-                          color: _isNoiseMeasuring ? currentStatus["textColor"] as Color : const Color(0xFF0059B9),
+                          color: _isNoiseMeasuring ? currentStatus["textColor"] as Color : AppColors.primary,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -243,7 +244,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                   ElevatedButton.icon(
                     onPressed: _toggleNoiseMeasurement,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isNoiseMeasuring ? Colors.grey[800] : const Color(0xFF0059B9),
+                      backgroundColor: _isNoiseMeasuring ? Colors.grey[800] : AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(200, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

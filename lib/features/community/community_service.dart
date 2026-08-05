@@ -55,6 +55,32 @@ class CommunityService {
     return Post.fromMap(row);
   }
 
+  /// 수정할 값. 작성과 달리 author_id는 넣지 않습니다.
+  /// 바꿀 이유가 없고, 넣으면 RLS의 with check에 걸릴 여지만 생깁니다.
+  static Map<String, dynamic> buildPostUpdate({
+    required String title,
+    required String body,
+  }) {
+    return {'title': title.trim(), 'body': body.trim()};
+  }
+
+  /// 본인 글만 수정됩니다. 남의 글에 시도하면 RLS가 막아 0건이 바뀌고,
+  /// select().single()이 예외를 던집니다.
+  static Future<Post> updatePost({
+    required String id,
+    required String title,
+    required String body,
+  }) async {
+    final row = await _client
+        .from('posts')
+        .update(buildPostUpdate(title: title, body: body))
+        .eq('id', id)
+        .select()
+        .single();
+
+    return Post.fromMap(row);
+  }
+
   /// 글을 지우면 댓글도 함께 사라집니다(FK ON DELETE CASCADE).
   static Future<void> deletePost(String id) async {
     await _client.from('posts').delete().eq('id', id);
@@ -95,6 +121,25 @@ class CommunityService {
     await _client.from('comments').insert(
           buildCommentRow(postId: postId, authorId: userId, body: body),
         );
+  }
+
+  static Map<String, dynamic> buildCommentUpdate({required String body}) {
+    return {'body': body.trim()};
+  }
+
+  /// 본인 댓글만 수정됩니다(RLS).
+  static Future<Comment> updateComment({
+    required String id,
+    required String body,
+  }) async {
+    final row = await _client
+        .from('comments')
+        .update(buildCommentUpdate(body: body))
+        .eq('id', id)
+        .select()
+        .single();
+
+    return Comment.fromMap(row);
   }
 
   static Future<void> deleteComment(String id) async {

@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>flutter_project</string>
+	<string>BabySense</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -46,9 +46,9 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>수면 중 아기 주변의 소음을 측정하기 위해 마이크를 사용합니다.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>아기 피부 상태를 촬영해 분석하기 위해 카메라를 사용합니다.</string>
+	<string>아기 피부 상태나 이유식 사진을 촬영하기 위해 카메라를 사용합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>저장된 사진으로 아기 피부 상태를 분석하기 위해 사진 라이브러리를 사용합니다.</string>
+	<string>저장된 사진으로 아기 피부 상태나 이유식을 확인하기 위해 사진 라이브러리를 사용합니다.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

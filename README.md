@@ -1,6 +1,8 @@
 # BabySense
 
-육아 기록/모니터링 Flutter 앱. 로그인·회원가입, 아이 정보 온보딩, 홈 대시보드(소음·피부 분석), 수유/체온/배변/수면/성장 기록, 예방접종, 마이페이지/설정 기능으로 구성됩니다. 다른 육아 앱 대비 차별점은 **피부 AI 분석**이며, 성장 추이 시각화 등 나머지 기능은 하나씩 채워가는 중입니다.
+육아 기록/모니터링 Flutter 앱. 로그인·회원가입, 아이 정보 온보딩, 홈 대시보드, 수유/체온/배변/수면/성장 기록, 예방접종, 커뮤니티, 함께 키우기(공동 육아)로 구성됩니다. 다른 육아 앱 대비 차별점으로 **피부 AI 분석**을 계획하고 있으나 **모델이 아직 없습니다**.
+
+하단 탭 5개: **홈 · 기록 · 분석 · 커뮤니티 · 전체**
 
 ## 시작하기
 
@@ -35,10 +37,17 @@
 - VS Code: `.vscode/launch.json`의 `toolArgs`에 `--dart-define-from-file=env.json`
 - Android Studio: Run/Debug Configurations → **Additional run args**에 같은 값
 
-**3. Supabase 스키마 (DB를 새로 만드는 사람만)**
+**3. Supabase 스키마**
 
-[`supabase/schema.sql`](supabase/schema.sql) 전체를 Supabase 대시보드의
-SQL Editor에 붙여넣고 실행합니다. 테이블 설계는 [`docs/erd.md`](docs/erd.md) 참고.
+- **DB를 새로 만드는 사람**: [`supabase/schema.sql`](supabase/schema.sql) 전체를
+  Supabase 대시보드의 SQL Editor에 붙여넣고 실행합니다.
+- **이미 쓰던 DB가 있는 사람**: [`supabase/migrations/`](supabase/migrations/)의
+  파일을 번호 순으로 실행합니다. 여러 번 실행해도 안전합니다.
+
+> ⚠️ **004(함께 키우기)가 아직 운영 DB에 적용되지 않았습니다.**
+> 적용 전까지 마이페이지 → 함께 키우기 화면이 동작하지 않습니다.
+
+테이블 설계는 [`docs/erd.md`](docs/erd.md) 참고.
 
 소셜 로그인 설정은 [`docs/social-login-setup.md`](docs/social-login-setup.md)에 있습니다.
 
@@ -85,11 +94,19 @@ lib/
     services/    # BabyService, NoiseTracker(+SleepType), GrowthCalculator
     theme/       # AppTheme
     widgets/     # CommonButton, CommonTextField, CommonAppBar
-  features/      # 화면 단위 폴더 (auth, onboarding, detail, home, mypage, settings)
+  features/      # 화면 단위 폴더
     auth/           # 로그인 · 회원가입 · post_auth_route(로그인 후 분기)
     onboarding/     # 아이 정보 최초 등록 (등록 폼은 이 화면 한 곳에만 존재)
+    shell/          # MainShell(하단 탭 5개) · 전체 탭 · 스플래시 · 준비 중 안내
+    home/           # 홈 탭 · TodaySummary(오늘의 마지막 기록)
+    records/        # 기록 탭 — 네 종류를 시간순으로 합친 목록
+    analysis/       # 분석 탭 — 최근 7일 집계 · assessments 조회
     detail/         # 기록 화면 + 화면별 *_service.dart (Supabase 접근)
     detail/growth/  # 성장 기록 모델 · GrowthRepository · 페이지
+    detail/assessment/ # 판정 규칙(체온·소음)과 assessments 저장·조회
+    community/      # 게시글 · 댓글 (작성 · 수정 · 삭제)
+    mypage/         # 내 정보 · 아이 · 함께 키우기(초대 코드)
+    settings/       # 알림 · 화면 · 앱 정보 · 로그아웃
   routes/        # AppRoutes (라우트 문자열 상수)
   main.dart      # 앱 진입점 + Supabase 초기화 + 백그라운드 소음 측정 서비스
 server/          # FastAPI 추론 서버 (피부)
@@ -109,7 +126,56 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 
 ## 최근 변경 사항
 
-### 기록 화면 5종 Supabase 연동 (이번 작업)
+### 함께 키우기 · 기록/분석 탭 · 미완성 화면 정리 (이번 작업)
+
+**함께 키우기** — 아이 하나를 부모 둘이 함께 봅니다.
+([004_add_baby_sharing.sql](supabase/migrations/004_add_baby_sharing.sql))
+
+핵심은 **`owns_baby()` 함수 하나만 바꾸면 기록 테이블 정책 18개가 전부 공유를 따른다**는
+점입니다. 정책을 하나씩 고치면 빠뜨린 테이블이 생기고, 그게 곧 정보 유출입니다.
+
+- `baby_members`(구성원) + `baby_invites`(초대 코드) 테이블
+- **기존 아이를 소유자로 옮기는 backfill이 반드시 먼저입니다.** 없으면 마이그레이션
+  직후 만든 사람조차 자기 아이를 못 봅니다.
+- 초대는 8자리 코드를 불러주는 방식(상대 계정을 몰라도 됨). 혼동되는 `0/O/1/I` 제외,
+  7일 만료, 한 번 쓰면 소멸.
+- `baby_members`에는 **INSERT 정책이 없습니다.** `accept_baby_invite()`
+  (SECURITY DEFINER)만이 구성원을 추가할 수 있어, 아무 아이에나 자신을 끼워 넣을 수 없습니다.
+- 초대받는 쪽은 `baby_invites`를 읽을 권한이 없습니다. 코드 목록을 훑을 수 없습니다.
+- 소유자는 탈퇴할 수 없습니다(주인 없는 아이가 남습니다).
+- 앱 화면: [`co_parenting_page.dart`](lib/features/mypage/co_parenting_page.dart) —
+  구성원 목록, 코드 발급/복사, 코드 입력, 내보내기/그만두기
+
+운영 DB에 넣기 전 **로컬 PostgreSQL에 Supabase의 `auth` 스키마를 흉내 내 18개 시나리오를
+검증**했습니다. 목록은 [`docs/supabase-todo.md`](docs/supabase-todo.md) 참고.
+
+**기록 탭 · 분석 탭** — 둘 다 "준비 중" 안내만 띄우던 자리였습니다.
+
+- **기록 탭**([`lib/features/records/`](lib/features/records/)) — 기록 바로가기 5종 +
+  **수유·배변·수면·체온을 시간순으로 합친 목록**(날짜별 `오늘`/`어제` 머리글).
+  종전에는 수유 화면에서 수유만 보여 밤사이 흐름을 이어서 볼 수 없었습니다.
+  아직 끝나지 않은 수면도 목록에 남깁니다 — 빠지면 "지금 자는 중"을 알 수 없습니다.
+- **분석 탭**([`lib/features/analysis/`](lib/features/analysis/)) — 최근 7일 집계와
+  판정 이력. 체온 화면이 `assessments`에 **저장은 계속 하고 있었는데
+  `loadRecent()`가 한 번도 호출되지 않던 상태**였습니다.
+  수면 합계는 끝난 수면만 더하므로 `끝난 수면 N건 기준`을 함께 적어 실제보다 짧게 나올 수
+  있음을 숨기지 않습니다.
+
+**버튼은 있는데 아무 일도 안 하던 것들**
+
+- 이유식 분석의 `handleAnalyze()`가 `debugPrint` 한 줄이었고, 화면에 `사진 선택 UI (기능
+  없음)`이라고 적혀 있었습니다. **사진 선택(카메라/앨범)까지 실제로 동작**하게 하고,
+  분석 버튼은 모델이 없다고 알립니다. `AI가 성분을 분석해줍니다`라는 문구도 사실에
+  맞게 고쳤습니다.
+- 죽은 코드 제거: `detail_page.dart`(`'Detail Page'` 스텁)와 `/detail` 라우트,
+  등록도 사용도 되지 않던 라우트 상수 3개.
+
+**테스트 170건 전부 통과** (145 → 170). 새 로직은 순수 함수로 분리해 자격 증명 없이
+검증합니다 — `mergeRecentRecords`, `WeeklySummary.from`, 초대 코드 정규화.
+페이지 자체도 Supabase 없이 띄워 **조회 실패를 안내로 바꾸는지, 글자 확대 시 넘치지
+않는지**를 확인합니다.
+
+### 기록 화면 5종 Supabase 연동
 
 수유·배변·수면·체온·예방접종 화면은 UI만 있고 저장 코드가 없어, 입력해도 화면을
 나가면 사라졌습니다. 5종 모두 Supabase에 저장하도록 연결했습니다.
@@ -228,42 +294,79 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
   - `lib/features/detail/growth/`: `GrowthRecord`/`GrowthProfile` 모델, `shared_preferences` 기반 로컬 저장 서비스(백엔드 API가 아직 없어 로컬에만 저장), `GrowthRecordPage`(입력 폼 + 이력 + `fl_chart` 라인 차트)
   - `pubspec.yaml`에 `fl_chart`, `shared_preferences` 의존성 추가
 
-## 알려진 이슈
+## 앞으로 해야 할 일
 
-남은 작업 목록은 [`docs/supabase-todo.md`](docs/supabase-todo.md)에 정리되어 있습니다.
+세부 목록은 [`docs/supabase-todo.md`](docs/supabase-todo.md)에 있습니다. 여기서는 순서와
+이유만 적습니다.
 
-**미구현**
+### 1순위 — 바로 할 수 있고, 막고 있는 것
 
-- 홈 화면의 값(`'아이이름'`, `'분유 · 160ml'`, `'36.5°C'` 등)이 전부 하드코딩입니다.
-- `mypage_page.dart`의 Logout 메뉴가 `onTap: () {}` 상태입니다. `auth.signOut()` 연결이 필요합니다.
-- 앱 재시작 시 저장된 세션을 확인하지 않고 항상 로그인 화면으로 진입합니다.
-- `assessments` 테이블(정상/주의/상담 권장 3단계 판정)에 접근하는 코드가 아직 없습니다. 판정 규칙과 임계값을 먼저 정해야 합니다.
-- 앱이 사용하는 테이블은 14개 중 **11개**입니다. 쓰지 않는 것은 `skin_analyses`(모델 자체가 없음), `device_tokens`(FCM 미설정), `profiles`(트리거가 자동 생성하며 앱은 읽지 않음)입니다.
+| 할 일 | 왜 지금인가 |
+|---|---|
+| **운영 Supabase에 004 실행** | 함께 키우기 코드는 다 됐는데 DB가 없어 동작하지 않습니다. 2026-08-06 확인 시 `list_baby_members`가 `PGRST202`(함수 없음) |
+| **계정 두 개로 함께 키우기 확인** | 로컬에서만 검증했습니다. 실제 초대 발급 → 입력 흐름은 미확인 |
+| **기록 5종 실제 저장 확인** | CHECK 제약은 테스트로 막았지만 실제 행이 들어가는 건 확인 못 했습니다. 모유(직수)/소변/'없음'/자정 넘김 4가지 조합 |
+| **운영 DB의 테스트 데이터 정리** | 아이 `검증아기`와 기록 4건, `community-*@babysense.dev` 계정 2개 |
 
-**설정이 필요한 것**
+### 2순위 — 남이 해줘야 진행되는 것
 
-- 피부 AI 모델이 없어 `POST /api/skin/diagnose`가 503을 반환합니다.
-- Supabase 대시보드에서 Google·Kakao provider가 꺼져 있어 소셜 로그인이 실패합니다. Redirect URLs에 `babysense://login-callback` 등록도 필요합니다.
-- 애플 로그인 미구현(Apple Developer Program 필요). iOS 앱스토어는 소셜 로그인이 있으면 Sign in with Apple을 요구합니다.
-- Firebase 설정 파일(`google-services.json`, `GoogleService-Info.plist`)이 없어 FCM이 동작하지 않습니다.
+| 할 일 | 막고 있는 것 |
+|---|---|
+| **Firebase 설정 파일** | 없어서 FCM 전체가 죽어 있습니다. 기록 알림 · 예방접종 알림 · `device_tokens` 테이블이 전부 여기 걸려 있습니다 |
+| **Supabase Google·Kakao provider 켜기** | 코드는 준비됐는데 서버에서 꺼져 있어 소셜 로그인이 실패합니다 |
+| **피부 AI 모델** | 없어서 `/api/skin/diagnose`가 503입니다. **현재 동작하는 추론 엔드포인트가 하나도 없습니다** |
+| **이유식 성분 분석 모델** | 사진 선택까지만 동작합니다 |
+| **Apple Developer Program** ($99/년) | 애플 로그인 미구현. iOS 앱스토어는 소셜 로그인이 있으면 Sign in with Apple을 요구합니다 |
 
-**검증 상태**
+### 3순위 — 근거가 정해져야 하는 것
 
-확인됨 (실기기)
+- **마이크 보정 검증** — `NoiseTracker`의 `-15dB`는 근거 없는 경험값입니다.
+  실제 소음계와 대조하기 전에는 WHO 기준(평균 30dB / 순간 45dB)과 견줄 수 없습니다.
+  **논문에 소음 수치를 쓴다면 이게 선행 조건입니다.**
+- **소음 판정을 `noise_rules.dart`에 연결** — 규칙은 WHO 1999 근거로 써 뒀지만
+  `noise_result_page.dart`는 여전히 임의의 50/70dB를 씁니다. 위 보정이 먼저입니다.
+- **나머지 영역 판정 임계값** — 성장·수면·수유·배변은 출처를 찾지 못해 비워 뒀습니다.
+  체온만 [25]~[28] 근거로 확정했습니다. 상태는
+  [`docs/assessment-rules.md`](docs/assessment-rules.md) 참고.
 
-- 소음 측정을 시작하면 `sleep_records`에 행이 생기고, `sleep_type`이 화면에서 고른 값(`night`/`nap`)과 일치합니다. 백그라운드 isolate의 Supabase 초기화가 동작한다는 뜻이기도 합니다.
+### 의도적으로 비워둔 것 (버그가 아님)
 
-확인됨 (iOS 시뮬레이터)
+육아 가이드 · 진료용 리포트 · 공지사항 · 1:1 문의 · 다크 모드. 전부 "준비 중" 안내가
+뜹니다. 눌러도 반응이 없으면 고장으로 보이기 때문입니다.
 
-- 앱 실행, Supabase 초기화, 마이크 권한 요청 시 강제 종료 없음(`Info.plist` 수정 확인), 로그인 화면 렌더링.
+## 검증 상태
 
-아직 확인되지 않음
+**확인됨 (실기기)**
 
+- 소음 측정을 시작하면 `sleep_records`에 행이 생기고, `sleep_type`이 화면에서 고른
+  값(`night`/`nap`)과 일치합니다. 백그라운드 isolate의 Supabase 초기화가 동작한다는 뜻이기도 합니다.
+
+**확인됨 (iOS 시뮬레이터, 2026-08-06)**
+
+- iPhone 17 Pro에서 Xcode 빌드 성공(46.4s), 앱 실행.
+- Supabase 연결 정상 — 세션이 복원되고 `babies` 조회가 성공해 온보딩 화면까지 진입.
+- 마이크 권한 요청 시 강제 종료 없음(`Info.plist` 수정 확인).
+- Firebase는 설정 파일이 없어 `🔴 Firebase 초기화 실패: [core/not-initialized]`가 찍히지만
+  **앱은 계속 동작합니다.**
+
+**확인됨 (로컬 PostgreSQL)**
+
+- 004 마이그레이션 18개 시나리오. 목록은 [`docs/supabase-todo.md`](docs/supabase-todo.md).
+
+**확인됨 (자동 테스트, 170건)**
+
+- 기록 합치기·7일 집계·초대 코드 정규화 같은 순수 로직.
+- 기록/분석 탭이 조회 실패를 안내로 바꾸는지, 글자를 1.3배로 키워도 넘치지 않는지.
+
+**아직 확인되지 않음**
+
+- 새 기록/분석 탭에 **실제 데이터가 든 화면** — 시뮬레이터 계정에 아이가 등록돼 있지
+  않아 빈 상태만 봤습니다. macOS 접근성 권한이 없어 GUI 자동 조작이 막혀 있습니다.
+- 함께 키우기 실제 흐름 (004 미적용).
 - 30건마다 `sleep_noise_logs`에 배치가 쌓이는지, 전송 실패 후 재시도가 동작하는지.
 - 측정을 중지하면 `sleep_records.ended_at`이 채워지는지.
-- 로그인 이후 흐름(온보딩 → `babies` 저장 → 성장 기록).
-- `NoiseTracker`의 `-15dB` 보정값은 근거가 없는 경험값입니다. 논문에 소음 수치를 쓴다면 실제 소음계와 대조해 정해야 합니다.
 
-**플랫폼 차이**
+## 플랫폼 차이
 
-- iOS는 `BGAppRefreshTask` 기반이라 **연속 소음 측정이 불가능**합니다. Android는 foreground service로 계속 측정할 수 있습니다. 두 플랫폼의 기능을 동일하게 문서화하면 안 됩니다.
+- iOS는 `BGAppRefreshTask` 기반이라 **연속 소음 측정이 불가능**합니다. Android는
+  foreground service로 계속 측정할 수 있습니다. 두 플랫폼의 기능을 동일하게 문서화하면 안 됩니다.

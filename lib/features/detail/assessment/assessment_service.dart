@@ -37,6 +37,7 @@ class AssessmentService {
           guideText: row['guide_text'] as String,
           inputs: Map<String, dynamic>.from(row['inputs'] as Map),
           ruleVersion: row['rule_version'] as String,
+          assessedAt: DateTime.parse(row['assessed_at'] as String).toLocal(),
         ),
     ];
   }

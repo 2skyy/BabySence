@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth_error_message.dart';
 import '../post_auth_route.dart';
@@ -151,8 +152,8 @@ class _SignupPageState extends State<SignupPage> {
                             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                             border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                           ),
                         ),
@@ -167,8 +168,8 @@ class _SignupPageState extends State<SignupPage> {
                             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                             border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                           ),
                         ),
@@ -183,8 +184,8 @@ class _SignupPageState extends State<SignupPage> {
                             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                             border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                           ),
                         ),
@@ -199,8 +200,8 @@ class _SignupPageState extends State<SignupPage> {
                             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
                             border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF3182F6), width: 2),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
                           ),
                         ),
@@ -214,7 +215,7 @@ class _SignupPageState extends State<SignupPage> {
                           child: ElevatedButton(
                             onPressed: handleSignupSubmit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3182F6),
+                              backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),

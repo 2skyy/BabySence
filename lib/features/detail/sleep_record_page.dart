@@ -280,13 +280,19 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '총 수면 시간',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: secondaryTextColor,
+                    // 글자 크기를 키운 기기에서 라벨과 값이 한 줄을 넘겼습니다.
+                    // 라벨이 먼저 줄어들도록 두고 값은 그대로 보여줍니다.
+                    const Flexible(
+                      child: Text(
+                        '총 수면 시간',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: secondaryTextColor,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       getTotalSleepTime(),
                       style: const TextStyle(
@@ -387,74 +393,89 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     final selectedPeriod = isStart ? startPeriod : endPeriod;
 
     return Container(
-      // ★ 수정: 내부 좌우 패딩을 12 -> 6으로 줄여 좁은 기기에서도 텍스트 밀림현상을 방어합니다.
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      // 한 줄에 오전/오후 + 시:분을 모두 넣으면 좁은 기기나 글자 확대 설정에서
+      // 넘칩니다(320px에서 23px, 1.3배에서 12px 초과). 두 줄로 나눕니다.
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          DropdownButton<String>(
-            value: selectedPeriod,
-            underline: const SizedBox(),
-            isDense: true,
-            items: const [
-              DropdownMenuItem(value: '오전', child: Text('오전')),
-              DropdownMenuItem(value: '오후', child: Text('오후')),
+          // 오전/오후는 두 값뿐이라 드롭다운 대신 눌러서 바꾸는 칩으로 둡니다.
+          // 화살표 아이콘이 차지하던 폭도 함께 사라집니다.
+          _periodToggle(isStart: isStart, selected: selectedPeriod),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              // 남은 폭을 반씩 나눠 갖게 해서 어떤 글자 배율에서도 넘치지 않게 합니다.
+              Expanded(child: _timeField(hourController)),
+              const Text(':',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Expanded(child: _timeField(minuteController)),
             ],
-            onChanged: (value) {
-              setState(() {
-                if (isStart) {
-                  startPeriod = value!;
-                } else {
-                  endPeriod = value!;
-                }
-              });
-            },
           ),
-          const SizedBox(width: 2), // ★ 수정: 간격 미세 조정
-          SizedBox(
-            width: 20, // ★ 수정: 가로폭 최적화
-            child: TextField(
-              controller: hourController,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              maxLength: 2,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                counterText: '',
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-          const Text(':', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(
-            width: 20, // ★ 수정: 가로폭 최적화
-            child: TextField(
-              controller: minuteController,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              maxLength: 2,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                counterText: '',
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 2),
-          const Icon(Icons.access_time, size: 14, color: Colors.grey), // ★ 크기 살짝 축소
         ],
       ),
+    );
+  }
+
+  /// 오전/오후 전환. 값이 둘뿐이라 누를 때마다 뒤집습니다.
+  Widget _periodToggle({required bool isStart, required String selected}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        setState(() {
+          final next = selected == '오전' ? '오후' : '오전';
+          if (isStart) {
+            startPeriod = next;
+          } else {
+            endPeriod = next;
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              selected,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.swap_horiz, size: 14, color: primaryColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 시 또는 분 입력칸.
+  ///
+  /// 폭을 고정하지 않습니다. TextField는 고유 폭이 크게 잡혀서 IntrinsicWidth로
+  /// 감싸면 칸이 부풀어 좁은 기기에서 넘칩니다. 부모 Row가 Expanded로 폭을
+  /// 나눠주는 것을 그대로 받습니다.
+  Widget _timeField(TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      textAlign: TextAlign.center,
+      keyboardType: TextInputType.number,
+      maxLength: 2,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: const InputDecoration(
+        counterText: '',
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
     );
   }
 }

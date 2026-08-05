@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:dio/dio.dart';
@@ -240,12 +241,12 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Color(0xFF0059B9))
+                    ? CircularProgressIndicator(color: AppColors.primary)
                     : Text(
                   "분석하기",
                   style: TextStyle(
                     fontSize: 18,
-                    color: _isNormal ? Colors.white : const Color(0xFF0059B9),
+                    color: _isNormal ? Colors.white : AppColors.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

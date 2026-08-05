@@ -1,27 +1,39 @@
 # Supabase 연동 남은 작업
 
-1단계(앱 정리)에서 Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 작업** 목록입니다.
-스키마는 [supabase/schema.sql](../supabase/schema.sql)에 이미 있고 테이블도 만들어져 있습니다. 부족한 것은 앱 쪽 배선입니다.
+Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 작업** 목록입니다.
+스키마는 [supabase/schema.sql](../supabase/schema.sql)에 있고, 이후 변경은
+[supabase/migrations/](../supabase/migrations/)에 쌓습니다.
+
+## 지금 당장 해야 할 것
+
+**운영 Supabase 대시보드에서 [004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)을 실행하세요.**
+
+2026-08-06 확인 결과 아직 적용되지 않았습니다. `list_baby_members` RPC를 부르면
+`PGRST202`(함수 없음)가 돌아옵니다. 적용 전까지 함께 키우기 화면은 동작하지 않습니다.
+로컬 PostgreSQL에서 18개 시나리오를 검증했으므로 그대로 붙여넣어 실행하면 됩니다.
 
 ## 현재 상태
 
-테이블 14개 중 앱이 실제로 읽고 쓰는 것은 **11개**입니다.
+테이블 16개 중 앱이 실제로 읽고 쓰는 것은 **13개**입니다. (`baby_members`,
+`baby_invites`는 004 적용 후)
 
 | 테이블 | 상태 | 담당 코드 |
 |---|---|---|
 | `babies` | 연동됨 | `lib/core/services/baby_service.dart` |
+| `baby_members` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
+| `baby_invites` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
 | `growth_records` | 연동됨 | `lib/features/detail/growth/growth_record_service.dart` |
 | `sleep_records` | 연동됨 (소음 측정 시 생성 + 수동 입력) | `noise_tracker.dart`, `sleep_record_service.dart` |
 | `sleep_noise_logs` | 연동됨 (30건 배치) | `lib/core/services/noise_tracker.dart` |
-| `profiles` | 트리거가 자동 생성 (앱은 읽지 않음) | — |
+| `profiles` | 트리거가 자동 생성 (앱은 `list_baby_members`로 간접 조회) | — |
 | `feeding_records` | 연동됨 | `lib/features/detail/feeding_record_service.dart` |
 | `diaper_records` | 연동됨 | `lib/features/detail/diaper_record_service.dart` |
 | `temperature_records` | 연동됨 | `lib/features/detail/temperature_record_service.dart` |
 | `temperature_symptoms` | 연동됨 | `lib/features/detail/temperature_record_service.dart` |
 | `vaccines` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `vaccination_records` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
+| `assessments` | 연동됨 (저장: 체온 / 조회: 분석 탭) | `assessment_service.dart`, `analysis_page.dart` |
 | `skin_analyses` | **미연동** (모델 자체가 없음) | — |
-| `assessments` | 연동됨 (체온 판정) | `lib/features/detail/assessment/assessment_service.dart` |
 | `device_tokens` | **미연동** (FCM 설정 자체가 없음) | — |
 
 ## 해야 할 일
@@ -37,38 +49,50 @@
 CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합니다.
 행을 만드는 부분을 `buildRow`로 분리해 Supabase 없이 검증합니다.
 
-### B. AI 분석 결과 저장
+### B. AI 분석 결과 저장 — 모델 대기
 
-FastAPI는 추론만 하고 DB에 쓰지 않습니다. 결과 저장은 앱이 합니다(RLS가 그대로 적용되도록).
+> **선행 조건: 모델이 없습니다.** 피부·이유식 둘 다 추론 모델이 없어 저장할 결과 자체가
+> 없습니다. 이 항목은 모델이 준비된 뒤에 시작합니다.
 
 - [ ] 피부 분석 결과 → `skin_analyses` (`image_path`는 Storage 경로 `{user_id}/{baby_id}/{파일명}`)
 - [ ] 이미지 원본을 Supabase Storage에 업로드하는 코드 (`skin-images` 버킷)
+- [ ] 이유식 성분 분석 — 지금은 사진 선택까지만 동작합니다
 
 `disease_result`에는 **모델이 준 원본 라벨**을 넣습니다. 한글 변환은 앱에서 합니다
 (모델을 교체해도 과거 이력이 깨지지 않게 하려는 것 — schema.sql 2.10절 주석 참고).
 
 ### C. 기록 조회 — 완료
 
-각 입력 화면 아래에 최근 20건 목록과 삭제를 붙였습니다. 저장 후 화면을 닫지 않고
-방금 넣은 기록이 바로 보입니다.
-
-- [x] 수유·배변·수면·체온 이력 조회 (`lib/features/detail/widgets/record_history.dart`)
+- [x] 각 입력 화면 아래 최근 20건 목록과 삭제 (`lib/features/detail/widgets/record_history.dart`)
 - [x] 체온 이력은 중첩 select로 `temperature_symptoms`를 함께 읽습니다
+- [x] **기록 탭** — 네 종류를 시간순으로 합친 목록 (`lib/features/records/`)
 
-### D. 화면에 실제 데이터 연결
+### D. 화면에 실제 데이터 연결 — 대부분 완료
 
-- [ ] **홈 화면이 전부 하드코딩입니다** — `'아이이름'`, `'분유 · 160ml'`, `'36.5°C'`,
-      `'오전 11:20 ~ 오후 01:00'`, `'baby(아이이름)is sleeping very well'`.
-      A가 끝났으니 이제 채울 재료는 있습니다.
-- [ ] **로그아웃이 빈 함수** — `lib/features/mypage/mypage_page.dart`의 `onTap: () {}`.
-      `Supabase.instance.client.auth.signOut()` 호출이 필요합니다.
-- [ ] 소음 리포트를 실제 `sleep_noise_logs` 데이터로 계산
-      (`noise_result_page.dart`는 지금 최대 dB만 보고 규칙 기반 문구를 냅니다)
-- [x] `assessments` — **체온만 연동됨.** 나머지 영역(소음·성장·수면·수유·배변)은
-      임계값이 정해지지 않아 미구현입니다. 출처와 검증 상태는
-      [assessment-rules.md](assessment-rules.md) 참고.
+- [x] **홈 화면** — `TodaySummary`가 오늘의 마지막 기록을 읽습니다.
+      기록이 없으면 지어내지 않고 '기록 없음'을 표시합니다.
+- [x] **로그아웃** — 설정 화면 한 곳에서 `auth.signOut()` (확인 대화상자 포함)
+- [x] **분석 탭** — 최근 7일 집계 + `assessments` 조회 (`lib/features/analysis/`)
+- [ ] **소음 리포트를 판정 규칙에 연결** — `noise_rules.dart`(WHO 1999 기준)를 만들어
+      뒀지만 `noise_result_page.dart`는 여전히 근거 없는 50/70dB를 씁니다.
+      **선행 조건**: `-15dB` 마이크 보정이 검증되지 않아, 바꿔도 "정말 30dB인가"를
+      알 수 없습니다. 실제 소음계와 대조가 먼저입니다.
+- [ ] `assessments`의 나머지 영역(성장·수면·수유·배변) — 임계값 미정.
+      출처와 검증 상태는 [assessment-rules.md](assessment-rules.md) 참고.
 
-### E. 인프라
+### E. 함께 키우기 — 코드 완료, 적용 대기
+
+[004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)
+
+- [x] `baby_members` / `baby_invites` 테이블과 RLS 정책
+- [x] 기존 아이를 소유자로 이관하는 backfill (없으면 만든 사람도 자기 아이를 못 봅니다)
+- [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 18개의 판정 근거입니다
+- [x] 초대 발급·입력 UI (`lib/features/mypage/co_parenting_page.dart`)
+- [x] 로컬 PostgreSQL에서 18개 시나리오 검증
+- [ ] **운영 Supabase 대시보드에서 004 실행** ← 이걸 해야 앱에서 동작합니다
+- [ ] 계정 두 개로 발급 → 입력 흐름 실제 확인
+
+### F. 인프라
 
 - [ ] **Supabase 대시보드: Google·Kakao provider 활성화** — 코드는 준비됐지만 서버에서 꺼져 있습니다
       (`/auth/v1/settings`가 둘 다 `false`). Redirect URLs에 `babysense://login-callback` 등록도 필요합니다.
@@ -77,11 +101,32 @@ FastAPI는 추론만 하고 DB에 쓰지 않습니다. 결과 저장은 앱이 �
       iOS 앱스토어는 소셜 로그인이 있으면 Sign in with Apple을 요구합니다.
 - [ ] **Firebase 설정 파일** — `android/app/google-services.json`,
       `ios/Runner/GoogleService-Info.plist` 둘 다 없어 FCM이 동작하지 않습니다.
+      실행하면 `🔴 Firebase 초기화 실패: [core/not-initialized]`가 찍힙니다(앱은 계속 동작).
       `device_tokens` 테이블과 예방접종 알림이 여기에 걸려 있습니다.
 
 ## 검증 상태
 
-소음 저장(`sleep_records` / `sleep_noise_logs`)의 실기기 확인 진행 상황입니다.
+### 함께 키우기 (로컬 PostgreSQL, 004 마이그레이션)
+
+운영 DB에 넣기 전에 로컬에 PostgreSQL 16을 띄우고 Supabase의 `auth` 스키마·`auth.uid()`·
+역할을 흉내 내, **기존 데이터가 있는 상태**로 마이그레이션을 적용해 확인했습니다.
+
+- [x] 기존 아이가 소유자로 이관됨 (backfill)
+- [x] 소유자가 자기 아이·기록을 계속 봄 / 초대 전 타인은 0건
+- [x] 소유자가 초대 코드 발급 / 구성원 아닌 사람은 차단
+- [x] 초대받는 쪽이 `baby_invites`를 훑을 수 없음 (0건)
+- [x] 코드 수락 후 아이와 **기록까지** 보임 (정책 18개가 함께 따라옴)
+- [x] 코드 재사용·만료·존재하지 않는 코드 거부
+- [x] 구성원이 쓴 기록이 소유자에게 보임
+- [x] `baby_members`에 직접 insert 시도가 RLS로 차단됨
+- [x] 소유자는 탈퇴 불가(주인 없는 아이 방지) / 구성원은 탈퇴 가능
+- [x] 새 아이 생성 시 트리거가 소유자를 자동 등록
+- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 16개, 공유 함수 6/6)
+
+검증 중 `SET LOCAL`을 트랜잭션 밖에서 써서 역할이 적용되지 않아 거짓 통과가 나온 적이
+있습니다. RLS를 확인할 때는 반드시 `BEGIN; SET LOCAL role ...; ... COMMIT;`으로 감싸야 합니다.
+
+### 소음 저장 (실기기)
 
 - [x] 측정을 시작하면 `sleep_records`에 행이 하나 생기고 `sleep_type`이 고른 값(`night`/`nap`)과 맞는지
       → **확인됨.** 백그라운드 isolate에서 Supabase 초기화가 성공한다는 뜻이기도 합니다
@@ -107,3 +152,10 @@ CHECK 제약을 지키는지는 테스트로 고정했지만(`record_rows_test.d
 
 모든 화면이 아이 등록을 전제로 합니다. 아이가 없으면
 "먼저 아이 정보를 등록해주세요"가 뜹니다.
+
+## 정리해야 할 테스트 데이터
+
+로컬이 아니라 **운영 Supabase에 남아 있는 것들**입니다.
+
+- 아이 `검증아기` (`edde3912-…`) 및 그에 딸린 기록 4건
+- 계정 `community-check@babysense.dev`, `community-other@babysense.dev`
