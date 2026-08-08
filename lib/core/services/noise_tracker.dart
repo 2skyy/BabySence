@@ -2,24 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'baby_service.dart';
-
-/// 수면 종류. enum 이름이 sleep_records.sleep_type의 CHECK 제약
-/// (`night` / `nap`)과 그대로 일치해야 합니다.
-enum SleepType {
-  night('밤잠'),
-  nap('낮잠');
-
-  const SleepType(this.label);
-
-  /// 화면에 표시할 이름.
-  final String label;
-
-  /// service.invoke로 넘어온 문자열을 되돌립니다. 알 수 없는 값은 밤잠으로 봅니다.
-  static SleepType parse(String? raw) => SleepType.values.firstWhere(
-        (e) => e.name == raw,
-        orElse: () => SleepType.night,
-      );
-}
+import 'sleep_type.dart';
 
 /// 측정된 소음을 모아 Supabase의 sleep_noise_logs에 배치로 저장합니다.
 ///

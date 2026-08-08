@@ -91,11 +91,11 @@ lib/
   core/
     constants/   # AppColors, AppRadius, AppSpacing, AppTextStyles, ApiConfig,
                  # SupabaseConfig, WhoGrowthStandards
-    services/    # BabyService, NoiseTracker(+SleepType), GrowthCalculator
+    services/    # BabyService, NoiseTracker, SleepType, GrowthCalculator
     theme/       # AppTheme
     widgets/     # CommonButton, CommonTextField, CommonAppBar
   features/      # 화면 단위 폴더
-    auth/           # 로그인 · 회원가입 · post_auth_route(로그인 후 분기)
+    auth/           # 로그인 · 회원가입 · auth_gate · post_auth_route(로그인 후 분기)
     onboarding/     # 아이 정보 최초 등록 (등록 폼은 이 화면 한 곳에만 존재)
     shell/          # MainShell(하단 탭 5개) · 전체 탭 · 스플래시 · 준비 중 안내
     home/           # 홈 탭 · TodaySummary(오늘의 마지막 기록)
@@ -119,6 +119,13 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 - 네비게이션은 `AppRoutes` 상수 경유가 원칙 (일부 화면은 `MaterialPageRoute` 직접 사용도 혼재)
 - 서버 주소는 `ApiConfig` 한 곳에서만 정의합니다. 화면에 URL을 하드코딩하지 마세요
 - Supabase 접근은 화면에서 직접 호출하지 않고 `core/services` 또는 feature별 서비스를 경유합니다
+- 테스트는 대상 파일과 같은 경로·같은 이름에 둡니다
+  (`lib/features/mypage/baby_member_service.dart` → `test/features/mypage/baby_member_service_test.dart`).
+  여러 파일에 걸친 동작을 검사하는 테스트만 예외입니다
+
+> **`features/detail/`은 이름이 낡았습니다.** `DetailPage`에서 따온 이름인데 그 화면을
+> 지웠습니다. 지금은 기록·소음·AI·판정이 한 폴더에 섞여 있습니다. 이 폴더를 가리키는
+> import가 74곳이라 팀원 작업과 충돌할 위험이 커서 미뤄 뒀습니다.
 
 ## 코딩 가이드라인
 
@@ -126,7 +133,48 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 
 ## 최근 변경 사항
 
-### 함께 키우기 · 기록/분석 탭 · 미완성 화면 정리 (이번 작업)
+### 파일 구조·이름 정리 (이번 작업)
+
+동작은 그대로 두고 **이름과 위치만** 바로잡았습니다. `flutter analyze` 이슈 없음,
+테스트 170건 전부 통과.
+
+**저장소에 빈 템플릿 프로젝트가 통째로 들어와 있었습니다.**
+
+`my_app/` — 2026-05-14 커밋 "프론트 기능"에 쓸려 들어온 `flutter create` 결과물입니다.
+`title: 'Flutter Demo'`의 카운터 예제 그대로였고, 최초 커밋 이후 **한 번도 수정되지
+않았습니다**(`lib/main.dart`의 md5가 최초 커밋과 동일). 우리 코드는 아무것도 참조하지
+않았고, 유일한 언급이 `analysis_options.yaml`의 제외 규칙이었습니다 — 지우는 대신
+가려 둔 셈입니다.
+
+추적 파일 131개를 제거했습니다. 자기 몫의 `android/ios/macos/windows/linux/web`과
+`pubspec.yaml`을 갖고 있어 IDE가 별도 프로젝트로 인식하던 것도 함께 사라집니다.
+되돌리려면 `git checkout 1633ac2 -- my_app`.
+
+**빌드 산출물이 git에 추적되고 있었습니다.**
+
+`.gitignore`가 `/build/`로 되어 있어 **최상위만** 걸러졌습니다. 그래서
+`android/build/reports/problems/problems-report.html`이 추적되어, 빌드할 때마다
+`git status`가 더러워졌습니다. `build/`로 고치고 인덱스에서 제거했습니다.
+
+**이름이 뜻과 어긋나던 것들**
+
+| 전 | 후 | 이유 |
+|---|---|---|
+| `eusick_page.dart` | `baby_food_page.dart` | `eusick`은 '이유식'의 잘못된 로마자 표기라 영어로도 한국어로도 읽히지 않습니다 |
+| `noise_tracker.dart`의 `SleepType` | `core/services/sleep_type.dart` | 이 파일을 import하는 9곳 중 **6곳이 `show SleepType`을 붙여** 소음 추적기는 필요 없다고 말하고 있었습니다 |
+| `test/.../noise_tracker_test.dart` | `sleep_type_test.dart` | 내용이 전부 `SleepType` 테스트였습니다 |
+| `auth/login/login_page.dart` | `auth/login_page.dart` | 파일 하나짜리 폴더. `auth_gate.dart`는 이미 평평하게 있어 일관성이 없었습니다 |
+| `auth/signup/signup_page.dart` | `auth/signup_page.dart` | 〃 |
+
+**테스트 위치를 대상 파일과 맞췄습니다** — `record_history_test`는 `widgets/`로,
+`temperature_rules_test`는 `assessment/`로, `baby_member_test`는
+`baby_member_service_test`로.
+
+**홈에서 마지막 하드코딩을 걷어냈습니다.** 하단 카드 두 개(수면 품질 `94%`, 활동량
+`낮음`)가 완전 고정값이었습니다. 활동량은 측정할 수단 자체가 없고 수면 품질도
+`sleep_records`만으로는 낼 수 없어, 값을 채우는 대신 카드를 없앴습니다.
+
+### 함께 키우기 · 기록/분석 탭 · 미완성 화면 정리
 
 **함께 키우기** — 아이 하나를 부모 둘이 함께 봅니다.
 ([004_add_baby_sharing.sql](supabase/migrations/004_add_baby_sharing.sql))

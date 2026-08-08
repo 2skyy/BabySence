@@ -11,7 +11,7 @@ import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
-import '../detail/eusick_page.dart';
+import '../detail/baby_food_page.dart';
 import '../detail/skin_analysis_page.dart';
 import '../detail/vaccination_page.dart';
 // 수면 소음 측정 페이지 임포트
@@ -135,10 +135,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void handleEusickTap(BuildContext context) {
+  void handleBabyFoodTap(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const EusickPage()),
+      MaterialPageRoute(builder: (context) => const BabyFoodPage()),
     );
   }
 
@@ -237,7 +237,7 @@ class _HomePageState extends State<HomePage> {
                   iconColor: Colors.green,
                   title: '이유식',
                   subtitle: 'AI 성분 분석',
-                  onTap: () => handleEusickTap(context),
+                  onTap: () => handleBabyFoodTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -274,8 +274,6 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
 
-            const SizedBox(height: 24),
-            _buildBentoGrid(context),
             const SizedBox(height: 120),
           ],
         ),
@@ -462,74 +460,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBentoGrid(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: () => handleNoiseTestTap(context), // 벤토 품질 클릭 시 소음 케어로 즉시 이동
-            child: _buildBentoCard(
-              icon: Icons.bedtime,
-              title: '수면 품질',
-              value: '94%',
-              color: primaryColor.withValues(alpha: 0.1),
-              textColor: primaryColor,
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildBentoCard(
-            icon: Icons.speed,
-            title: '활동량',
-            value: '낮음',
-            color: const Color(0xFFD9E3F1).withValues(alpha: 0.5),
-            textColor: secondaryTextColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBentoCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color color,
-    required Color textColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: textColor),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: onSurfaceColor,
-            ),
-          ),
-        ],
       ),
     );
   }

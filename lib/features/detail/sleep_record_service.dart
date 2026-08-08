@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/services/noise_tracker.dart' show SleepType;
+import '../../core/services/sleep_type.dart';
 
 /// sleep_records 테이블 접근 (수동 입력용).
 ///

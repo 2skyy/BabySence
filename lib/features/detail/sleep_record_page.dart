@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
-import '../../core/services/noise_tracker.dart' show SleepType;
+import '../../core/services/sleep_type.dart';
 import 'sleep_record_service.dart';
 import 'widgets/record_history.dart';
 

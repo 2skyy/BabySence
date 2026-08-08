@@ -6,7 +6,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 // ★ 백색소음 선택 페이지 및 싱글톤 서비스 import
 import './white_noise_page.dart';
 import './white_noise_service.dart';
-import '../../core/services/noise_tracker.dart' show SleepType;
+import '../../core/services/sleep_type.dart';
 
 class NoiseTestPage extends StatefulWidget {
   const NoiseTestPage({super.key});

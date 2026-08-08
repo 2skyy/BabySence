@@ -25,7 +25,9 @@
 .pub/
 
 # Build artifacts
-/build/
+# 앞에 /를 붙이면 최상위만 걸러집니다. android/build 같은 하위 산출물이
+# 새어 들어와 빌드할 때마다 git status가 더러워집니다.
+build/
 /android/app/debug
 /android/app/profile
 /android/app/release

@@ -16,8 +16,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_gate.dart';
-import 'features/auth/login/login_page.dart';
-import 'features/auth/signup/signup_page.dart';
+import 'features/auth/login_page.dart';
+import 'features/auth/signup_page.dart';
 import 'features/shell/main_shell.dart';
 import 'features/mypage/mypage_page.dart';
 import 'features/onboarding/child_info_page.dart';
@@ -25,6 +25,7 @@ import 'features/settings/settings_page.dart';
 import 'routes/app_routes.dart';
 
 import 'core/services/noise_tracker.dart';
+import 'core/services/sleep_type.dart';
 
 /// 스마트폰 마이크가 실제보다 크게 잡는 만큼을 빼주는 보정값(dB).
 /// 기기마다 달라 경험적으로 정한 값이며, 보정은 이 한 곳에서만 적용합니다.

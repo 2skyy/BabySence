@@ -14,7 +14,6 @@ analyzer:
   # 플러그인 원본이 딸려 들어와 flutter analyze가 남의 코드 오류를 쏟아냅니다.
   exclude:
     - build/**
-    - my_app/**
 
 linter:
   # The lint rules applied to this project can be customized in the
