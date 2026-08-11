@@ -6,11 +6,13 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 
 ## 지금 당장 해야 할 것
 
-**운영 Supabase 대시보드에서 [004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)을 실행하세요.**
+**계정 두 개로 함께 키우기 흐름을 확인하세요.**
 
-2026-08-06 확인 결과 아직 적용되지 않았습니다. `list_baby_members` RPC를 부르면
-`PGRST202`(함수 없음)가 돌아옵니다. 적용 전까지 함께 키우기 화면은 동작하지 않습니다.
-로컬 PostgreSQL에서 18개 시나리오를 검증했으므로 그대로 붙여넣어 실행하면 됩니다.
+004는 2026-08-11 운영 DB에 적용됐습니다. 코드와 DB가 모두 준비됐지만 실제
+초대 발급 → 입력 → 기록 공유는 해보지 못했습니다.
+
+특히 **아이는 보이는데 기록이 안 보이면** `owns_baby()` 교체가 제대로 되지 않은
+것입니다. 이 함수 하나가 기록 테이블 정책 18개의 판정 근거이기 때문입니다.
 
 ## 현재 상태
 
@@ -20,8 +22,8 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 | 테이블 | 상태 | 담당 코드 |
 |---|---|---|
 | `babies` | 연동됨 | `lib/core/services/baby_service.dart` |
-| `baby_members` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
-| `baby_invites` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
+| `baby_members` | 연동됨 | `lib/features/mypage/baby_member_service.dart` |
+| `baby_invites` | 연동됨 | `lib/features/mypage/baby_member_service.dart` |
 | `growth_records` | 연동됨 | `lib/features/detail/growth/growth_record_service.dart` |
 | `sleep_records` | 연동됨 (소음 측정 시 생성 + 수동 입력) | `noise_tracker.dart`, `sleep_record_service.dart` |
 | `sleep_noise_logs` | 연동됨 (30건 배치) | `lib/core/services/noise_tracker.dart` |
@@ -80,7 +82,7 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 - [ ] `assessments`의 나머지 영역(성장·수면·수유·배변) — 임계값 미정.
       출처와 검증 상태는 [assessment-rules.md](assessment-rules.md) 참고.
 
-### E. 함께 키우기 — 코드 완료, 적용 대기
+### E. 함께 키우기 — 적용 완료
 
 [004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)
 
@@ -89,8 +91,10 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 - [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 18개의 판정 근거입니다
 - [x] 초대 발급·입력 UI (`lib/features/mypage/co_parenting_page.dart`)
 - [x] 로컬 PostgreSQL에서 18개 시나리오 검증
-- [ ] **운영 Supabase 대시보드에서 004 실행** ← 이걸 해야 앱에서 동작합니다
-- [ ] 계정 두 개로 발급 → 입력 흐름 실제 확인
+- [x] **운영 Supabase에 004 적용** (2026-08-11). 테이블 2개와 함수 3종이 모두
+      응답하고, 권한 차단(`create_baby_invite` 거부)과 정보 비노출
+      (`list_baby_members`가 빈 배열)까지 확인했습니다.
+- [ ] 계정 두 개로 발급 → 입력 → **기록 공유**까지 실제 확인
 
 ### F. 인프라
 
@@ -125,6 +129,20 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 
 검증 중 `SET LOCAL`을 트랜잭션 밖에서 써서 역할이 적용되지 않아 거짓 통과가 나온 적이
 있습니다. RLS를 확인할 때는 반드시 `BEGIN; SET LOCAL role ...; ... COMMIT;`으로 감싸야 합니다.
+
+### 함께 키우기 (운영 Supabase, 2026-08-11)
+
+004 적용 직후 anon 키로 확인한 것입니다.
+
+- [x] `baby_members` / `baby_invites` 테이블 존재
+- [x] `list_baby_members` / `create_baby_invite` / `accept_baby_invite` 응답
+- [x] 남의 아이 id로 초대 발급 시도 → **거부** ("아이를 등록한 사람만 만들 수 있습니다")
+- [x] `list_baby_members`가 오류 대신 **빈 배열** → 아이의 존재 여부가 드러나지 않음
+- [ ] 계정 두 개로 발급 → 입력 → 기록 공유
+
+RPC를 인자 없이(`{}`) 부르면 함수가 있어도 404가 납니다. PostgREST는 이름과
+**인자 시그니처**를 함께 보기 때문입니다. 적용 여부를 확인할 때는 실제 인자를
+넣어야 합니다.
 
 ### 소음 저장 (실기기)
 
