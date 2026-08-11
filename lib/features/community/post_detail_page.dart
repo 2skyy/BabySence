@@ -190,12 +190,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('게시글'),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: context.colors.textPrimary,
         elevation: 0,
         actions: [
           if (post.authorId == _myId) ...[
@@ -220,10 +220,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 const SizedBox(height: AppSpacing.lg),
                 Text(
                   '댓글 ${_comments.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -247,12 +247,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     ),
                   )
                 else if (_comments.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
                     child: Center(
                       child: Text(
                         '첫 댓글을 남겨보세요.',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: context.colors.textSecondary),
                       ),
                     ),
                   )
@@ -272,43 +272,43 @@ class _PostDetailPageState extends State<PostDetailPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             post.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
               height: 1.4,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              const Text(
+              Text(
                 '글쓴이',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 relativeTime(post.createdAt),
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             post.body,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               height: 1.7,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
         ],
@@ -323,9 +323,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,33 +334,33 @@ class _PostDetailPageState extends State<PostDetailPage> {
             children: [
               Text(
                 names.of(comment.authorId),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 relativeTime(comment.createdAt),
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
               ),
               const Spacer(),
               if (isMine) ...[
                 InkWell(
                   onTap: () => _editComment(comment),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(2),
                     child: Icon(Icons.edit_outlined,
-                        size: 15, color: AppColors.textSecondary),
+                        size: 15, color: context.colors.textSecondary),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 InkWell(
                   onTap: () => _confirmDeleteComment(comment),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close, size: 15, color: AppColors.textSecondary),
+                    child: Icon(Icons.close, size: 15, color: context.colors.textSecondary),
                   ),
                 ),
               ],
@@ -369,10 +369,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             comment.body,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.5,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
         ],
@@ -385,9 +385,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
       top: false,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border)),
+        decoration: BoxDecoration(
+          color: context.colors.surface,
+          border: Border(top: BorderSide(color: context.colors.border)),
         ),
         child: Row(
           children: [

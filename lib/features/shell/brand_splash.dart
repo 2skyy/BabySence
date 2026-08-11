@@ -45,9 +45,9 @@ class BrandSplash extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '아이의 하루를 기록하고 살펴봅니다',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 14, color: context.colors.textSecondary),
             ),
             const SizedBox(height: 40),
             if (showProgress)
@@ -66,9 +66,9 @@ class BrandSplash extends StatelessWidget {
                 child: Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
               ),

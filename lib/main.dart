@@ -15,6 +15,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'core/constants/supabase_config.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/auth/auth_gate.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/signup_page.dart';
@@ -356,25 +357,54 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  /// 앱 전체가 하나를 공유합니다. 설정 화면은 [ThemeScope]로 찾습니다.
+  final _theme = ThemeController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 저장된 설정을 읽습니다. 읽는 동안은 기본값(밝음)으로 보입니다.
+    _theme.load();
+  }
+
+  @override
+  void dispose() {
+    _theme.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'BabySence',
-      theme: AppTheme.lightTheme,
-      // 저장된 세션이 있으면 로그인 화면을 건너뛰도록 AuthGate가 판단합니다.
-      home: const AuthGate(),
-      routes: {
-        AppRoutes.login: (context) => const LoginPage(),
-        AppRoutes.signup: (context) => const SignupPage(),
-        AppRoutes.onboarding: (context) => const ChildInfoPage(),
-        AppRoutes.home: (context) => const MainShell(),
-        AppRoutes.mypage: (context) => const MyPagePage(),
-        AppRoutes.settings: (context) => const SettingsPage(),
-      },
+    return ThemeScope(
+      controller: _theme,
+      child: ListenableBuilder(
+        listenable: _theme,
+        builder: (context, _) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'BabySence',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: _theme.mode,
+          // 저장된 세션이 있으면 로그인 화면을 건너뛰도록 AuthGate가 판단합니다.
+          home: const AuthGate(),
+          routes: {
+            AppRoutes.login: (context) => const LoginPage(),
+            AppRoutes.signup: (context) => const SignupPage(),
+            AppRoutes.onboarding: (context) => const ChildInfoPage(),
+            AppRoutes.home: (context) => const MainShell(),
+            AppRoutes.mypage: (context) => const MyPagePage(),
+            AppRoutes.settings: (context) => const SettingsPage(),
+          },
+        ),
+      ),
     );
   }
 }

@@ -84,12 +84,12 @@ class _PostWritePageState extends State<PostWritePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: Text(_isEditing ? '글 수정' : '글쓰기'),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),
       body: SafeArea(
@@ -122,10 +122,10 @@ class _PostWritePageState extends State<PostWritePage> {
               TextField(
                 controller: _titleController,
                 maxLength: titleMax,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '제목',
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: context.colors.surface,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -136,11 +136,11 @@ class _PostWritePageState extends State<PostWritePage> {
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '내용',
                     alignLabelWithHint: true,
                     filled: true,
-                    fillColor: AppColors.surface,
+                    fillColor: context.colors.surface,
                   ),
                 ),
               ),

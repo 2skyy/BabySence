@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../../routes/app_routes.dart';
 import '../shell/coming_soon_page.dart';
@@ -60,7 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CommonAppBar(title: '설정'),
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
@@ -79,22 +80,14 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: AppSpacing.lg),
 
           _buildSectionTitle('화면'),
-          _buildMenuItem(
-            icon: Icons.dark_mode_outlined,
-            title: '다크 모드',
-            color: AppColors.textSecondary,
-            onTap: () => _openComingSoon(
-              '다크 모드',
-              '어두운 화면 테마입니다.\n색을 다시 잡은 뒤 제공할 예정입니다.',
-            ),
-          ),
+          _buildDarkModeSection(),
           const SizedBox(height: AppSpacing.lg),
 
           _buildSectionTitle('앱 정보'),
           _buildMenuItem(
             icon: Icons.info_outline,
             title: '버전 ${MorePage.appVersion}',
-            color: AppColors.textSecondary,
+            color: context.colors.textSecondary,
             onTap: null,
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -105,6 +98,64 @@ class _SettingsPageState extends State<SettingsPage> {
             title: '로그아웃',
             color: AppColors.error,
             onTap: _handleLogout,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 다크 모드 — 자동 전환과 수동 선택.
+  ///
+  /// 자동이 켜져 있으면 수동 스위치는 잠깁니다. 둘 다 만질 수 있으면 어느
+  /// 쪽이 이기는지 알 수 없습니다.
+  Widget _buildDarkModeSection() {
+    final theme = ThemeScope.maybeOf(context);
+
+    // 컨트롤러가 없으면(테스트 등) 조작할 수 없으므로 숨깁니다.
+    if (theme == null) return const SizedBox.shrink();
+
+    // ListTile은 가장 가까운 Material에 배경과 잉크 효과를 그립니다.
+    // 색칠한 Container로 감싸면 그 효과가 가려집니다.
+    return Material(
+      color: context.colors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          SwitchListTile(
+            secondary: Icon(
+              Icons.brightness_auto,
+              color: context.colors.textSecondary,
+            ),
+            title: const Text('시간에 따라 자동'),
+            subtitle: Text(
+              '오후 $darkStartHour시부터 오전 $darkEndHour시까지 어둡게',
+              style: TextStyle(
+                fontSize: 12,
+                color: context.colors.textSecondary,
+              ),
+            ),
+            value: theme.isAuto,
+            onChanged: (v) => theme.setAuto(v),
+          ),
+          Divider(height: 1, color: context.colors.border),
+          SwitchListTile(
+            secondary: Icon(
+              Icons.dark_mode_outlined,
+              color: context.colors.textSecondary,
+            ),
+            title: const Text('다크 모드'),
+            subtitle: theme.isAuto
+                ? Text(
+                    '지금은 자동으로 정해집니다',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.colors.textSecondary,
+                    ),
+                  )
+                : null,
+            value: theme.isDark,
+            // 자동일 때는 시각이 정하므로 직접 못 바꿉니다.
+            onChanged: theme.isAuto ? null : (v) => theme.setDark(v),
           ),
         ],
       ),

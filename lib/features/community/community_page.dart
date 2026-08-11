@@ -68,12 +68,12 @@ class _CommunityPageState extends State<CommunityPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('커뮤니티'),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -105,18 +105,18 @@ class _CommunityPageState extends State<CommunityPage> {
     }
 
     if (_posts.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.forum_outlined, size: 48, color: AppColors.textSecondary),
+              Icon(Icons.forum_outlined, size: 48, color: context.colors.textSecondary),
               SizedBox(height: AppSpacing.lg),
               Text(
                 '아직 글이 없습니다.\n첫 글을 남겨보세요.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                style: TextStyle(color: context.colors.textSecondary, height: 1.5),
               ),
             ],
           ),
@@ -149,9 +149,9 @@ class _CommunityPageState extends State<CommunityPage> {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,10 +163,10 @@ class _CommunityPageState extends State<CommunityPage> {
                     post.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: context.colors.textPrimary,
                     ),
                   ),
                 ),
@@ -190,10 +190,10 @@ class _CommunityPageState extends State<CommunityPage> {
               post.body,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -201,15 +201,15 @@ class _CommunityPageState extends State<CommunityPage> {
               children: [
                 Text(
                   relativeTime(post.createdAt),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                const Icon(Icons.chat_bubble_outline,
-                    size: 13, color: AppColors.textSecondary),
+                Icon(Icons.chat_bubble_outline,
+                    size: 13, color: context.colors.textSecondary),
                 const SizedBox(width: 4),
                 Text(
                   '${post.commentCount}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
                 ),
               ],
             ),

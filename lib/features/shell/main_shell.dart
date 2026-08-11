@@ -76,7 +76,7 @@ class _MainShellState extends State<MainShell> {
   Widget _buildItem(int i) {
     final tab = _tabs[i];
     final active = i == _index;
-    final color = active ? AppColors.primary : AppColors.textSecondary;
+    final color = active ? AppColors.primary : context.colors.textSecondary;
 
     return Expanded(
       child: InkWell(

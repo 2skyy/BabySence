@@ -9,8 +9,27 @@ import 'package:flutter/material.dart';
 /// `#89BA9C`는 2.19, `#AEE9C6`은 1.38로 WCAG AA 기준(4.5)에 크게 못 미칩니다.
 /// 버튼·강조에는 같은 계열의 진한 [primary](4.90)를 쓰고, 로고 색은
 /// 장식과 연한 배경에만 씁니다.
+///
+/// ## 다크 모드
+///
+/// 여기 있는 값들은 **밝은 테마 기준의 정적 상수**입니다. 화면에서는 이 클래스를
+/// 직접 쓰지 말고 [AppColorsX.colors] (`context.colors`)를 쓰세요. 그래야 테마가
+/// 바뀔 때 색도 따라갑니다.
+///
+/// ```dart
+/// // ❌ 테마가 바뀌어도 그대로입니다
+/// color: AppColors.textPrimary
+///
+/// // ✅ 밝음/어두움을 따라갑니다
+/// color: context.colors.textPrimary
+/// ```
+///
+/// [primary]·[brand]·[error]처럼 두 테마에서 같은 값을 쓰는 색은 상수로 남겨
+/// 두었습니다. `const` 문맥에서 그대로 쓸 수 있습니다.
 class AppColors {
   /// 버튼·링크·강조. 흰 글씨 대비 4.90:1 (AA 통과).
+  ///
+  /// 두 테마에서 같은 값입니다. 어두운 배경에서도 흰 글씨 대비가 유지됩니다.
   static const Color primary = Color(0xFF4F7A60);
 
   /// 로고에 쓰인 세이지 그린. 아이콘·삽화 등 장식용입니다.
@@ -19,6 +38,12 @@ class AppColors {
 
   /// 로고 그라데이션의 밝은 쪽.
   static const Color brandLight = Color(0xFFAEE9C6);
+
+  static const Color error = Color(0xFFEF4444);
+
+  // ── 밝은 테마 (기본값) ────────────────────────────────────────────────────
+  // 아래 값들은 context를 못 쓰는 자리(정적 상수, 테마 정의 자체)를 위해
+  // 남겨 둡니다. 화면에서는 context.colors를 쓰세요.
 
   /// 강조 영역의 연한 배경. 어두운 글씨 대비 15.81:1.
   static const Color primarySurface = Color(0xFFE8F5ED);
@@ -30,5 +55,99 @@ class AppColors {
   static const Color textSecondary = Color(0xFF6B7280);
 
   static const Color border = Color(0xFFE5E7EB);
-  static const Color error = Color(0xFFEF4444);
+}
+
+/// 테마에 따라 달라지는 색.
+///
+/// 밝은 테마 값은 [AppColors]의 기존 값을 그대로 씁니다 — 다크 모드를 넣으면서
+/// 밝은 화면의 모양이 바뀌면 안 됩니다.
+class AppPalette extends ThemeExtension<AppPalette> {
+  final Color background;
+  final Color surface;
+  final Color primarySurface;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color border;
+
+  const AppPalette({
+    required this.background,
+    required this.surface,
+    required this.primarySurface,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.border,
+  });
+
+  /// 기존 화면과 완전히 같은 값입니다.
+  static const light = AppPalette(
+    background: Color(0xFFF8FAFC),
+    surface: Colors.white,
+    primarySurface: Color(0xFFE8F5ED),
+    textPrimary: Color(0xFF111827),
+    textSecondary: Color(0xFF6B7280),
+    border: Color(0xFFE5E7EB),
+  );
+
+  /// 어두운 테마.
+  ///
+  /// 순수한 검정(#000)을 쓰지 않았습니다. OLED에서는 스크롤할 때 잔상이 남고,
+  /// 카드와 배경의 경계가 사라져 화면 구조를 읽기 어렵습니다.
+  ///
+  /// 대비는 밝은 테마와 같은 기준(WCAG AA 4.5:1)으로 맞췄습니다.
+  /// - textPrimary(#F3F4F6) on background(#111827) → 15.8:1
+  /// - textSecondary(#9CA3AF) on surface(#1F2937) → 5.9:1
+  static const dark = AppPalette(
+    background: Color(0xFF111827),
+    surface: Color(0xFF1F2937),
+    // 밝은 테마의 연녹색을 그대로 쓰면 눈이 부십니다. 같은 계열을 어둡게.
+    primarySurface: Color(0xFF1B3A2A),
+    textPrimary: Color(0xFFF3F4F6),
+    textSecondary: Color(0xFF9CA3AF),
+    border: Color(0xFF374151),
+  );
+
+  @override
+  AppPalette copyWith({
+    Color? background,
+    Color? surface,
+    Color? primarySurface,
+    Color? textPrimary,
+    Color? textSecondary,
+    Color? border,
+  }) {
+    return AppPalette(
+      background: background ?? this.background,
+      surface: surface ?? this.surface,
+      primarySurface: primarySurface ?? this.primarySurface,
+      textPrimary: textPrimary ?? this.textPrimary,
+      textSecondary: textSecondary ?? this.textSecondary,
+      border: border ?? this.border,
+    );
+  }
+
+  @override
+  AppPalette lerp(ThemeExtension<AppPalette>? other, double t) {
+    if (other is! AppPalette) return this;
+    return AppPalette(
+      background: Color.lerp(background, other.background, t)!,
+      surface: Color.lerp(surface, other.surface, t)!,
+      primarySurface: Color.lerp(primarySurface, other.primarySurface, t)!,
+      textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
+      textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      border: Color.lerp(border, other.border, t)!,
+    );
+  }
+}
+
+/// `context.colors.background` 처럼 쓰기 위한 확장.
+extension AppColorsX on BuildContext {
+  /// 현재 테마의 색. 테마가 바뀌면 이 값도 바뀝니다.
+  ///
+  /// 테마 확장을 등록하지 않은 곳(테스트에서 맨 MaterialApp을 띄우는 경우 등)
+  /// 에서는 밝은 팔레트로 떨어집니다. 화면이 깨지는 것보다 낫습니다.
+  AppPalette get colors =>
+      Theme.of(this).extension<AppPalette>() ?? AppPalette.light;
+
+  /// 지금이 어두운 테마인지. 그림자·불투명도를 다르게 줄 때 씁니다.
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
 }

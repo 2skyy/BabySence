@@ -69,7 +69,7 @@ class _MyPagePageState extends State<MyPagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: const CommonAppBar(title: '마이페이지'),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -92,10 +92,10 @@ class _MyPagePageState extends State<MyPagePage> {
 
   Widget _sectionTitle(String title) => Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       );
 
@@ -116,17 +116,17 @@ class _MyPagePageState extends State<MyPagePage> {
               children: [
                 Text(
                   _displayName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _user?.email ?? '',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -159,17 +159,17 @@ class _MyPagePageState extends State<MyPagePage> {
           await Navigator.pushNamed(context, AppRoutes.onboarding);
           if (mounted) _load();
         },
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.add_circle_outline, color: AppColors.primary),
             SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
                 '아이 정보를 등록해 주세요',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: context.colors.textPrimary),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(Icons.chevron_right, color: context.colors.textSecondary),
           ],
         ),
       );
@@ -186,18 +186,18 @@ class _MyPagePageState extends State<MyPagePage> {
               children: [
                 Text(
                   baby.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${baby.sex == ChildSex.male ? '남아' : '여아'} · '
                   '${_formatDate(baby.birthDate)} 출생',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -232,9 +232,9 @@ class _MyPagePageState extends State<MyPagePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '함께 보는 사람 관리',
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -243,15 +243,15 @@ class _MyPagePageState extends State<MyPagePage> {
                       : count <= 1
                           ? '아직 나 혼자예요'
                           : '$count명이 함께 보고 있어요',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
@@ -264,7 +264,7 @@ class _MyPagePageState extends State<MyPagePage> {
     );
 
     return Material(
-      color: AppColors.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: onTap == null
           ? content

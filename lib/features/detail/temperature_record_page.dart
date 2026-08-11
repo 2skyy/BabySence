@@ -438,7 +438,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
           color: isSelected ? AppColors.error.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppColors.error : AppColors.border,
+            color: isSelected ? AppColors.error : context.colors.border,
             width: 1.2,
           ),
         ),
@@ -447,7 +447,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
           style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: isSelected ? AppColors.error : AppColors.textSecondary,
+            color: isSelected ? AppColors.error : context.colors.textSecondary,
           ),
         ),
       ),

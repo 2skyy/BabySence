@@ -92,12 +92,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('분석'),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),
       body: RefreshIndicator(
@@ -127,19 +127,19 @@ class _AnalysisPageState extends State<AnalysisPage> {
       return [
         Text(
           _error!,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
         ),
         TextButton(onPressed: _load, child: const Text('다시 시도')),
       ];
     }
 
     if (!_hasBaby) {
-      return const [
+      return [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 40),
           child: Text(
             '아이 정보를 먼저 등록해 주세요.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
           ),
         ),
       ];
@@ -169,10 +169,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   Widget _sectionTitle(String title) => Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       );
 
@@ -181,10 +181,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     if (s.isEmpty) {
       return _card(
-        child: const Text(
+        child: Text(
           '최근 7일 동안 남긴 기록이 없습니다.\n기록을 남기면 여기에 모아 보여드립니다.',
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: context.colors.textSecondary,
             fontSize: 13,
             height: 1.6,
           ),
@@ -256,18 +256,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 detail,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],
@@ -275,10 +275,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
       ],
@@ -289,10 +289,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
     if (_assessments.isEmpty) {
       return [
         _card(
-          child: const Text(
+          child: Text(
             '아직 판정이 없습니다.\n체온을 기록하면 연령대별 기준으로 판정해 드립니다.',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
               fontSize: 13,
               height: 1.6,
             ),
@@ -341,9 +341,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
             if (a.assessedAt != null)
               Text(
                 _formatDate(a.assessedAt!),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
           ],
@@ -351,10 +351,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
         const SizedBox(height: AppSpacing.sm),
         Text(
           a.guideText,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             height: 1.6,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
       ],
@@ -374,7 +374,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
         );
         if (mounted) _load();
       },
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.show_chart, color: Colors.blue),
           SizedBox(width: AppSpacing.md),
@@ -384,20 +384,20 @@ class _AnalysisPageState extends State<AnalysisPage> {
               children: [
                 Text(
                   '성장 곡선',
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: context.colors.textPrimary),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'WHO 표준과 견줘 봅니다',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
@@ -424,7 +424,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
         ),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(Icons.chat_bubble_outline, color: AppColors.primary),
           SizedBox(width: AppSpacing.md),
@@ -434,20 +434,20 @@ class _AnalysisPageState extends State<AnalysisPage> {
               children: [
                 Text(
                   '육아 질문하기',
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: context.colors.textPrimary),
                 ),
                 SizedBox(height: 2),
                 Text(
                   '기록을 바탕으로 답해 드려요',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
@@ -460,7 +460,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     );
 
     return Material(
-      color: AppColors.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: onTap == null
           ? content

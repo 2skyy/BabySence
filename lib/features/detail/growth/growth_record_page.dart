@@ -163,7 +163,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,10 +248,10 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             assessment.guideText,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               height: 1.7,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
         ],
@@ -324,7 +324,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         if (record.weightKg != null) '몸무게 ${record.weightKg!.toStringAsFixed(1)}kg',
       ].join(' · ')),
       trailing: IconButton(
-        icon: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
+        icon: Icon(Icons.delete_outline, color: context.colors.textSecondary),
         onPressed: () async {
           try {
             await widget.repository.deleteRecord(record.id);
@@ -363,7 +363,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         .toList()
       ..sort((a, b) => a.x.compareTo(b.x));
 
-    Color bandColor(double z) => z == 0 ? AppColors.textSecondary : AppColors.border;
+    Color bandColor(double z) => z == 0 ? context.colors.textSecondary : context.colors.border;
 
     return SizedBox(
       height: 220,

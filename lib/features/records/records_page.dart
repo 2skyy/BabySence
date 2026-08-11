@@ -93,12 +93,12 @@ class _RecordsPageState extends State<RecordsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('기록'),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),
       body: RefreshIndicator(
@@ -122,10 +122,10 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Widget _sectionTitle(String title) => Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       );
 
@@ -153,7 +153,7 @@ class _RecordsPageState extends State<RecordsPage> {
       children: [
         for (final (icon, label, color, onTap) in items)
           Material(
-            color: AppColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
               onTap: onTap,
@@ -165,10 +165,10 @@ class _RecordsPageState extends State<RecordsPage> {
                   const SizedBox(height: 8),
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: context.colors.textPrimary,
                     ),
                   ),
                 ],
@@ -193,7 +193,7 @@ class _RecordsPageState extends State<RecordsPage> {
       return [
         Text(
           _error!,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
         ),
         TextButton(onPressed: _load, child: const Text('다시 시도')),
       ];
@@ -201,19 +201,19 @@ class _RecordsPageState extends State<RecordsPage> {
 
     if (!_hasBaby) {
       return [
-        const Text(
+        Text(
           '아이 정보를 먼저 등록해 주세요.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
         ),
       ];
     }
 
     if (_records.isEmpty) {
       return [
-        const Text(
+        Text(
           '아직 남긴 기록이 없습니다.\n위에서 기록을 시작해 보세요.',
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: context.colors.textSecondary,
             fontSize: 13,
             height: 1.6,
           ),
@@ -233,10 +233,10 @@ class _RecordsPageState extends State<RecordsPage> {
           ),
           child: Text(
             formatDayHeader(day),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
         ),
@@ -257,7 +257,7 @@ class _RecordsPageState extends State<RecordsPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -270,18 +270,18 @@ class _RecordsPageState extends State<RecordsPage> {
               children: [
                 Text(
                   record.kind.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   record.summary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
               ],
@@ -289,9 +289,9 @@ class _RecordsPageState extends State<RecordsPage> {
           ),
           Text(
             formatTimeOfDay(record.at),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
         ],

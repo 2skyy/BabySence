@@ -35,7 +35,7 @@ class NoiseResultPage extends StatelessWidget {
     final samples = assessment.inputs['sample_count'] as num?;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: const CommonAppBar(title: '수면 소음 결과'),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -65,9 +65,9 @@ class NoiseResultPage extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     '평균 ${average.toStringAsFixed(1)}dB',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textSecondary,
+                      color: context.colors.textSecondary,
                     ),
                   ),
                 ],
@@ -79,20 +79,20 @@ class NoiseResultPage extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               assessment.guideText,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.7,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          _buildBasis(average, max, samples),
+          _buildBasis(context, average, max, samples),
           const SizedBox(height: AppSpacing.lg),
           const MedicalDisclaimer(),
         ],
@@ -104,7 +104,7 @@ class NoiseResultPage extends StatelessWidget {
   ///
   /// 무슨 값으로 어떤 기준을 적용했는지 사용자가 확인할 수 있어야
   /// "근거를 추적 가능한 형태로 제시한다"는 설계가 화면에서도 성립합니다.
-  Widget _buildBasis(num? average, num? max, num? samples) {
+  Widget _buildBasis(BuildContext context, num? average, num? max, num? samples) {
     final rows = <(String, String)>[
       if (average != null) ('평균 소음', '${average.toStringAsFixed(1)} dB'),
       if (max != null) ('최대 소음', '${max.toStringAsFixed(1)} dB'),
@@ -117,18 +117,18 @@ class NoiseResultPage extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '판정 근거',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -142,18 +142,18 @@ class NoiseResultPage extends StatelessWidget {
                     width: 76,
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: context.colors.textSecondary,
                       ),
                     ),
                   ),
                   Expanded(
                     child: Text(
                       value,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                     ),
                   ),
@@ -162,13 +162,13 @@ class NoiseResultPage extends StatelessWidget {
             ),
           const SizedBox(height: AppSpacing.sm),
           // 이 한계를 숨기면 측정값이 절대 기준을 충족한다고 오해합니다.
-          const Text(
+          Text(
             '※ 마이크 보정값이 실제 소음계와 대조되지 않아, 절대 수치의 '
             '정확도는 확인되지 않았습니다.',
             style: TextStyle(
               fontSize: 11,
               height: 1.5,
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
         ],

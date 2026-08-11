@@ -76,7 +76,7 @@ class _AdvicePageState extends State<AdvicePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: CommonAppBar(title: '${widget.domain.label} 질문하기'),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -86,10 +86,10 @@ class _AdvicePageState extends State<AdvicePage> {
           if (_loading) ...[
             const Center(child: CircularProgressIndicator()),
             const SizedBox(height: AppSpacing.md),
-            const Center(
+            Center(
               child: Text(
                 '답변을 만들고 있어요…',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
               ),
             ),
           ],
@@ -106,15 +106,15 @@ class _AdvicePageState extends State<AdvicePage> {
       children: [
         Text(
           '${widget.domain.label}에 대해 궁금한 점을 적어 주세요',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         Material(
-          color: AppColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(16),
           child: TextField(
             controller: _controller,
@@ -146,7 +146,7 @@ class _AdvicePageState extends State<AdvicePage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -157,10 +157,10 @@ class _AdvicePageState extends State<AdvicePage> {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.6,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
           ),
@@ -176,10 +176,10 @@ class _AdvicePageState extends State<AdvicePage> {
         if (_askedQuestion != null) ...[
           Text(
             'Q. $_askedQuestion',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -188,15 +188,15 @@ class _AdvicePageState extends State<AdvicePage> {
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
             advice.answer,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.7,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
         ),
@@ -207,26 +207,26 @@ class _AdvicePageState extends State<AdvicePage> {
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.background,
+            color: context.colors.background,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
+              Icon(
                 Icons.info_outline,
                 size: 16,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   advice.disclaimer,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 1.6,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                   ),
                 ),
               ),
