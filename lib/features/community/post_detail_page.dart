@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
+import '../../core/widgets/common_app_bar.dart';
 import 'community_models.dart';
 import 'community_service.dart';
 import 'post_write_page.dart';
@@ -191,12 +192,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: const Text('게시글'),
-        centerTitle: true,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
+      appBar: CommonAppBar(
+        title: '게시글',
         actions: [
           if (post.authorId == _myId) ...[
             IconButton(

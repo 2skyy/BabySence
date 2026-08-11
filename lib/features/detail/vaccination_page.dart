@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'vaccination_service.dart';
@@ -97,19 +99,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '예방접종',
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '예방접종'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

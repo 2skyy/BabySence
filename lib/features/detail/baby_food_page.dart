@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/common_app_bar.dart';
+import 'widgets/record_save_button.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -87,22 +90,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
 
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '이유식 분석',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '이유식 분석'),
 
       body: SafeArea(
         child: SingleChildScrollView(
@@ -173,27 +161,11 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
 
                 const SizedBox(height: 24),
 
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton(
-                    onPressed: handleAnalyze,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text(
-                      '분석하기',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+                RecordSaveButton(
+                  onPressed: handleAnalyze,
+                  // 이 화면은 저장이 아니라 분석 요청이라 표시가 다릅니다.
+                  saving: false,
+                  label: '분석하기',
                 ),
               ],
             ),

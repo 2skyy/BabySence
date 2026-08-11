@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/common_app_bar.dart';
 // 방금 만든 백색소음 서비스 import (경로에 맞게 수정해 주세요)
 import 'white_noise_service.dart';
 
@@ -90,15 +91,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: Text(
-          '아기 안심 백색소음',
-          style: TextStyle(fontWeight: FontWeight.bold, color: context.colors.textPrimary),
-        ),
-        backgroundColor: context.colors.surface,
-        elevation: 0.5,
-        centerTitle: true,
-      ),
+      appBar: const CommonAppBar(title: '아기 안심 백색소음'),
       body: Column(
         children: [
           Expanded(

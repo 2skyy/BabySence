@@ -13,6 +13,7 @@ import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
 import '../detail/baby_food_page.dart';
 import '../detail/skin_analysis_page.dart';
+import '../detail/care/care_record_page.dart';
 import '../detail/vaccination_page.dart';
 // 수면 소음 측정 페이지 임포트
 import '../detail/noise_test_page.dart';
@@ -149,6 +150,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void handleCareRecordTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CareRecordPage()),
+    );
+  }
+
   // [소음] 버튼은 화면 이동만 합니다.
   // 측정 시작은 소음 화면에서 밤잠/낮잠을 고른 뒤에 해야 하므로,
   // 여기서 미리 시작하면 사용자가 고를 틈이 없습니다.
@@ -270,6 +278,14 @@ class _HomePageState extends State<HomePage> {
                   title: '성장',
                   subtitle: 'WHO 성장곡선',
                   onTap: () => handleGrowthRecordTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.medication_outlined,
+                  iconColor: Colors.redAccent,
+                  title: '약 · 병원',
+                  subtitle: '투약과 진료',
+                  onTap: () => handleCareRecordTap(context),
                 ),
               ],
             ),

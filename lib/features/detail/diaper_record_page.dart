@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'diaper_record_service.dart';
@@ -138,22 +142,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          "배변 기록",
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '배변 기록'),
       // ★ 수정: 키보드가 올라올 때 화면이 부드럽게 스크롤되도록 전체를 감싸줍니다.
       body: SafeArea(
         child: SingleChildScrollView(
@@ -216,36 +205,9 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
               ),
               // ★ 수정: 스크롤 뷰 내부에서 에러를 내는 Spacer() 대신 고정 간격 지정
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyze,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                    "기록하기",
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyze,
+                saving: isSaving,
               ),
               const SizedBox(height: 36),
               RecordHistorySection(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../routes/app_routes.dart';
@@ -32,13 +34,7 @@ class MorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: const Text('전체'),
-        centerTitle: false,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
-      ),
+      appBar: CommonAppBar(title: '전체', centerTitle: false),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [

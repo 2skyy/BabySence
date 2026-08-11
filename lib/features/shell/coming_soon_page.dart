@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 
@@ -21,13 +23,7 @@ class ComingSoonPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: Text(title),
-        centerTitle: true,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
-      ),
+      appBar: CommonAppBar(title: title),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),

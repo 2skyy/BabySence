@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/widgets/common_button.dart';
@@ -85,13 +87,7 @@ class _PostWritePageState extends State<PostWritePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: Text(_isEditing ? '글 수정' : '글쓰기'),
-        centerTitle: true,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
-      ),
+      appBar: CommonAppBar(title: _isEditing ? '글 수정' : '글쓰기'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xl),

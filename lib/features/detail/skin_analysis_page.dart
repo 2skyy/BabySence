@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_config.dart';
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/widgets/medical_disclaimer.dart';
 
 class SkinAnalysisPage extends StatefulWidget {
@@ -151,12 +152,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: Text("피부 AI 판단", style: TextStyle(color: context.colors.textPrimary, fontWeight: FontWeight.bold)),
-        backgroundColor: context.colors.surface,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-      ),
+      appBar: const CommonAppBar(title: '피부 AI 판단'),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/sleep_type.dart';
@@ -169,22 +173,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '수면 기록',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '수면 기록'),
       // ★ 수정: 바닥 터짐 방지를 위해 스크롤 뷰로 교체
       body: SafeArea(
         child: SingleChildScrollView(
@@ -265,36 +254,9 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
               ),
               // ★ 수정: Spacer() 제거 후 적절한 아래 공백 확보
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyze,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                    '기록하기',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyze,
+                saving: isSaving,
               ),
               const SizedBox(height: 36),
               RecordHistorySection(

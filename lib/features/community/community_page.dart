@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import 'community_models.dart';
@@ -69,13 +71,7 @@ class _CommunityPageState extends State<CommunityPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: const Text('커뮤니티'),
-        centerTitle: true,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
-      ),
+      appBar: CommonAppBar(title: '커뮤니티'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openWrite,
         backgroundColor: AppColors.primary,

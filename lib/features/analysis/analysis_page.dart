@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
@@ -93,13 +95,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: AppBar(
-        title: const Text('분석'),
-        centerTitle: true,
-        backgroundColor: context.colors.surface,
-        foregroundColor: context.colors.textPrimary,
-        elevation: 0,
-      ),
+      appBar: CommonAppBar(title: '분석'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

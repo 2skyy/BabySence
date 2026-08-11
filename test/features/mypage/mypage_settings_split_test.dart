@@ -47,8 +47,10 @@ void main() {
 
   group('설정', () {
     testWidgets('뒤로가기 버튼이 있다', (tester) async {
+      // 앱바를 CommonAppBar로 모으면서 화살표 모양을 앱 전체에서
+      // arrow_back_ios_new로 통일했습니다.
       await pushed(tester, const SettingsPage());
-      expect(find.byType(BackButton), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
     });
 
     testWidgets('앱 동작 설정만 담는다', (tester) async {

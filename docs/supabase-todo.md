@@ -6,7 +6,13 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 
 ## 지금 당장 해야 할 것
 
-**계정 두 개로 함께 키우기 흐름을 확인하세요.**
+**운영 DB에 005와 006을 적용하세요.**
+
+- **005** — 아이 등록이 실패합니다. 004의 SELECT 정책이 `insert ... returning`을
+  막습니다. 이걸 넣기 전에는 새 사용자가 온보딩을 통과하지 못합니다.
+- **006** — 약 복용·병원 방문 표. 없으면 '약 · 병원' 화면이 조회부터 실패합니다.
+
+그다음 **계정 두 개로 함께 키우기 흐름을 확인하세요.**
 
 004는 2026-08-11 운영 DB에 적용됐습니다. 코드와 DB가 모두 준비됐지만 실제
 초대 발급 → 입력 → 기록 공유는 해보지 못했습니다.
@@ -16,8 +22,8 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 
 ## 현재 상태
 
-테이블 16개 중 앱이 실제로 읽고 쓰는 것은 **13개**입니다. (`baby_members`,
-`baby_invites`는 004 적용 후)
+테이블 18개 중 앱이 실제로 읽고 쓰는 것은 **15개**입니다. (`baby_members`,
+`baby_invites`는 004 적용 후, `medication_records`·`hospital_visits`는 006 적용 후)
 
 | 테이블 | 상태 | 담당 코드 |
 |---|---|---|
@@ -35,6 +41,8 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 | `vaccines` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `vaccination_records` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `assessments` | 연동됨 (저장: 체온 / 조회: 분석 탭) | `assessment_service.dart`, `analysis_page.dart` |
+| `medication_records` | 연동됨 (006 적용 후) | `lib/features/detail/care/care_record_service.dart` |
+| `hospital_visits` | 연동됨 (006 적용 후) | `lib/features/detail/care/care_record_service.dart` |
 | `skin_analyses` | **미연동** (모델 자체가 없음) | — |
 | `device_tokens` | **미연동** (FCM 설정 자체가 없음) | — |
 

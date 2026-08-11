@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
@@ -150,24 +154,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: Text(
-          '수유 기록',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '수유 기록'),
       body: SafeArea(
         // ★ 수정: 키보드가 켜져도 화면이 터지지 않고 부드럽게 스크롤되도록 설정
         child: SingleChildScrollView(
@@ -268,36 +255,9 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
               ),
               // ★ 수정: 스크롤뷰 내부에선 무한 확장을 시도하는 Spacer() 대신 고정 공백(SizedBox)을 줍니다.
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyzeButtonTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          '기록하기',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyzeButtonTap,
+                saving: isSaving,
               ),
               const SizedBox(height: 36),
               RecordHistorySection(

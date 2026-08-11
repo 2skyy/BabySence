@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
@@ -20,7 +24,6 @@ class TemperatureRecordPage extends StatefulWidget {
 }
 
 class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
-  static const Color buttonBlue = AppColors.primary;
   Color get backgroundColor => context.colors.background;
   Color get textColor => context.colors.textPrimary;
   static const double defaultTemperature = 36.5;
@@ -295,19 +298,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
 
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '체온 기록',
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: const CommonAppBar(title: '체온 기록'),
 
       // 이력 목록이 아래에 붙어 화면을 넘기므로 스크롤 뷰로 감쌉니다.
       body: SafeArea(
@@ -372,38 +363,9 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
               // 스크롤 뷰 안에서는 무한 확장을 시도하는 Spacer()를 쓸 수 없습니다.
               const SizedBox(height: 32),
 
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyzeButtonTap,
-                  style: ButtonStyle(
-                    backgroundColor: const WidgetStatePropertyAll(buttonBlue),
-                    elevation: const WidgetStatePropertyAll(0),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          '기록하기',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyzeButtonTap,
+                saving: isSaving,
               ),
               if (_lastAssessment != null) ...[
                 const SizedBox(height: 24),
