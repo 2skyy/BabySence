@@ -16,8 +16,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-from . import skin
+from . import advice, skin
 from .config import settings
 
 logging.basicConfig(
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
     # 모델은 시작할 때 한 번만 읽습니다. 요청마다 읽으면 느립니다.
     # 모델이 없어도 서버는 뜨고, 해당 엔드포인트만 503을 반환합니다.
     skin.model.load()
+    advice.client.load()
     yield
 
 
@@ -69,7 +71,52 @@ async def health() -> dict:
         "status": "ok",
         "models": {
             "skin": {"ready": skin.model.is_ready},
+            "advice": {"ready": advice.client.ready},
         },
+    }
+
+
+class AdviceRequest(BaseModel):
+    """육아 질문 한 건.
+
+    맥락(개월 수, 최근 기록, 앱이 낸 판정)은 **앱이 조립해 보냅니다.**
+    이 서버는 DB에 붙지 않으므로 기록을 직접 조회할 수 없습니다.
+    개인을 특정할 수 있는 값(이름, 아이디)은 보내지 마세요.
+    """
+
+    question: str = Field(min_length=2, max_length=settings.max_question_chars)
+    domain: str = Field(default="overall")
+    context: str | None = Field(default=None, max_length=settings.max_context_chars)
+
+
+@app.post("/api/advice")
+async def get_advice(request: AdviceRequest) -> dict:
+    """보호자의 질문에 Claude가 답합니다.
+
+    진단하지 않습니다. 앱의 규칙 기반 판정을 대신하지도 않습니다.
+    판정이 맥락으로 들어오면 그 판정을 풀어 설명하는 역할입니다.
+    """
+    if request.domain not in advice.DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"알 수 없는 영역입니다: {request.domain}",
+        )
+
+    try:
+        answer = advice.client.ask(
+            question=request.question,
+            domain=request.domain,
+            context=request.context,
+        )
+    except Exception as exc:  # noqa: BLE001
+        status, detail = advice.to_http_detail(exc)
+        raise HTTPException(status_code=status, detail=detail) from exc
+
+    # 고지는 서버가 붙입니다. 모델이 쓰게 두면 답변마다 문구가 달라집니다.
+    return {
+        "status": "success",
+        "answer": answer,
+        "disclaimer": advice.DISCLAIMER,
     }
 
 

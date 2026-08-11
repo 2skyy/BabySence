@@ -465,18 +465,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const Text(
-          '전체보기',
-          style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
-        ),
-      ],
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
     );
   }
 }

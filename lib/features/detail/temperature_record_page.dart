@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
+import '../../core/widgets/medical_disclaimer.dart';
+import '../advice/advice_page.dart';
+import '../advice/advice_service.dart';
 import 'assessment/assessment.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
 import 'temperature_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/record_time_field.dart';
 import 'widgets/temperature_picker.dart';
 
 class TemperatureRecordPage extends StatefulWidget {
@@ -25,6 +29,9 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
   final List<String> selectedSymptoms = [];
   late double selectedTemperature;
+
+  /// 화면을 연 시각으로 시작합니다. 나중에 몰아서 적을 때는 직접 고칩니다.
+  final _time = RecordTimeController.now();
 
   final List<String> symptoms = ['없음', '기침', '콧물', '발진', '구토', '설사'];
 
@@ -83,6 +90,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   @override
   void dispose() {
     temperatureController.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -108,6 +116,13 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         .whereType<Symptom>()
         .toList();
 
+    // 판정 기준을 개월 수로 고르므로, 잰 시각이 곧 판정 근거이기도 합니다.
+    final measuredAt = _time.toDateTime();
+    if (measuredAt == null) {
+      _showMessage('시간을 1~12시, 0~59분으로 입력해주세요.');
+      return;
+    }
+
     setState(() => isSaving = true);
     try {
       // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
@@ -116,8 +131,6 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         _showMessage('먼저 아이 정보를 등록해주세요.');
         return;
       }
-
-      final measuredAt = DateTime.now();
 
       await TemperatureRecordService.save(
         babyId: baby.id,
@@ -157,6 +170,32 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   }
 
   /// 방금 저장한 체온의 판정과 행동 가이드.
+  /// 판정 결과에서 바로 이어 물을 수 있게 합니다.
+  ///
+  /// 판정과 개월 수를 맥락으로 함께 넘겨, 답변이 그 판정을 근거로 설명하도록
+  /// 합니다. 맥락 없이 물으면 일반론만 돌아옵니다.
+  Widget _buildAskButton(Assessment assessment) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdvicePage(
+              domain: AssessmentDomain.temperature,
+              context: buildAdviceContext(
+                ageInMonths: _ageInMonths,
+                assessment: assessment,
+              ),
+            ),
+          ),
+        ),
+        icon: const Icon(Icons.chat_bubble_outline, size: 18),
+        label: const Text('이 결과에 대해 물어보기'),
+      ),
+    );
+  }
+
   Widget _buildAssessmentCard(Assessment assessment) {
     final color = TemperaturePicker.colorFor(assessment.level);
     final icon = switch (assessment.level) {
@@ -310,6 +349,14 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                 ),
               ),
 
+              const SizedBox(height: 32),
+
+              RecordTimeField(
+                label: '측정 시간',
+                controller: _time,
+                onChanged: () => setState(() {}),
+              ),
+
               // 스크롤 뷰 안에서는 무한 확장을 시도하는 Spacer()를 쓸 수 없습니다.
               const SizedBox(height: 32),
 
@@ -349,6 +396,11 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
               if (_lastAssessment != null) ...[
                 const SizedBox(height: 24),
                 _buildAssessmentCard(_lastAssessment!),
+                const SizedBox(height: 12),
+                _buildAskButton(_lastAssessment!),
+                const SizedBox(height: 12),
+                // 판정을 보여주는 자리에는 반드시 함께 둡니다.
+                const MedicalDisclaimer(),
               ],
               const SizedBox(height: 36),
               RecordHistorySection(

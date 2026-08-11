@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'feeding_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/record_time_field.dart';
 
 class FeedingRecordPage extends StatefulWidget {
   const FeedingRecordPage({super.key});
@@ -24,9 +25,13 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
 
   String selectedFeedingType = '분유';
 
+  /// 화면을 연 시각으로 시작합니다. 나중에 몰아서 적을 때는 직접 고칩니다.
+  final _time = RecordTimeController.now();
+
   @override
   void dispose() {
     feedingAmountController.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -102,6 +107,12 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
       }
     }
 
+    final fedAt = _time.toDateTime();
+    if (fedAt == null) {
+      _showMessage('시간을 1~12시, 0~59분으로 입력해주세요.');
+      return;
+    }
+
     setState(() => isSaving = true);
     try {
       // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
@@ -114,7 +125,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
       await FeedingRecordService.save(
         babyId: baby.id,
         type: type,
-        fedAt: DateTime.now(),
+        fedAt: fedAt,
         amountMl: amount,
       );
 
@@ -248,6 +259,12 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                     contentPadding: EdgeInsets.symmetric(vertical: 28),
                   ),
                 ),
+              ),
+              const SizedBox(height: 32),
+              RecordTimeField(
+                label: '수유 시간',
+                controller: _time,
+                onChanged: () => setState(() {}),
               ),
               // ★ 수정: 스크롤뷰 내부에선 무한 확장을 시도하는 Spacer() 대신 고정 공백(SizedBox)을 줍니다.
               const SizedBox(height: 40),

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
+import '../../core/widgets/medical_disclaimer.dart';
+import '../advice/advice_page.dart';
+import '../advice/advice_service.dart';
 import '../detail/assessment/assessment.dart';
 import '../detail/assessment/assessment_service.dart';
 import '../detail/diaper_record_service.dart';
@@ -154,6 +157,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
       _sectionTitle('성장'),
       const SizedBox(height: AppSpacing.md),
       _buildGrowthLink(),
+      const SizedBox(height: AppSpacing.xl),
+      _sectionTitle('궁금한 점이 있나요'),
+      const SizedBox(height: AppSpacing.md),
+      _buildAskLink(),
+      const SizedBox(height: AppSpacing.xl),
+      // 이 화면은 판정 이력을 모아 보여주므로 고지가 필요합니다.
+      const MedicalDisclaimer(),
     ];
   }
 
@@ -379,6 +389,56 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 SizedBox(height: 2),
                 Text(
                   'WHO 표준과 견줘 봅니다',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  /// 영역을 특정하지 않은 일반 질문. 최근 7일 요약을 맥락으로 넘깁니다.
+  Widget _buildAskLink() {
+    final s = _summary;
+
+    return _card(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AdvicePage(
+            domain: AssessmentDomain.overall,
+            context: buildAdviceContext(
+              recentRecords: [
+                if (s != null && !s.isEmpty)
+                  '최근 7일: 수유 ${s.feedingCount}회, 배변 ${s.diaperCount}회'
+                      '${s.completedSleepCount > 0 ? ', 수면 ${formatDuration(s.sleepTotal)}' : ''}'
+                      '${s.highestTemperature != null ? ', 최고 체온 ${s.highestTemperature!.toStringAsFixed(1)}°C' : ''}',
+              ],
+            ),
+          ),
+        ),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+          SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '육아 질문하기',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  '기록을 바탕으로 답해 드려요',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,

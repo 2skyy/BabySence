@@ -7,7 +7,12 @@ import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
 import '../../../core/widgets/common_app_bar.dart';
 import '../../../core/widgets/common_button.dart';
+import '../../../core/widgets/medical_disclaimer.dart';
 import '../../../routes/app_routes.dart';
+import '../assessment/assessment.dart';
+import '../assessment/assessment_service.dart';
+import '../assessment/growth_rules.dart';
+import '../assessment/temperature_rules.dart' show ageInMonthsAt;
 import 'growth_record.dart';
 import 'growth_repository.dart';
 
@@ -201,12 +206,63 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
             isLoading: _savingRecord,
             onPressed: () => _handleAddRecord(baby),
           ),
+          if (_lastAssessment != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _buildAssessmentCard(_lastAssessment!),
+            const SizedBox(height: AppSpacing.md),
+            // 판정을 보여주는 자리에는 반드시 함께 둡니다.
+            const MedicalDisclaimer(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// WHO 성장 표준 판정 결과.
+  Widget _buildAssessmentCard(Assessment assessment) {
+    final color = switch (assessment.level) {
+      AssessmentLevel.normal => AppColors.primary,
+      AssessmentLevel.caution => Colors.orange.shade700,
+      AssessmentLevel.consult => AppColors.error,
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            assessment.levelLabel,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            assessment.guideText,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.7,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
   bool _savingRecord = false;
+
+  /// 방금 저장한 기록의 판정. 없으면 아직 판정하지 않은 상태입니다.
+  Assessment? _lastAssessment;
 
   Future<void> _handleAddRecord(Baby baby) async {
     final height = double.tryParse(_heightController.text);
@@ -226,8 +282,28 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         heightCm: height,
         weightKg: weight,
       );
+
+      // WHO 성장 표준으로 판정하고 결과를 남깁니다.
+      // 판정은 앱에서 계산하므로 저장이 실패해도 안내는 보여줄 수 있습니다.
+      final assessment = GrowthRules.assess(
+        sex: baby.sex,
+        ageInMonths: ageInMonthsAt(baby.birthDate, _recordDate),
+        weightKg: weight,
+        heightCm: height,
+      );
+
+      if (assessment != null) {
+        try {
+          await AssessmentService.save(babyId: baby.id, assessment: assessment);
+        } catch (e) {
+          // 판정 저장 실패가 성장 기록 자체를 무효로 만들지는 않습니다.
+          debugPrint('성장 판정 저장 실패: $e');
+        }
+      }
+
       _heightController.clear();
       _weightController.clear();
+      if (mounted) setState(() => _lastAssessment = assessment);
       await _load();
     } catch (e) {
       if (!mounted) return;

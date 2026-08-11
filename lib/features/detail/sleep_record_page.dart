@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/sleep_type.dart';
 import 'sleep_record_service.dart';
+import 'widgets/now_time_button.dart';
 import 'widgets/record_history.dart';
 
 class SleepRecordPage extends StatefulWidget {
@@ -90,6 +91,26 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   }
 
   bool isSaving = false;
+
+  /// 취침 또는 기상 칸을 지금 시각으로 채웁니다.
+  ///
+  /// 수면은 시작과 끝이 몇 시간 떨어져 있어, 배변처럼 화면을 열 때 둘 다
+  /// 지금으로 채우면 길이 0인 기록이 됩니다. 그래서 기본값은 그대로 두고
+  /// 재우는 순간·깨는 순간에 각각 누르도록 했습니다.
+  void _setNow({required bool isStart}) {
+    final now = nowTimeFields();
+    setState(() {
+      if (isStart) {
+        startPeriod = now.period;
+        startHourController.text = now.hour;
+        startMinuteController.text = now.minute;
+      } else {
+        endPeriod = now.period;
+        endHourController.text = now.hour;
+        endMinuteController.text = now.minute;
+      }
+    });
+  }
 
   /// 화면의 오전/오후 + 시:분을 실제 시각으로 만듭니다.
   ///
@@ -240,19 +261,9 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
               ),
               const SizedBox(height: 28),
               Row(
-                children: const [
-                  Expanded(
-                    child: Text(
-                      '시작 시간',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '종료 시간',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
-                  ),
+                children: [
+                  Expanded(child: _timeHeader('시작 시간', isStart: true)),
+                  Expanded(child: _timeHeader('종료 시간', isStart: false)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -357,6 +368,27 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 라벨과 '지금' 버튼을 한 줄에 둡니다.
+  ///
+  /// 폭이 절반뿐이라 글자를 키우면 라벨이 먼저 줄어들도록 [Flexible]로 감쌉니다.
+  Widget _timeHeader(String label, {required bool isStart}) {
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+        ),
+        NowTimeButton(
+          onPressed: () => _setNow(isStart: isStart),
+          semanticLabel: isStart ? '시작 시간' : '종료 시간',
+        ),
+      ],
     );
   }
 

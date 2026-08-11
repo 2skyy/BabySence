@@ -2,4 +2,7 @@ fastapi==0.138.0
 uvicorn[standard]==0.49.0
 python-multipart==0.0.32
 
+# 육아 질문 답변(Claude). 키는 ANTHROPIC_API_KEY 환경변수로만 넣습니다.
+anthropic==0.121.0
+
 # 피부 모델을 붙일 때 추론 라이브러리(torch 등)를 여기에 추가하세요.

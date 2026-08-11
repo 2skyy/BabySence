@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_config.dart';
+import '../../core/widgets/medical_disclaimer.dart';
 
 class SkinAnalysisPage extends StatefulWidget {
   const SkinAnalysisPage({super.key});
@@ -184,7 +185,10 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 12),
+            // AI가 낸 결과 옆에는 반드시 둡니다.
+            const MedicalDisclaimer(),
+            const SizedBox(height: 18),
 
             // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
             Expanded(

@@ -28,5 +28,18 @@ class Settings:
     #: 오진을 막기 위한 기준이며, Spring 서버에서 쓰던 값과 같습니다.
     skin_min_probability: float = float(os.getenv("SKIN_MIN_PROBABILITY", 50.0))
 
+    #: Claude API 키. **앱에 넣지 마세요.** 앱 패키지는 뜯을 수 있습니다.
+    #: 없으면 /api/advice가 503을 반환하고 나머지 기능은 그대로 동작합니다.
+    anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
+
+    #: 답변에 쓸 모델.
+    advice_model: str = os.getenv("ADVICE_MODEL", "claude-opus-5")
+
+    #: 질문 길이 상한(자). 프롬프트 주입과 비용 폭주를 함께 막습니다.
+    max_question_chars: int = int(os.getenv("MAX_QUESTION_CHARS", 500))
+
+    #: 앱이 함께 보내는 맥락(기록 요약)의 길이 상한(자).
+    max_context_chars: int = int(os.getenv("MAX_CONTEXT_CHARS", 2000))
+
 
 settings = Settings()

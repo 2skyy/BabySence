@@ -1,109 +1,177 @@
 import 'package:flutter/material.dart';
 
-/// 소음 측정 결과를 최대 데시벨 기준으로 안내하는 화면.
-///
-/// 예전에는 Spring 서버의 /api/sleep-records/{id}/analysis를 불러왔지만,
-/// 그 응답이 고정 문구였던 탓에 아래 규칙 기반 문구로 대체된 상태였습니다.
-/// 서버 호출은 실제로 쓰이지 않아 제거했습니다.
-class NoiseResultPage extends StatelessWidget {
-  final double maxDb;
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_spacing.dart';
+import '../../core/widgets/common_app_bar.dart';
+import '../../core/widgets/medical_disclaimer.dart';
+import 'assessment/assessment.dart';
 
-  const NoiseResultPage({super.key, required this.maxDb});
+/// 수면 소음 측정 결과.
+///
+/// 예전에는 이 화면이 근거 없는 50/70dB로 직접 문구를 만들었습니다. 지금은
+/// [NoiseRules]가 낸 판정을 받아 보여주기만 합니다 — 임계값이 코드 한 곳에만
+/// 있어야 논문의 기준과 어긋나지 않습니다.
+class NoiseResultPage extends StatelessWidget {
+  final Assessment assessment;
+
+  const NoiseResultPage({super.key, required this.assessment});
 
   @override
   Widget build(BuildContext context) {
-    // 1. 실제 측정한 데시벨(maxDb) 기준으로 상단 타이틀과 색상 결정
-    IconData statusIcon = Icons.check_circle;
-    Color statusColor = Colors.green;
-    String statusTitle = "정상";
+    final color = switch (assessment.level) {
+      AssessmentLevel.normal => AppColors.primary,
+      AssessmentLevel.caution => Colors.orange.shade700,
+      AssessmentLevel.consult => AppColors.error,
+    };
 
-    // 2. 측정값에 맞춘 가이드 문구 생성
-    String dynamicGuide = "";
+    final icon = switch (assessment.level) {
+      AssessmentLevel.normal => Icons.check_circle,
+      AssessmentLevel.caution => Icons.warning_amber_rounded,
+      AssessmentLevel.consult => Icons.volume_up,
+    };
 
-    if (maxDb >= 70.0) {
-      statusIcon = Icons.warning_rounded;
-      statusColor = Colors.redAccent;
-      statusTitle = "경고 / 환경 개선 필요";
-      dynamicGuide = "분석 결과입니다.\n"
-          "방금 측정된 최대 소음이 ${maxDb.toStringAsFixed(1)} dB까지 치솟아 매우 시끄러운 상태였습니다.\n"
-          "이 정도 소음은 아기가 깜짝 놀라 잠에서 깰 수 있으므로, 주변 소음원을 차단하거나 기기 위치를 조정해 주세요!";
-    } else if (maxDb >= 50.0) {
-      statusIcon = Icons.info_outline;
-      statusColor = Colors.orangeAccent;
-      statusTitle = "주의 / 약간 시끄러움";
-      dynamicGuide = "분석 결과입니다.\n"
-          "측정 중 최대 소음이 ${maxDb.toStringAsFixed(1)} dB로 약간의 생활 소음이 감지되었습니다.\n"
-          "아기가 중간에 깨지 않고 깊은 잠을 잘 수 있도록 조금 더 조용한 환경을 유지해 주는 것이 좋습니다.";
-    } else {
-      statusIcon = Icons.check_circle;
-      statusColor = Colors.green;
-      statusTitle = "정상";
-      dynamicGuide = "분석 결과입니다.\n"
-          "최대 소음이 ${maxDb.toStringAsFixed(1)} dB 주변으로 매우 조용하고 쾌적하게 유지되었습니다.\n"
-          "아기가 숙면을 취하기에 최적의 환경입니다. 현재 상태를 이대로 잘 유지해 주세요!";
-    }
-
-    final String finalReportToShow = dynamicGuide;
+    final average = assessment.inputs['average_db'] as num?;
+    final max = assessment.inputs['max_db'] as num?;
+    final samples = assessment.inputs['sample_count'] as num?;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('수면 소음 분석 결과')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'AI INSIGHT',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+      backgroundColor: AppColors.background,
+      appBar: const CommonAppBar(title: '수면 소음 결과'),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
-            const SizedBox(height: 10),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 30),
-                        const SizedBox(width: 10),
-                        Text(
-                          '현재 상태: $statusTitle',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 30, thickness: 1),
-                    const Text(
-                      '맞춤 행동 가이드',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    // ★ 가공된 최종 동적 리포트를 화면에 출력합니다.
-                    Text(
-                      finalReportToShow,
-                      style: const TextStyle(fontSize: 16, height: 1.5),
-                    ),
-                  ],
+            child: Column(
+              children: [
+                Icon(icon, size: 40, color: color),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  // 소음은 '상담 권장' 대신 '개선 권장'으로 부릅니다.
+                  assessment.levelLabel,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
                 ),
+                if (average != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '평균 ${average.toStringAsFixed(1)}dB',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              assessment.guideText,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.7,
+                color: AppColors.textPrimary,
               ),
             ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 15),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildBasis(average, max, samples),
+          const SizedBox(height: AppSpacing.lg),
+          const MedicalDisclaimer(),
+        ],
+      ),
+    );
+  }
+
+  /// 판정 근거를 그대로 보여줍니다.
+  ///
+  /// 무슨 값으로 어떤 기준을 적용했는지 사용자가 확인할 수 있어야
+  /// "근거를 추적 가능한 형태로 제시한다"는 설계가 화면에서도 성립합니다.
+  Widget _buildBasis(num? average, num? max, num? samples) {
+    final rows = <(String, String)>[
+      if (average != null) ('평균 소음', '${average.toStringAsFixed(1)} dB'),
+      if (max != null) ('최대 소음', '${max.toStringAsFixed(1)} dB'),
+      if (samples != null) ('측정 표본', '${samples.toInt()}건'),
+      ('적용 기준', '30dB 미만 정상 · 50dB 초과 개선 권장'),
+      ('기준 버전', assessment.ruleVersion),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '판정 근거',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          for (final (label, value) in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 76,
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('확인', style: TextStyle(fontSize: 18)),
-            )
-          ],
-        ),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+          // 이 한계를 숨기면 측정값이 절대 기준을 충족한다고 오해합니다.
+          const Text(
+            '※ 마이크 보정값이 실제 소음계와 대조되지 않아, 절대 수치의 '
+            '정확도는 확인되지 않았습니다.',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

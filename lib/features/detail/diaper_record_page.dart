@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'diaper_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/record_time_field.dart';
 
 class DiaperRecordPage extends StatefulWidget {
   const DiaperRecordPage({super.key});
@@ -15,17 +15,16 @@ class DiaperRecordPage extends StatefulWidget {
 class _DiaperRecordPageState extends State<DiaperRecordPage> {
   static const Color primaryColor = AppColors.primary;
   static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color surfaceColor = Colors.white;
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color textColor = Color(0xFF1F2937);
   static const Color secondaryTextColor = Color(0xFF6B7280);
 
   String selectedDiaperType = "소변";
   String selectedStoolState = "황금변";
-  String selectedAmPm = "AM";
 
-  final TextEditingController hourController = TextEditingController(text: "08");
-  final TextEditingController minuteController = TextEditingController(text: "40");
+  /// 기록은 대개 기저귀를 간 직후에 남깁니다. 화면을 열면 지금 시각이 들어가
+  /// 있어 대부분의 경우 시간을 건드릴 필요가 없습니다.
+  final _time = RecordTimeController.now();
 
   void selectDiaper(String type) {
     setState(() => selectedDiaperType = type);
@@ -33,10 +32,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   void selectStool(String state) {
     setState(() => selectedStoolState = state);
-  }
-
-  void selectAmPm(String value) {
-    setState(() => selectedAmPm = value);
   }
 
   bool isSaving = false;
@@ -88,24 +83,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
     }
   }
 
-  /// 화면의 AM/PM + 시:분을 오늘 날짜의 시각으로 만듭니다.
-  /// 미래 시각이 나오면 어제로 봅니다(자정 직후에 전날 기록을 넣는 경우).
-  DateTime? _recordedAt() {
-    final hour = int.tryParse(hourController.text);
-    final minute = int.tryParse(minuteController.text);
-    if (hour == null || minute == null) return null;
-    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-
-    var hour24 = hour % 12;
-    if (selectedAmPm == "PM") hour24 += 12;
-
-    final now = DateTime.now();
-    final at = DateTime(now.year, now.month, now.day, hour24, minute);
-    return at.isAfter(now) ? at.subtract(const Duration(days: 1)) : at;
-  }
-
   Future<void> handleAnalyze() async {
-    final recordedAt = _recordedAt();
+    final recordedAt = _time.toDateTime();
     if (recordedAt == null) {
       _showMessage("시간을 1~12시, 0~59분으로 입력해주세요.");
       return;
@@ -148,8 +127,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   @override
   void dispose() {
-    hourController.dispose();
-    minuteController.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -224,97 +202,10 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                 ],
               ),
               const SizedBox(height: 28),
-              const Text(
-                "교체 시간",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _amPmButton("AM", "오전"),
-                    const SizedBox(width: 6),
-                    _amPmButton("PM", "오후"),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: hourController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
-                        ],
-                        onChanged: (value) {
-                          if (value.isEmpty) return;
-                          final intVal = int.tryParse(value);
-                          if (intVal == null) return;
-                          if (intVal < 1) {
-                            hourController.text = "1";
-                          } else if (intVal > 12) {
-                            hourController.text = "12";
-                          }
-                          hourController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: hourController.text.length),
-                          );
-                        },
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        ":",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: minuteController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
-                        ],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              RecordTimeField(
+                label: '교체 시간',
+                controller: _time,
+                onChanged: () => setState(() {}),
               ),
               // ★ 수정: 스크롤 뷰 내부에서 에러를 내는 Spacer() 대신 고정 간격 지정
               const SizedBox(height: 40),
@@ -366,30 +257,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                 ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _amPmButton(String value, String label) {
-    final selected = selectedAmPm == value;
-    return GestureDetector(
-      onTap: () => selectAmPm(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? primaryColor : borderColor,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: selected ? primaryColor : secondaryTextColor,
           ),
         ),
       ),

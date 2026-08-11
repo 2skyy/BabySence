@@ -6,7 +6,12 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 // ★ 백색소음 선택 페이지 및 싱글톤 서비스 import
 import './white_noise_page.dart';
 import './white_noise_service.dart';
+import '../../core/services/baby_service.dart';
 import '../../core/services/sleep_type.dart';
+import 'assessment/assessment_service.dart';
+import 'assessment/noise_rules.dart';
+import 'noise_result_page.dart';
+import 'sleep_record_service.dart';
 
 class NoiseTestPage extends StatefulWidget {
   const NoiseTestPage({super.key});
@@ -71,29 +76,93 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       };
     }
 
-    if (db < 50.0) {
+    // 구간은 NoiseRules와 같은 값을 씁니다. 여기서 따로 숫자를 적으면
+    // 실시간 표시와 최종 판정이 어긋납니다.
+    if (db < NoiseRules.normalLimit) {
       return {
         "color": Colors.green[50]!,
         "textColor": Colors.green[700]!,
-        "text": "안전 (쾌적한 수면 환경)",
+        "text": "정상 (조용한 편이에요)",
         "icon": Icons.check_circle,
       };
-    } else if (db >= 50.0 && db < 70.0) {
+    } else if (db <= NoiseRules.improveLimit) {
       return {
         "color": Colors.orange[50]!,
         "textColor": Colors.orange[800]!,
-        "text": "주의 (아기가 깰 수 있어요)",
+        "text": "주의 (수면 방해가 시작되는 구간)",
         "icon": Icons.warning_amber_rounded,
       };
     } else {
       return {
         "color": Colors.red[50]!,
         "textColor": Colors.red[800]!,
-        "text": "위험 (소음 차단 필요!!)",
-        "icon": Icons.gpp_bad_rounded,
+        // '위험' 대신 무엇을 하면 되는지를 씁니다(안전장치 1).
+        "text": "개선 권장 (소음을 줄여 주세요)",
+        "icon": Icons.volume_up,
       };
     }
   }
+
+  /// 측정을 멈춘 뒤 판정 결과를 보여줍니다.
+  ///
+  /// 소음 로그는 **백그라운드 isolate**가 씁니다. 이 화면(UI isolate)은
+  /// 그 인스턴스에 접근할 수 없어, 방금 끝난 수면 기록을 다시 조회해
+  /// 통계를 계산합니다.
+  Future<void> _showResult() async {
+    setState(() => _loadingResult = true);
+    try {
+      // 중지 직후에는 남은 로그를 저장하는 중일 수 있습니다. 잠시 기다린 뒤
+      // 조회합니다. 그래도 부족하면 아래에서 표본 부족으로 안내합니다.
+      await Future.delayed(const Duration(seconds: 2));
+
+      final baby = await BabyService.loadCurrent();
+      if (baby == null) return;
+
+      final recent = await SleepRecordService.loadRecent(baby.id, limit: 1);
+      if (recent.isEmpty) return;
+
+      final stats = await SleepRecordService.loadNoiseStats(recent.first.id);
+      final assessment = NoiseRules.assess(
+        averageDb: stats.averageDb,
+        maxDb: stats.maxDb,
+        sampleCount: stats.sampleCount,
+      );
+
+      if (!mounted) return;
+
+      if (assessment == null) {
+        // 표본이 적으면 판정하지 않습니다. 근거 없는 안내보다 낫습니다.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.'),
+          ),
+        );
+        return;
+      }
+
+      // 판정은 앱에서 계산하므로 저장이 실패해도 결과는 보여줄 수 있습니다.
+      try {
+        await AssessmentService.save(babyId: baby.id, assessment: assessment);
+      } catch (e) {
+        debugPrint('소음 판정 저장 실패: $e');
+      }
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => NoiseResultPage(assessment: assessment),
+        ),
+      );
+    } catch (e) {
+      debugPrint('소음 결과 조회 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loadingResult = false);
+    }
+  }
+
+  /// 측정 종료 후 결과를 불러오는 중인지.
+  bool _loadingResult = false;
 
   void _toggleNoiseMeasurement() async {
     final service = FlutterBackgroundService();
@@ -105,6 +174,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         _isNoiseMeasuring = false;
         _currentDecibel = 0.0;
       });
+      await _showResult();
     } else {
       if (!isRunning) {
         await service.startService();
@@ -242,15 +312,32 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                   const SizedBox(height: 28),
 
                   ElevatedButton.icon(
-                    onPressed: _toggleNoiseMeasurement,
+                    // 결과를 불러오는 동안 다시 누르면 측정이 꼬입니다.
+                    onPressed: _loadingResult ? null : _toggleNoiseMeasurement,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isNoiseMeasuring ? Colors.grey[800] : AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(200, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: Icon(_isNoiseMeasuring ? Icons.mic_off : Icons.mic),
-                    label: Text(_isNoiseMeasuring ? '소음 측정 중지하기' : '실시간 소음 측정 시작'),
+                    icon: _loadingResult
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Icon(_isNoiseMeasuring ? Icons.mic_off : Icons.mic),
+                    label: Text(
+                      _loadingResult
+                          ? '결과를 정리하는 중…'
+                          : _isNoiseMeasuring
+                              ? '소음 측정 중지하기'
+                              : '실시간 소음 측정 시작',
+                    ),
                   ),
                 ],
               ),

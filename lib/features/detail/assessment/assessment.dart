@@ -43,6 +43,21 @@ class Assessment {
   /// 적용된 임계값 규칙의 버전. 기준을 바꾸면 올려야 합니다.
   final String ruleVersion;
 
+  /// 화면에 보여줄 단계 이름.
+  ///
+  /// 소음은 수면 환경 문제이지 아이의 몸 상태가 아닙니다. 여기에
+  /// '상담 권장'을 쓰면 소음 때문에 병원에 가라는 말로 읽힙니다.
+  /// 같은 `consult` 단계라도 소음에서는 '개선 권장'으로 부릅니다.
+  /// DB에 저장되는 값은 그대로 `consult`이므로 CHECK 제약과 3단계 구조는
+  /// 유지됩니다.
+  String get levelLabel {
+    if (domain == AssessmentDomain.noise &&
+        level == AssessmentLevel.consult) {
+      return '개선 권장';
+    }
+    return level.label;
+  }
+
   /// 판정 시각. 저장 전에는 null입니다 — DB가 넣어 줍니다.
   final DateTime? assessedAt;
 

@@ -38,5 +38,16 @@ app.*.map.json
 
 # 환경 설정 (env.example.json을 복사해서 만드세요)
 env.json
+
+# API 키. 절대 커밋하지 마세요.
+# 서버는 ANTHROPIC_API_KEY를 여기서 읽습니다(server/README.md 참고).
+.env
+*.env
+!*.env.example
 # 골든 테스트 실패 시 생성되는 비교 이미지
 **/failures/
+
+# 논문 원고. 저장소에 넣지 않습니다(바이너리, diff 불가).
+*.docx
+*.hwp
+*.hwpx

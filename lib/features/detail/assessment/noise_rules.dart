@@ -1,36 +1,45 @@
 import 'assessment.dart';
 
-/// 수면 중 소음 판정.
+/// 수면 환경 소음 판정.
 ///
-/// 출처: [26] Berglund, B., Lindvall, T., & Schwela, D. H. (Eds.). (1999).
-/// *Guidelines for community noise*. Geneva: WHO. — Table 1, "inside bedrooms"
+/// ## 임계값
 ///
-/// | 건강 영향 | LAeq | 시간 기준 | LAmax fast |
-/// |---|---|---|---|
-/// | 수면 방해 (야간) | **30 dB** | 8시간 | **45 dB** |
-/// | 음성 명료도·중등도 불쾌감 (주간·저녁) | 35 dB | 16시간 | — |
+/// | 측정 소음도 (dB(A)) | 단계 | 근거 |
+/// |---|---|---|
+/// | 30 미만 | 정상 | [28] WHO 침실 권고 상한 |
+/// | 30 ~ 50 | 주의 | 수면 방해가 시작되는 구간 |
+/// | 50 초과 | 개선 권장 | [24] 신생아실 권장 소음 상한 |
 ///
-/// **1999년판을 쓰는 이유.** WHO 소음 지침은 이후 두 번 갱신됐지만 둘 다
-/// 실외 지표입니다.
-///   - 2009 *Night noise guidelines for Europe*: 40 dB L(night,outside), 잠정 55 dB
-///   - 2018 *Environmental noise guidelines for the European Region*:
-///     소음원별 실외 연평균 L(den)/L(night)
-/// 이 앱은 스마트폰으로 침실 **실내**를 측정하므로, 침실 실내 값을 제시하는
-/// 1999년판이 비교 대상으로 맞습니다.
+/// 출처
+/// - [28] Berglund, B., Lindvall, T., & Schwela, D. H. (Eds.). (1999).
+///   *Guidelines for community noise*. Geneva: WHO. — Table 1, "inside bedrooms":
+///   수면을 위한 침실 내 정상 상태 소음 **30 dB LAeq**.
+/// - [24] Hugh, S. C., et al. (2014). Infant sleep machines and hazardous sound
+///   pressure levels. *Pediatrics*, 133(4), 677-681. — 신생아실 권장 소음 상한
+///   **50 dB(A)**.
 ///
-/// ⚠️ **측정값 신뢰성 문제.** 위 기준은 절대 음압 수준입니다. 반면 이 앱의 dB는
-/// `NoiseTracker`에서 검증되지 않은 `-15dB` 보정을 거친 값입니다. 실제 소음계와
-/// 대조해 보정을 확정하기 전에는, 이 판정을 WHO 기준 충족 여부로 해석하면
-/// 안 됩니다. 자세한 내용은 docs/assessment-rules.md 참고.
+/// ## 왜 WHO의 45dB이 경계가 아닌가
+///
+/// WHO는 침실의 **순간 소음 사건**을 45 dB LAmax로 권고합니다. 이 앱은 그
+/// 값을 경계로 쓰지 않고 **신생아실 상한 50dB**을 씁니다. 대상이 영유아이고,
+/// 50dB이 영유아가 자는 공간을 직접 겨냥해 제시된 값이기 때문입니다.
+/// 순간 최대값은 판정 근거(`inputs`)와 안내 문구에 함께 남깁니다.
+///
+/// ## ⚠️ 측정값 신뢰성 문제
+///
+/// 위 기준은 절대 음압 수준입니다. 반면 이 앱의 dB는 `NoiseTracker`에서
+/// **검증되지 않은 `-15dB` 보정**을 거친 값입니다. 실제 소음계와 대조해
+/// 보정을 확정하기 전에는, 이 판정을 절대 기준 충족 여부로 해석하면 안 됩니다.
+/// 자세한 내용은 docs/assessment-rules.md 참고.
 class NoiseRules {
   /// 임계값이나 보정이 바뀌면 올려야 합니다.
-  static const String version = 'noise-who1999-2026-07-30';
+  static const String version = 'noise-2026-08-11';
 
-  /// 침실 실내 연속 배경소음 권고 상한 (LAeq, 8시간).
-  static const double sleepLAeqLimit = 30.0;
+  /// 이 값 미만이면 정상. WHO 침실 권고 상한입니다.
+  static const double normalLimit = 30.0;
 
-  /// 개별 소음 사건 권고 상한 (LAmax fast).
-  static const double sleepLAmaxLimit = 45.0;
+  /// 이 값을 넘으면 개선 권장. 신생아실 권장 소음 상한입니다.
+  static const double improveLimit = 50.0;
 
   /// 판정을 내기에 충분한 최소 표본 수.
   ///
@@ -40,7 +49,10 @@ class NoiseRules {
 
   /// 완료된 수면 구간의 소음 통계로 판정합니다.
   ///
-  /// [averageDb]는 구간 평균(LAeq에 대응), [maxDb]는 구간 최대(LAmax에 대응)입니다.
+  /// 단계는 **평균([averageDb])**으로 정합니다. 30dB과 50dB 모두 지속되는
+  /// 배경 소음 수준을 가리키는 값이기 때문입니다. [maxDb]는 경계로 쓰지
+  /// 않고 안내와 근거에만 남깁니다.
+  ///
   /// 표본이 [minSamples]보다 적으면 null을 돌려줍니다 — 판정하지 않는 편이
   /// 근거 없는 안내보다 낫습니다.
   static Assessment? assess({
@@ -50,44 +62,36 @@ class NoiseRules {
   }) {
     if (sampleCount < minSamples) return null;
 
-    final overAverage = averageDb > sleepLAeqLimit;
-    final overMax = maxDb > sleepLAmaxLimit;
-
     final AssessmentLevel level;
     final String guide;
 
-    if (overAverage && overMax) {
-      // 배경소음도 높고 놀랄 만한 순간 소음도 있었던 상태입니다.
+    if (averageDb > improveLimit) {
       level = AssessmentLevel.consult;
-      guide = '평균 ${_fmt(averageDb)}dB, 최대 ${_fmt(maxDb)}dB로 측정됐습니다. '
-          'WHO 침실 권고(평균 ${_fmt(sleepLAeqLimit)}dB, 순간 ${_fmt(sleepLAmaxLimit)}dB)를 '
-          '둘 다 넘었습니다. 소음원을 찾아 차단하고, 잠자리 위치를 바꿔보세요.';
-    } else if (overMax) {
+      guide = '평균 ${_fmt(averageDb)}dB로 측정됐습니다. '
+          '영유아가 자는 공간의 권장 상한(${_fmt(improveLimit)}dB)을 넘었습니다. '
+          '소음원을 찾아 차단하고, 백색소음을 쓰고 있다면 음량을 낮추거나 '
+          '기기를 아기에게서 멀리 두세요.';
+    } else if (averageDb >= normalLimit) {
       level = AssessmentLevel.caution;
-      guide = '평균은 조용했지만 최대 ${_fmt(maxDb)}dB의 순간 소음이 있었습니다. '
-          'WHO는 침실에서 순간 소음이 ${_fmt(sleepLAmaxLimit)}dB를 넘지 않도록 권고합니다. '
-          '갑작스러운 생활 소음에 주의해 주세요.';
-    } else if (overAverage) {
-      level = AssessmentLevel.caution;
-      guide = '평균 ${_fmt(averageDb)}dB로 WHO 침실 권고 '
-          '${_fmt(sleepLAeqLimit)}dB보다 높았습니다. 지속적인 소음원(가전·환기·바깥 소리)을 '
-          '줄이거나 백색소음으로 일정하게 만들어 주세요.';
+      guide = '평균 ${_fmt(averageDb)}dB로 수면 방해가 시작되는 구간입니다. '
+          'WHO는 침실 소음을 ${_fmt(normalLimit)}dB 이하로 권고합니다. '
+          '지속적인 소음원(가전·환기·바깥 소리)을 줄여 보세요.';
     } else {
       level = AssessmentLevel.normal;
-      guide = '평균 ${_fmt(averageDb)}dB, 최대 ${_fmt(maxDb)}dB로 '
-          'WHO 침실 권고 범위 안이었습니다. 현재 환경을 유지해 주세요.';
+      guide = '평균 ${_fmt(averageDb)}dB로 조용한 편입니다. '
+          '현재 환경을 유지해 주세요.';
     }
 
     return Assessment(
       domain: AssessmentDomain.noise,
       level: level,
-      guideText: guide,
+      guideText: '$guide 측정 중 가장 컸던 소리는 ${_fmt(maxDb)}dB였습니다.',
       inputs: {
         'average_db': averageDb,
         'max_db': maxDb,
         'sample_count': sampleCount,
-        'laeq_limit_db': sleepLAeqLimit,
-        'lamax_limit_db': sleepLAmaxLimit,
+        'normal_limit_db': normalLimit,
+        'improve_limit_db': improveLimit,
         // 보정이 검증되지 않았다는 사실을 판정 근거에 함께 남깁니다.
         'mic_offset_calibrated': false,
       },
