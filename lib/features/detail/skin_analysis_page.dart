@@ -111,6 +111,8 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       });
 
       Response response = await dio.post(serverUrl, data: formData);
+      // 분석은 몇 초 걸립니다. 그 사이 뒤로 가면 이 화면은 이미 사라집니다.
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         var data = response.data;
@@ -137,14 +139,17 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _resultText = "서버 연동 실패: $e";
         _isNormal = false;
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -169,14 +174,16 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
               duration: const Duration(milliseconds: 300),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _isNormal ? const Color(0xFFE8F5E9) : const Color(0xFFECEFF8),
+                color: _isNormal
+                    ? Colors.green.withValues(alpha: 0.15)
+                    : context.colors.primarySurface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 _resultText,
                 style: TextStyle(
                   fontSize: 14,
-                  color: _isNormal ? Colors.green[800] : context.colors.textSecondary,
+                  color: context.colors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -196,7 +203,9 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                     color: context.colors.surface,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: _isNormal ? Colors.green.withValues(alpha: 0.5) : const Color(0xFFE3E3E3),
+                      color: _isNormal
+                          ? Colors.green.withValues(alpha: 0.5)
+                          : context.colors.border,
                       width: _isNormal ? 2 : 1,
                     ),
                   ),
@@ -236,7 +245,9 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
               child: ElevatedButton(
                 onPressed: (_image != null || _imageBytes != null) && !_isLoading ? _sendToAiServer : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isNormal ? Colors.green : const Color(0xFFECEFF8),
+                  backgroundColor: _isNormal
+                      ? Colors.green
+                      : context.colors.primarySurface,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),

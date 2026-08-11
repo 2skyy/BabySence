@@ -325,7 +325,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${a.domain.label} · ${a.level.label}',
+                // levelLabel을 써야 소음이 '개선 권장'으로 나옵니다.
+                // level.label을 쓰면 "소음 · 상담 권장"이 되어, 소음 때문에
+                // 병원에 가라는 말로 읽힙니다.
+                '${a.domain.label} · ${a.levelLabel}',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,

@@ -20,9 +20,19 @@ enum MedicationReason {
   final String label;
 
   /// DB에 넣는 값. enum 이름이 camelCase라 snake_case로 바꿔줍니다.
+  ///
+  /// `_ =>` 로 뭉뚱그리지 않고 전부 나열합니다. 그래야 나중에 항목을 추가할 때
+  /// 컴파일이 막아 줍니다. 뭉뚱그리면 camelCase 이름이 그대로 나가서,
+  /// CHECK 제약에서만 조용히 터집니다.
   String get dbValue => switch (this) {
+        MedicationReason.fever => 'fever',
+        MedicationReason.cough => 'cough',
         MedicationReason.runnyNose => 'runny_nose',
-        _ => name,
+        MedicationReason.rash => 'rash',
+        MedicationReason.vomit => 'vomit',
+        MedicationReason.diarrhea => 'diarrhea',
+        MedicationReason.prescription => 'prescription',
+        MedicationReason.other => 'other',
       };
 
   /// DB에서 읽은 값을 되돌립니다. 나중에 CHECK에 항목이 추가돼도 조회가
@@ -51,9 +61,17 @@ enum VisitReason {
 
   final String label;
 
+  /// [MedicationReason.dbValue]와 같은 이유로 전부 나열합니다.
   String get dbValue => switch (this) {
+        VisitReason.fever => 'fever',
+        VisitReason.cough => 'cough',
         VisitReason.runnyNose => 'runny_nose',
-        _ => name,
+        VisitReason.rash => 'rash',
+        VisitReason.vomit => 'vomit',
+        VisitReason.diarrhea => 'diarrhea',
+        VisitReason.checkup => 'checkup',
+        VisitReason.vaccination => 'vaccination',
+        VisitReason.other => 'other',
       };
 
   static VisitReason fromDbValue(String? value) {

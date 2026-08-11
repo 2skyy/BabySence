@@ -25,6 +25,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   bool _isNoiseMeasuring = false;
   StreamSubscription? _serviceSubscription;
   StreamSubscription? _stateSubscription;
+  StreamSubscription? _sessionSubscription;
 
   /// 시작 신호에 대한 서비스의 응답을 기다리는 곳.
   Completer<bool>? _startAck;
@@ -50,6 +51,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   void dispose() {
     _serviceSubscription?.cancel();
     _stateSubscription?.cancel();
+    _sessionSubscription?.cancel();
     super.dispose();
   }
 
@@ -92,14 +94,22 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       if (!mounted) return;
       setState(() => _isNoiseMeasuring = measuring);
     });
+
+    // 방금 끝난 측정이 어느 수면 기록에 저장됐는지 받아 둡니다.
+    _sessionSubscription = service.on('noise_session_ended').listen((event) {
+      _endedSleepRecordId = event?['sleepRecordId'] as String?;
+    });
   }
+
+  /// 방금 끝난 측정의 sleep_records id. 백그라운드가 알려줍니다.
+  String? _endedSleepRecordId;
 
   // 🚨 [위험 단계 판단 로직]
   Map<String, dynamic> _getDangerLevel(double db) {
     if (!_isNoiseMeasuring) {
       return {
         "color": Colors.blueGrey[50]!,
-        "textColor": context.colors.textSecondary,
+        "textColor": Colors.blueGrey[700]!,
         "text": "측정 대기 중",
         "icon": Icons.radar,
       };
@@ -132,6 +142,15 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     }
   }
 
+  /// 결과를 만들지 못한 이유를 알려줍니다.
+  ///
+  /// 예전에는 조용히 돌아가서, 중지 버튼이 2초 돌다 원래대로 오고 아무 일도
+  /// 일어나지 않았습니다. 사용자는 무엇이 잘못됐는지 알 수 없었습니다.
+  void _notify(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   /// 측정을 멈춘 뒤 판정 결과를 보여줍니다.
   ///
   /// 소음 로그는 **백그라운드 isolate**가 씁니다. 이 화면(UI isolate)은
@@ -145,12 +164,25 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       await Future.delayed(const Duration(seconds: 2));
 
       final baby = await BabyService.loadCurrent();
-      if (baby == null) return;
+      if (baby == null) {
+        _notify('아이 정보가 없어 결과를 만들지 못했습니다. 먼저 아이를 등록해 주세요.');
+        return;
+      }
 
-      final recent = await SleepRecordService.loadRecent(baby.id, limit: 1);
-      if (recent.isEmpty) return;
+      // 백그라운드가 알려준 기록을 씁니다. 못 받았을 때만 가장 최근 기록으로
+      // 되돌아갑니다 — 그 사이 손으로 적은 수면 기록이 있으면 그쪽을 집을 수
+      // 있어, 어디까지나 차선입니다.
+      var recordId = _endedSleepRecordId;
+      if (recordId == null) {
+        final recent = await SleepRecordService.loadRecent(baby.id, limit: 1);
+        if (recent.isEmpty) {
+          _notify('저장된 측정 기록을 찾지 못했습니다.');
+          return;
+        }
+        recordId = recent.first.id;
+      }
 
-      final stats = await SleepRecordService.loadNoiseStats(recent.first.id);
+      final stats = await SleepRecordService.loadNoiseStats(recordId);
       final assessment = NoiseRules.assess(
         averageDb: stats.averageDb,
         maxDb: stats.maxDb,
@@ -161,11 +193,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
 
       if (assessment == null) {
         // 표본이 적으면 판정하지 않습니다. 근거 없는 안내보다 낫습니다.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.'),
-          ),
-        );
+        _notify('측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.');
         return;
       }
 
@@ -185,6 +213,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       );
     } catch (e) {
       debugPrint('소음 결과 조회 실패: $e');
+      _notify('결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       if (mounted) setState(() => _loadingResult = false);
     }
@@ -205,6 +234,9 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       await _showResult();
       return;
     }
+
+    // 지난 측정의 id가 남아 있으면 이번 결과가 그쪽 통계를 보게 됩니다.
+    _endedSleepRecordId = null;
 
     setState(() => _starting = true);
     final started = await _startMeasuring();
@@ -374,7 +406,15 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text('dB', style: TextStyle(fontSize: 20, color: context.colors.textSecondary, fontWeight: FontWeight.bold)),
+                      Text('dB',
+                          style: TextStyle(
+                            fontSize: 20,
+                            // 카드 바탕이 상태에 따라 정해지므로 글씨도 같은
+                            // 짝을 씁니다. 테마 색을 쓰면 어두운 테마에서
+                            // 밝은 카드 위에 밝은 글씨가 됩니다.
+                            color: currentStatus['textColor'] as Color,
+                            fontWeight: FontWeight.bold,
+                          )),
                     ],
                   ),
                   const SizedBox(height: 28),

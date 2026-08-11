@@ -785,3 +785,169 @@ as $$
     and public.owns_baby(p_baby_id)   -- 구성원이 아니면 아무것도 돌려주지 않습니다
   order by (m.role = 'owner') desc, m.joined_at;
 $$;
+
+-- ============================================================================
+-- 6. 마이그레이션에서 옮겨 온 표
+-- ============================================================================
+-- 이 파일 하나로 새 DB를 만들 수 있어야 하므로, 나중에 추가된 표도 여기에
+-- 함께 둡니다. 이미 돌아가는 DB에는 supabase/migrations/의 해당 파일을
+-- 실행하세요(이 절과 같은 내용입니다).
+--
+-- 앞 절에서 owns_baby()가 이미 정의돼 있어야 하므로 맨 뒤에 둡니다.
+
+
+-- ── 6.1 커뮤니티 (migrations/003) ───────────────────────────────────────────
+-- ⚠️ 이 두 표는 다른 표와 RLS 방향이 반대입니다. 육아 기록은 "본인 것만
+--    읽기"이지만, 커뮤니티는 "모두 읽기 · 본인 것만 쓰기"입니다.
+
+-- 1. 게시글 ------------------------------------------------------------------
+create table if not exists public.posts (
+  id          uuid        primary key default gen_random_uuid(),
+  author_id   uuid        not null references auth.users (id) on delete cascade,
+  title       text        not null check (char_length(btrim(title)) between 1 and 100),
+  body        text        not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at  timestamptz not null default now()
+);
+
+comment on table  public.posts           is '커뮤니티 게시글. 작성자는 화면에서 익명으로 표시된다';
+comment on column public.posts.author_id is '수정·삭제 권한 확인용. 화면에는 노출하지 않는다';
+
+-- 2. 댓글 --------------------------------------------------------------------
+create table if not exists public.comments (
+  id          uuid        primary key default gen_random_uuid(),
+  post_id     uuid        not null references public.posts (id) on delete cascade,
+  author_id   uuid        not null references auth.users (id) on delete cascade,
+  body        text        not null check (char_length(btrim(body)) between 1 and 500),
+  created_at  timestamptz not null default now()
+);
+
+-- 3. 인덱스 ------------------------------------------------------------------
+-- 목록은 최신순, 댓글은 오래된 순으로 봅니다.
+create index if not exists idx_posts_created     on public.posts    (created_at desc);
+create index if not exists idx_comments_post     on public.comments (post_id, created_at);
+create index if not exists idx_posts_author      on public.posts    (author_id);
+create index if not exists idx_comments_author   on public.comments (author_id);
+
+-- 4. RLS ---------------------------------------------------------------------
+alter table public.posts    enable row level security;
+alter table public.comments enable row level security;
+
+-- 읽기는 로그인한 사용자 전체에게 엽니다.
+drop policy if exists posts_read on public.posts;
+create policy posts_read on public.posts
+  for select to authenticated
+  using (true);
+
+drop policy if exists comments_read on public.comments;
+create policy comments_read on public.comments
+  for select to authenticated
+  using (true);
+
+-- 쓰기·수정·삭제는 작성자 본인만.
+-- with check 를 빠뜨리면 남의 이름으로 글을 쓸 수 있습니다.
+drop policy if exists posts_insert on public.posts;
+create policy posts_insert on public.posts
+  for insert to authenticated
+  with check (auth.uid() = author_id);
+
+drop policy if exists posts_update on public.posts;
+create policy posts_update on public.posts
+  for update to authenticated
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+drop policy if exists posts_delete on public.posts;
+create policy posts_delete on public.posts
+  for delete to authenticated
+  using (auth.uid() = author_id);
+
+drop policy if exists comments_insert on public.comments;
+create policy comments_insert on public.comments
+  for insert to authenticated
+  with check (auth.uid() = author_id);
+
+drop policy if exists comments_update on public.comments;
+create policy comments_update on public.comments
+  for update to authenticated
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+drop policy if exists comments_delete on public.comments;
+create policy comments_delete on public.comments
+  for delete to authenticated
+  using (auth.uid() = author_id);
+
+
+-- ── 6.2 약 복용 · 병원 방문 (migrations/006) ────────────────────────────────
+
+-- ── 1. 약 복용 ──────────────────────────────────────────────────────────────
+create table public.medication_records (
+  id         uuid        primary key default gen_random_uuid(),
+  baby_id    uuid        not null references public.babies (id) on delete cascade,
+
+  -- 약 이름. 처방약 이름은 종류가 끝이 없어 고정 목록을 만들 수 없습니다.
+  name       text        not null check (length(trim(name)) between 1 and 100),
+
+  -- 용량. 'ml', '포', '알'처럼 단위가 제각각이라 숫자로 쪼개지 않습니다.
+  dose       text        check (length(dose) <= 50),
+
+  -- 왜 먹였는가. 반복 여부를 세는 기준입니다.
+  reason     text        not null check (reason in (
+                 'fever', 'cough', 'runny_nose', 'rash', 'vomit',
+                 'diarrhea', 'prescription', 'other')),
+
+  taken_at   timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+comment on column public.medication_records.reason is
+  'fever=발열, cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사, prescription=처방약 복용, other=기타';
+
+create index medication_records_baby_taken_idx
+  on public.medication_records (baby_id, taken_at desc);
+
+
+-- ── 2. 병원 방문 ────────────────────────────────────────────────────────────
+create table public.hospital_visits (
+  id            uuid        primary key default gen_random_uuid(),
+  baby_id       uuid        not null references public.babies (id) on delete cascade,
+
+  hospital_name text        check (length(hospital_name) <= 100),
+
+  reason        text        not null check (reason in (
+                    'fever', 'cough', 'runny_nose', 'rash', 'vomit',
+                    'diarrhea', 'checkup', 'vaccination', 'other')),
+
+  -- 진료실에서 들은 이야기를 보호자가 적는 칸입니다.
+  -- `diagnosis`라 부르지 않는 이유는, 이 앱이 진단을 다룬다는 인상을 주지
+  -- 않기 위해서입니다. 이 앱은 의료기기가 아닙니다.
+  note          text        check (length(note) <= 500),
+
+  visited_at    timestamptz not null,
+  created_at    timestamptz not null default now()
+);
+
+comment on column public.hospital_visits.reason is
+  'fever=발열, cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사, checkup=정기검진, vaccination=예방접종, other=기타';
+comment on column public.hospital_visits.note is
+  '보호자가 적는 진료 메모. 앱이 만들어 내는 진단이 아닙니다.';
+
+create index hospital_visits_baby_visited_idx
+  on public.hospital_visits (baby_id, visited_at desc);
+
+
+-- ── 3. RLS ──────────────────────────────────────────────────────────────────
+-- 다른 기록 표와 같습니다. owns_baby() 하나가 판정 근거이므로, 함께 키우기로
+-- 초대받은 구성원도 같은 규칙으로 보고 씁니다.
+alter table public.medication_records enable row level security;
+alter table public.hospital_visits    enable row level security;
+
+create policy medication_own on public.medication_records
+  for all to authenticated
+  using (public.owns_baby(baby_id))
+  with check (public.owns_baby(baby_id));
+
+create policy hospital_visit_own on public.hospital_visits
+  for all to authenticated
+  using (public.owns_baby(baby_id))
+  with check (public.owns_baby(baby_id));

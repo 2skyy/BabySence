@@ -30,6 +30,13 @@ class NoiseTracker {
   @visibleForTesting
   int get bufferedCount => _buffer.length;
 
+  /// 이번 측정이 쓰고 있는 sleep_records 행의 id. 아직 없으면 null입니다.
+  ///
+  /// 결과 화면이 **어느 기록의 통계를 봐야 하는지** 알려면 이 값이 필요합니다.
+  /// 예전에는 화면이 '가장 최근 수면 기록'을 짐작해서 골랐는데, 그 사이에
+  /// 손으로 적은 수면 기록이 들어오면 그쪽을 집었습니다.
+  String? get sleepRecordId => _sleepRecordId;
+
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// 측정을 시작할 때, 이번 측정이 밤잠인지 낮잠인지 알려줍니다.

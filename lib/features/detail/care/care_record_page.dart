@@ -105,7 +105,11 @@ class _CareRecordPageState extends State<CareRecordPage> {
       return;
     }
 
-    if (_tab == _Tab.medication && _nameController.text.trim().isEmpty) {
+    // 어느 탭에 저장할지 여기서 확정합니다. await 뒤에 _tab을 다시 읽으면,
+    // 저장 중에 탭을 바꿨을 때 검증한 것과 다른 표에 들어갑니다.
+    final tab = _tab;
+
+    if (tab == _Tab.medication && _nameController.text.trim().isEmpty) {
       _showMessage('약 이름을 입력해주세요.');
       return;
     }
@@ -118,7 +122,7 @@ class _CareRecordPageState extends State<CareRecordPage> {
         return;
       }
 
-      if (_tab == _Tab.medication) {
+      if (tab == _Tab.medication) {
         await CareRecordService.saveMedication(
           babyId: baby.id,
           name: _nameController.text,
@@ -243,7 +247,8 @@ class _CareRecordPageState extends State<CareRecordPage> {
     final selected = _tab == tab;
     return GestureDetector(
       // 탭을 바꿔도 시간은 그대로 둡니다. 대개 같은 날 일을 이어서 적습니다.
-      onTap: () => setState(() => _tab = tab),
+      // 저장 중에는 잠급니다 — 아래 목록과 폼이 저장 중인 것과 어긋나 보입니다.
+      onTap: _saving ? null : () => setState(() => _tab = tab),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(

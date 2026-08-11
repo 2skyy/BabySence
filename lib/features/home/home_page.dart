@@ -454,8 +454,9 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F3F4),
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -463,7 +464,8 @@ class _HomePageState extends State<HomePage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: context.colors.surface,
+                // 타일 바탕과 같은 색이면 원판이 보이지 않습니다.
+                color: context.colors.background,
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 26),
@@ -472,7 +474,14 @@ class _HomePageState extends State<HomePage> {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              // 색을 비워 두면 테마의 글씨색을 물려받습니다. 예전에는 타일
+              // 바탕만 밝은 색으로 고정돼 있어, 어두운 테마에서 밝은 바탕에
+              // 밝은 글씨가 겹쳐 대비 1.01:1로 아무것도 보이지 않았습니다.
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: context.colors.textPrimary,
+              ),
             ),
           ],
         ),

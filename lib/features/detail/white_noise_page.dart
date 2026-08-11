@@ -119,10 +119,12 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : context.colors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF1A73E8) : context.colors.border,
+                        color: isSelected ? AppColors.primary : context.colors.border,
                         width: isSelected ? 2 : 1,
                       ),
                       boxShadow: [
@@ -139,7 +141,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                         Icon(
                           isSelected ? Icons.pause_circle_filled_rounded : item.icon,
                           size: 32,
-                          color: isSelected ? const Color(0xFF1A73E8) : context.colors.textSecondary,
+                          color: isSelected ? AppColors.primary : context.colors.textSecondary,
                         ),
                         const SizedBox(height: 8),
                         Padding(
@@ -154,7 +156,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                               fontSize: 12,
                               height: 1.25,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? const Color(0xFF1A73E8) : context.colors.textPrimary,
+                              color: isSelected ? AppColors.primary : context.colors.textPrimary,
                             ),
                           ),
                         ),
@@ -182,7 +184,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                 children: [
                   Icon(
                     _noiseService.isPlaying ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    color: const Color(0xFF1A73E8),
+                    color: AppColors.primary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -203,7 +205,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                       );
                     },
                     icon: Icon(_noiseService.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                    color: const Color(0xFF1A73E8),
+                    color: AppColors.primary,
                   ),
                   IconButton(
                     onPressed: () {

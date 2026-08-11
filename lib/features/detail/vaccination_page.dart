@@ -4,6 +4,9 @@ import '../../core/widgets/common_app_bar.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
+import 'care/care_record_service.dart';
+import 'temperature_record_service.dart';
+import 'vaccination_readiness.dart';
 import 'vaccination_service.dart';
 
 class VaccinationPage extends StatefulWidget {
@@ -22,6 +25,9 @@ class _VaccinationPageState extends State<VaccinationPage> {
 
   Baby? _baby;
   List<VaccinationStatus> _schedule = [];
+
+  /// 접종 전에 진료실에서 말할 만한 최근 기록. 판정이 아닙니다.
+  VaccinationReadiness _readiness = const VaccinationReadiness(notes: []);
   bool _loading = true;
   String? _error;
 
@@ -49,10 +55,26 @@ class _VaccinationPageState extends State<VaccinationPage> {
               birthDate: baby.birthDate,
             );
 
+      // 접종 전 확인 목록은 최근 기록에서 만듭니다. 실패해도 일정은 보여야
+      // 하므로 따로 감쌉니다.
+      var readiness = const VaccinationReadiness(notes: []);
+      if (baby != null) {
+        try {
+          readiness = buildReadiness(
+            temperatures: await TemperatureRecordService.loadRecent(baby.id),
+            medications: await CareRecordService.loadMedications(baby.id),
+            visits: await CareRecordService.loadVisits(baby.id),
+          );
+        } catch (e) {
+          debugPrint('접종 전 확인 목록을 만들지 못했습니다: \$e');
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _baby = baby;
         _schedule = schedule;
+        _readiness = readiness;
         _loading = false;
       });
     } catch (e) {
@@ -138,6 +160,8 @@ class _VaccinationPageState extends State<VaccinationPage> {
         children: [
           _buildNextVaccinationCard(upcoming.isEmpty ? null : upcoming.first),
           const SizedBox(height: 24),
+          _buildReadinessCard(),
+          const SizedBox(height: 24),
           _buildProgressCard(done.length, _schedule.length),
           const SizedBox(height: 24),
           if (done.isNotEmpty) ...[
@@ -219,6 +243,118 @@ class _VaccinationPageState extends State<VaccinationPage> {
               color: primaryColor,
               fontSize: 16,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 접종 전에 진료실에서 말할 것들.
+  ///
+  /// **접종 가능 여부를 판정하지 않습니다.** 실제 기준인 "중등도~중증 급성
+  /// 질환"은 진찰로 가리는 것이라 앱이 계산할 수 없습니다. 자세한 근거는
+  /// vaccination_readiness.dart 참고.
+  ///
+  /// 대신 두 가지를 합니다.
+  /// 1. 최근 기록을 모아 예진표의 "오늘 아픈 곳이 있습니까?"에 정확히 답하게
+  /// 2. 미루지 않아도 되는 것들을 알려주기 — 세 지침 모두 불필요한 연기를
+  ///    더 크게 경계합니다
+  Widget _buildReadinessCard() {
+    final notes = _readiness.notes;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.fact_check_outlined, size: 20, color: primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                '접종 전 확인',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (notes.isEmpty)
+            Text(
+              '최근 $readinessWindowDays일 안에 적어 둔 기록이 없습니다.\n'
+              '기록이 없다고 접종해도 된다는 뜻은 아닙니다 — 아이 상태는 '
+              '진료실에서 의사가 봅니다.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: secondaryTextColor,
+              ),
+            )
+          else ...[
+            Text(
+              '최근 $readinessWindowDays일 기록입니다. 예진표의 "오늘 아픈 곳이 '
+              '있습니까?"에 답할 때 참고하세요.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: secondaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final n in notes)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '· ${n.text}',
+                  style: TextStyle(fontSize: 14, color: textColor),
+                ),
+              ),
+          ],
+
+          const SizedBox(height: 16),
+          Divider(height: 1, color: context.colors.border),
+          const SizedBox(height: 16),
+
+          Text(
+            '이런 것들은 접종을 미룰 이유가 아닙니다',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final item in notContraindications)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '· $item',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: secondaryTextColor,
+                ),
+              ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            '접종을 늦추면 그동안 아이가 그 병에 걸릴 위험이 남습니다. '
+            '미룰지 말지는 진료실에서 의사가 정합니다.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: secondaryTextColor,
             ),
           ),
         ],

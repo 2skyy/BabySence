@@ -217,8 +217,15 @@ void onStart(ServiceInstance service) async {
     isNoiseMeasuring = false;
     updateNotification();
 
+    // 어느 기록에 저장했는지 UI에 알려줍니다. finish()가 id를 비우므로
+    // 그 전에 읽어 둡니다. UI가 '가장 최근 수면 기록'을 짐작하면, 그 사이에
+    // 손으로 적은 수면 기록이 있을 때 엉뚱한 통계를 보게 됩니다.
+    final recordId = noiseTracker.sleepRecordId;
+
     // 버퍼에 남은 로그를 마저 저장하고 수면 기록의 종료 시각을 채웁니다.
-    noiseTracker.finish();
+    noiseTracker.finish().whenComplete(() {
+      service.invoke('noise_session_ended', {'sleepRecordId': recordId});
+    });
   }
 
   // --- UI 신호(이벤트) 리스너 설정 ---

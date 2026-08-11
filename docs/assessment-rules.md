@@ -245,3 +245,70 @@ DB CHECK 값은 남아 있지만 **계산 코드는 없습니다.**
 논문 3-3절은 NICE 신호등 체계[26]를 근거로 "가장 높은 단계를 대표 판정으로"
 표시한다고 서술합니다. 판정 영역을 체온·성장·소음 3개로 한정하기로 하면서
 이 규칙은 구현 범위에서 제외했습니다. **논문에서도 함께 빼야 합니다.**
+
+
+---
+
+## 7. 예방접종 (`vaccination`) — 판정하지 않기로 했습니다
+
+구현: `lib/features/detail/vaccination_readiness.dart`
+
+논문 3-2절 ⑦은 "접종 예정 백신과 현재 상태를 종합적으로 고려하여 예방접종
+가능 여부를 판단한다"고 썼습니다. **판단하지 않기로 했습니다.**
+
+### 세 지침이 모두 반대 방향입니다
+
+| 출처 | 원문 |
+|---|---|
+| CDC/ACIP | "**ACIP has not defined a body temperature above which vaccines should not be administered.**" / "Measuring temperature is not necessary before vaccination if the patient does not appear ill." |
+| 질병관리청 | 접종 주의사항은 "중등도 또는 중증의(moderate or severe) 급성 질환(**발열 여부에 무관**)" |
+| WHO | "For children with a minor illness and/or **a fever below 38.5 °C, vaccinate as usual.**" / "children who have a very high fever, **vaccinate if possible**" |
+
+즉 체온으로 접종 가부를 가르는 것은 **세 지침 모두가 하지 말라고 한 일**입니다.
+실제 기준인 "중등도~중증 급성 질환"은 진찰로 가리는 것이라 앱이 계산할 수 없습니다.
+
+### 미루지 말라는 쪽이 더 강합니다
+
+- CDC: "failure to vaccinate children with minor illnesses **can impede
+  vaccination efforts**" / "**missed opportunities** to administer recommended vaccines"
+- WHO: "**delaying immunization puts them at risk** of vaccine-preventable
+  diseases when they could receive the protection safely"
+- 질병관리청: "경한 급성 질환(미열, 감기, 상기도 감염, 중이염 및 경미한 설사)"은
+  금기사항이 **아닙니다**
+
+체온이 높다고 "접종을 미루세요"를 띄우면, 지침이 경계하는 바로 그 해를
+앱이 만들어 냅니다.
+
+### 대신 만든 것
+
+1. **접종 전 확인 목록** — 최근 3일의 체온·투약·병원 기록을 모아 보여줍니다.
+   질병관리청 예진표 3번 문항 "오늘 아픈 곳이 있습니까?"에 보호자가 정확히
+   답하도록 돕는 것이 앱이 할 수 있는 전부입니다. 정상 범위 체온은 뺍니다.
+2. **미룰 이유가 아닌 것들** — 위 세 지침이 명시한 목록을 그대로 보여줍니다.
+
+기록이 없어도 "접종해도 된다"고 말하지 않습니다. 앱이 아는 것이 없다는 뜻일
+뿐입니다.
+
+### ⚠️ 논문 표현을 고쳐야 합니다
+
+"예방접종 **가능 여부를 판단**한다" → "접종 전 확인 정보를 제시한다" 같은
+표현으로 바꿔야 합니다. 지금 표현은 구현과 다르고, 구현할 수도 없습니다.
+
+### 문서 안의 수치들 (인용 시 주의)
+
+- WHO 문서 안에서도 발열 수치가 갈립니다: 일반 원칙 38.5℃ 미만 접종 /
+  말라리아 백신 ≥38.5℃ 연기 가능 / 수막구균 결합백신 ≥38℃ 연기 가능.
+  **"WHO 기준 = 38.5℃"라고 단일 수치로 단정하면 부정확합니다.**
+- 세 경우 모두 "**may be** postponed"(연기할 수 있다)는 재량 표현입니다.
+- CDC 문서의 ≥40.5℃와 질병관리청의 40℃는 **접종 후 48시간 내 발열 이력**
+  기준이지 접종 전 연기 기준이 아닙니다. 섞으면 안 됩니다.
+- 질병관리청의 37.5℃는 **코로나19 백신 절에 한정**해 등장합니다. 국가예방접종
+  공통 기준이 아닙니다.
+
+출처
+- [1] Centers for Disease Control and Prevention. *General Best Practice
+  Guidelines for Immunization: Best Practices Guidance of the ACIP*.
+- [2] 질병관리청. *2026년 국가예방접종 지침(의료기관용)*.
+  「접종 금기 및 주의사항」 및 예방접종도우미 안내.
+- [3] World Health Organization. *Immunization in practice: a guide for health
+  workers*. Geneva: WHO, 2025. Module 5 §3.2.1. ISBN 978-92-4-011327-5.
