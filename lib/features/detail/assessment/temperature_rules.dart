@@ -1,3 +1,4 @@
+import '../temperature_record_service.dart' show Symptom;
 import 'assessment.dart';
 
 /// 연령대별 체온 판단 기준.
@@ -27,7 +28,7 @@ import 'assessment.dart';
 ///    영아 저체온도 위험 신호라 정상으로 처리하지 않았습니다.
 class TemperatureRules {
   /// 임계값을 바꾸면 올려야 합니다. 과거 판정의 근거를 추적하는 데 쓰입니다.
-  static const String version = 'temperature-2026-07-30';
+  static const String version = 'temperature-2026-08-12';
 
   /// 정상 범위의 하한. 이 아래는 저체온으로 주의 처리합니다.
   static const double normalLow = 36.5;
@@ -42,9 +43,40 @@ class TemperatureRules {
     return 39.0;
   }
 
+  /// 동반 증상을 판정에 함께 붙이기 시작하는 나이(개월).
+  ///
+  /// 출처: [26] NICE NG143. 생후 6개월을 넘은 아이는 **체온의 높이만으로**
+  /// 중증 질환 여부를 판단하지 말라고 권고합니다. 그래서 이 나이부터는 판정
+  /// 결과에 입력된 동반 증상을 반드시 함께 보여 줍니다.
+  ///
+  /// **경계가 '초과'가 아니라 '이상'인 이유**: [ageInMonthsAt]은 만 개월을
+  /// 내림하므로 6개월 20일도 6입니다. `> 6`으로 두면 지침이 가리키는
+  /// 6~7개월 아이가 통째로 빠집니다. 상담 권장 하한(39.0℃)이 갈리는 경계와
+  /// 같은 값이라 연령 구간도 하나로 맞춰집니다.
+  static const int symptomNoteFromMonths = 6;
+
+  /// [symptomNoteFromMonths] 이상에서 판정에 함께 붙는 동반 증상 안내.
+  ///
+  /// 증상이 없어도 "없습니다"라고 밝힙니다. 칸을 비우면 증상을 묻지 않은
+  /// 것인지 없는 것인지 알 수 없습니다.
+  static String? symptomNote({
+    required int ageInMonths,
+    required List<Symptom> symptoms,
+  }) {
+    if (ageInMonths < symptomNoteFromMonths) return null;
+
+    final listed = symptoms.isEmpty
+        ? '함께 기록한 증상은 없습니다.'
+        : '함께 기록한 증상: ${symptoms.map((s) => s.label).join(', ')}.';
+
+    return '$listed 이 시기부터는 체온의 높낮이만으로 상태를 판단하지 않습니다. '
+        '아이의 기운, 먹는 양, 소변량도 함께 살펴봐 주세요.';
+  }
+
   static Assessment assess({
     required double temperatureC,
     required int ageInMonths,
+    List<Symptom> symptoms = const [],
   }) {
     final consultAt = consultThreshold(ageInMonths);
 
@@ -59,8 +91,9 @@ class TemperatureRules {
           : '${_fmt(consultAt)}℃ 이상입니다. 병원 상담을 권합니다. 수분을 충분히 주고 상태를 지켜봐 주세요.';
     } else if (temperatureC > normalHigh) {
       level = AssessmentLevel.caution;
-      guide = '미열입니다. 2시간 간격으로 다시 재고, 옷차림과 실내 온도를 확인해 주세요. '
-          '${_fmt(consultAt)}℃ 이상이 되면 병원 상담이 필요합니다.';
+      // "미열입니다"는 확정적 표현이라 참고적 표현으로 씁니다(안전장치 1).
+      guide = '미열일 가능성이 있습니다. 2시간 간격으로 다시 재고, 옷차림과 실내 온도를 '
+          '확인해 주세요. ${_fmt(consultAt)}℃ 이상이 되면 병원 상담이 필요합니다.';
     } else if (temperatureC < normalLow) {
       // 표에 없는 구간입니다(위 문서 주석 2번).
       level = AssessmentLevel.caution;
@@ -68,18 +101,26 @@ class TemperatureRules {
           '체온계 위치를 확인해 다시 재고, 계속 낮으면 병원 상담을 권합니다.';
     } else {
       level = AssessmentLevel.normal;
-      guide = '정상 범위입니다. 지금처럼 지켜봐 주세요.';
+      // 판정 대상이 체온이라는 것을 밝힙니다. "정상 범위입니다"만 두면
+      // 아이 상태 전체가 정상이라는 말로 읽힙니다(안전장치 1).
+      guide = '체온은 정상 범위입니다. 지금처럼 지켜봐 주세요.';
     }
+
+    final note = symptomNote(ageInMonths: ageInMonths, symptoms: symptoms);
 
     return Assessment(
       domain: AssessmentDomain.temperature,
       level: level,
-      guideText: guide,
+      // 증상 안내는 문단을 나눠 붙입니다. 저장되는 guide_text에 함께 들어가야
+      // 나중에 판정을 다시 열어봐도 병기가 남습니다.
+      guideText: note == null ? guide : '$guide\n\n$note',
       // 판정 근거를 남깁니다. 원본 기록이 지워져도 이 값은 보존됩니다.
       inputs: {
         'temperature_c': temperatureC,
         'age_in_months': ageInMonths,
         'consult_threshold_c': consultAt,
+        // temperature_symptoms에 저장되는 값과 같은 표기를 씁니다.
+        'symptoms': [for (final s in symptoms.toSet()) s.dbValue],
       },
       ruleVersion: version,
     );

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_project/features/detail/assessment/assessment.dart';
 import 'package:flutter_project/features/detail/assessment/temperature_rules.dart';
+import 'package:flutter_project/features/detail/temperature_record_service.dart';
 
 /// <표 3> 연령대별 체온 판단 기준의 모든 경계를 고정합니다.
 ///
@@ -104,6 +105,109 @@ void main() {
     test('저체온 안내는 다시 재보라고 알린다', () {
       final a = TemperatureRules.assess(temperatureC: 36.0, ageInMonths: 8);
       expect(a.guideText, contains('낮습니다'));
+    });
+  });
+
+  /// 논문 3-3절: "6개월 초과 연령에서는 체온 판정 결과와 함께 입력된 동반
+  /// 증상을 반드시 병기하여 제시한다." 근거는 [26] NICE NG143 — 6개월을 넘은
+  /// 아이는 체온의 높이만으로 중증 질환 여부를 판단하지 말 것.
+  group('동반 증상 병기', () {
+    String guide(int months, List<Symptom> symptoms) =>
+        TemperatureRules.assess(
+          temperatureC: 38.2,
+          ageInMonths: months,
+          symptoms: symptoms,
+        ).guideText;
+
+    test('6개월 이상이면 입력한 증상이 판정에 함께 나온다', () {
+      final text = guide(8, [Symptom.cough, Symptom.vomit]);
+
+      expect(text, contains('기침'));
+      expect(text, contains('구토'));
+    });
+
+    test('증상이 없어도 없다고 밝힌다', () {
+      // 칸을 비우면 증상을 묻지 않은 것인지 없는 것인지 알 수 없습니다.
+      expect(guide(8, const []), contains('증상은 없습니다'));
+    });
+
+    test('체온만으로 판단하지 말라는 안내가 함께 붙는다', () {
+      expect(guide(8, const []), contains('체온의 높낮이만으로'));
+    });
+
+    test('6개월 미만에는 붙지 않는다', () {
+      // 3개월 미만은 발열 자체가 응급 신호라 체온이 곧 판정 근거입니다.
+      final text = guide(4, [Symptom.cough]);
+
+      expect(text, isNot(contains('함께 기록한 증상')));
+      expect(text, isNot(contains('체온의 높낮이만으로')));
+    });
+
+    test('경계는 6개월이다', () {
+      // 만 개월은 내림이라 6개월 20일도 6입니다. '초과'로 두면 지침이
+      // 가리키는 6~7개월 아이가 통째로 빠집니다.
+      expect(TemperatureRules.symptomNote(ageInMonths: 5, symptoms: const []),
+          isNull);
+      expect(TemperatureRules.symptomNote(ageInMonths: 6, symptoms: const []),
+          isNotNull);
+    });
+
+    test('판정 문장과 문단으로 나뉜다', () {
+      // 한 덩어리로 붙으면 화면에서 병기가 묻힙니다.
+      expect(guide(8, [Symptom.rash]).split('\n\n'), hasLength(2));
+    });
+
+    test('증상은 나이와 무관하게 근거에 남는다', () {
+      // 병기하지 않는 나이라도 무엇을 입력했는지는 보존해야 합니다.
+      final a = TemperatureRules.assess(
+        temperatureC: 38.2,
+        ageInMonths: 2,
+        symptoms: [Symptom.diarrhea],
+      );
+
+      expect(a.inputs['symptoms'], ['diarrhea']);
+    });
+
+    test('같은 증상을 두 번 골라도 근거에는 한 번만 남는다', () {
+      final a = TemperatureRules.assess(
+        temperatureC: 38.2,
+        ageInMonths: 8,
+        symptoms: [Symptom.cough, Symptom.cough],
+      );
+
+      expect(a.inputs['symptoms'], ['cough']);
+    });
+  });
+
+  /// 논문 3-8절 안전장치 1: '위험' 대신 '상담 권장'을 쓰고, "~입니다" 같은
+  /// 확정적 진단 표현 대신 "~ 가능성이 있습니다" 같은 참고적 표현을 쓴다.
+  group('안전장치 1 — 참고적 표현', () {
+    test('미열을 단정하지 않는다', () {
+      final text =
+          TemperatureRules.assess(temperatureC: 37.8, ageInMonths: 8).guideText;
+
+      expect(text, contains('가능성이 있습니다'));
+      expect(text, isNot(contains('미열입니다')));
+    });
+
+    test('정상 안내는 판정 대상을 체온으로 한정한다', () {
+      // "정상 범위입니다"만 두면 아이 상태 전체가 정상이라는 말로 읽힙니다.
+      final text =
+          TemperatureRules.assess(temperatureC: 37.0, ageInMonths: 8).guideText;
+
+      expect(text, contains('체온은 정상 범위'));
+    });
+
+    test("어떤 판정에도 '위험'이라는 단어를 쓰지 않는다", () {
+      for (final months in [1, 4, 8]) {
+        for (final temp in [36.0, 37.0, 37.8, 38.2, 39.5]) {
+          final a =
+              TemperatureRules.assess(temperatureC: temp, ageInMonths: months);
+
+          expect(a.guideText, isNot(contains('위험')), reason: '$temp℃ $months개월');
+          expect(a.levelLabel, isNot(contains('위험')));
+        }
+      }
     });
   });
 

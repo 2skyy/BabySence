@@ -144,6 +144,8 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
       final assessment = TemperatureRules.assess(
         temperatureC: value,
         ageInMonths: ageInMonthsAt(baby.birthDate, measuredAt),
+        // 6개월 이상은 판정에 동반 증상을 함께 표시합니다(NICE NG143).
+        symptoms: symptoms,
       );
 
       try {
@@ -230,14 +232,24 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            assessment.guideText,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: textColor,
+          // 6개월 이상은 동반 증상 안내가 빈 줄 뒤에 붙습니다. 한 덩어리로
+          // 두면 묻히므로 선을 그어 나눠 보여줍니다.
+          for (final (i, paragraph)
+              in assessment.guideText.split('\n\n').indexed) ...[
+            if (i > 0) ...[
+              const SizedBox(height: 12),
+              Divider(height: 1, color: color.withValues(alpha: 0.25)),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              paragraph,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: textColor,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
