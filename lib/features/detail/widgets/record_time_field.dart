@@ -4,10 +4,6 @@ import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import 'now_time_button.dart';
 
-const _borderColor = Color(0xFFE5E7EB);
-const _textColor = Color(0xFF1F2937);
-const _secondaryTextColor = Color(0xFF6B7280);
-
 /// 오전/오후 + 시:분 입력칸들의 상태.
 ///
 /// 수유·배변·체온이 같은 입력을 쓰므로 한 곳에 모았습니다. 화면마다
@@ -96,10 +92,10 @@ class RecordTimeField extends StatelessWidget {
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: _textColor,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ),
@@ -113,30 +109,30 @@ class RecordTimeField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _borderColor),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _periodButton('오전'),
+              _periodButton(context, '오전'),
               const SizedBox(width: 6),
-              _periodButton('오후'),
+              _periodButton(context, '오후'),
               const SizedBox(width: 10),
-              _numberField(controller.hour, max: 12, min: 1),
-              const Padding(
+              _numberField(context, controller.hour, max: 12, min: 1),
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   ':',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: _textColor,
+                    color: context.colors.textPrimary,
                   ),
                 ),
               ),
-              _numberField(controller.minute, max: 59, min: 0),
+              _numberField(context, controller.minute, max: 59, min: 0),
             ],
           ),
         ),
@@ -144,7 +140,7 @@ class RecordTimeField extends StatelessWidget {
     );
   }
 
-  Widget _periodButton(String value) {
+  Widget _periodButton(BuildContext context, String value) {
     final selected = controller.period == value;
     return GestureDetector(
       onTap: () {
@@ -156,17 +152,17 @@ class RecordTimeField extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.white,
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppColors.primary : _borderColor,
+            color: selected ? AppColors.primary : context.colors.border,
           ),
         ),
         child: Text(
           value,
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: selected ? AppColors.primary : _secondaryTextColor,
+            color: selected ? AppColors.primary : context.colors.textSecondary,
           ),
         ),
       ),
@@ -174,6 +170,7 @@ class RecordTimeField extends StatelessWidget {
   }
 
   Widget _numberField(
+    BuildContext context,
     TextEditingController field, {
     required int max,
     required int min,
@@ -204,10 +201,10 @@ class RecordTimeField extends StatelessWidget {
           onChanged();
         },
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
-          color: _textColor,
+          color: context.colors.textPrimary,
         ),
         decoration: const InputDecoration(
           border: InputBorder.none,

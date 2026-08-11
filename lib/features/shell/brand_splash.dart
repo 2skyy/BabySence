@@ -19,7 +19,7 @@ class BrandSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

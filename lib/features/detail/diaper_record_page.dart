@@ -14,10 +14,10 @@ class DiaperRecordPage extends StatefulWidget {
 
 class _DiaperRecordPageState extends State<DiaperRecordPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   String selectedDiaperType = "소변";
   String selectedStoolState = "황금변";
@@ -140,10 +140,10 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           "배변 기록",
           style: TextStyle(
             color: textColor,
@@ -159,7 +159,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 "배변 종류",
                 style: TextStyle(
                   fontSize: 15,
@@ -178,7 +178,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                 ],
               ),
               const SizedBox(height: 28),
-              const Text(
+              Text(
                 "대변 상태",
                 style: TextStyle(
                   fontSize: 15,
@@ -271,7 +271,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -299,7 +299,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.2) : Colors.white,
+          color: selected ? color.withValues(alpha: 0.2) : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? color : borderColor,

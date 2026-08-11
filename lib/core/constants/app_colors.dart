@@ -12,20 +12,19 @@ import 'package:flutter/material.dart';
 ///
 /// ## 다크 모드
 ///
-/// 여기 있는 값들은 **밝은 테마 기준의 정적 상수**입니다. 화면에서는 이 클래스를
-/// 직접 쓰지 말고 [AppColorsX.colors] (`context.colors`)를 쓰세요. 그래야 테마가
-/// 바뀔 때 색도 따라갑니다.
+/// 여기에는 **두 테마에서 같은 값**만 있습니다. 브랜드색과 강조색은 밝든
+/// 어둡든 같은 색이어야 하기 때문입니다. `const` 문맥에서 그대로 쓸 수 있습니다.
+///
+/// 배경·표면·글씨·테두리처럼 테마마다 달라지는 색은 [AppPalette]에 있고,
+/// 화면에서는 `context.colors`로 읽습니다.
 ///
 /// ```dart
-/// // ❌ 테마가 바뀌어도 그대로입니다
-/// color: AppColors.textPrimary
+/// // ✅ 두 테마에서 같은 색
+/// color: AppColors.primary
 ///
-/// // ✅ 밝음/어두움을 따라갑니다
+/// // ✅ 밝음/어두움을 따라감
 /// color: context.colors.textPrimary
 /// ```
-///
-/// [primary]·[brand]·[error]처럼 두 테마에서 같은 값을 쓰는 색은 상수로 남겨
-/// 두었습니다. `const` 문맥에서 그대로 쓸 수 있습니다.
 class AppColors {
   /// 버튼·링크·강조. 흰 글씨 대비 4.90:1 (AA 통과).
   ///
@@ -41,20 +40,9 @@ class AppColors {
 
   static const Color error = Color(0xFFEF4444);
 
-  // ── 밝은 테마 (기본값) ────────────────────────────────────────────────────
-  // 아래 값들은 context를 못 쓰는 자리(정적 상수, 테마 정의 자체)를 위해
-  // 남겨 둡니다. 화면에서는 context.colors를 쓰세요.
-
-  /// 강조 영역의 연한 배경. 어두운 글씨 대비 15.81:1.
-  static const Color primarySurface = Color(0xFFE8F5ED);
-
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Colors.white;
-
-  static const Color textPrimary = Color(0xFF111827);
-  static const Color textSecondary = Color(0xFF6B7280);
-
-  static const Color border = Color(0xFFE5E7EB);
+  // 배경·표면·글씨·테두리는 여기 없습니다. 테마마다 달라야 하므로
+  // [AppPalette]에만 있습니다. 상수로도 두면 무심코 그쪽을 쓰게 되고,
+  // 그 화면만 다크 모드에서 밝은 채로 남습니다 — 실제로 그렇게 됐었습니다.
 }
 
 /// 테마에 따라 달라지는 색.

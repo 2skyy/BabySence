@@ -49,9 +49,13 @@ void main() {
       expect(ratio(AppColors.brand, Colors.white), lessThan(4.5));
     });
 
-    test('primarySurface는 어두운 글씨가 잘 읽힌다', () {
-      expect(ratio(AppColors.primarySurface, AppColors.textPrimary),
-          greaterThanOrEqualTo(4.5));
+    test('primarySurface는 두 테마 모두에서 글씨가 잘 읽힌다', () {
+      // 강조 영역은 밝은 테마와 어두운 테마에서 색이 다릅니다. 한쪽만
+      // 확인하면 나머지 한쪽에서 글씨가 묻힙니다.
+      for (final palette in [AppPalette.light, AppPalette.dark]) {
+        expect(ratio(palette.primarySurface, palette.textPrimary),
+            greaterThanOrEqualTo(4.5));
+      }
     });
   });
 }

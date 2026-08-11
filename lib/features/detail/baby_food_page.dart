@@ -14,10 +14,10 @@ class BabyFoodPage extends StatefulWidget {
 
 class _BabyFoodPageState extends State<BabyFoodPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -92,10 +92,10 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           '이유식 분석',
           style: TextStyle(
             color: textColor,
@@ -111,7 +111,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '이유식 사진을\n업로드해주세요',
                   style: TextStyle(
                     fontSize: 28,
@@ -123,7 +123,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
 
                 const SizedBox(height: 10),
 
-                const Text(
+                Text(
                   '사진을 기반으로 성분을 분석할 예정입니다.',
                   style: TextStyle(
                     fontSize: 14,
@@ -133,7 +133,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
 
                 const SizedBox(height: 40),
 
-                const Text(
+                Text(
                   '사진 업로드',
                   style: TextStyle(
                     fontSize: 15,
@@ -154,7 +154,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
                     color: primaryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(Icons.auto_awesome, color: primaryColor),
                       SizedBox(width: 10),
@@ -208,7 +208,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
     final bytes = _imageBytes;
 
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: _showSourceSheet,
@@ -221,7 +221,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
             border: Border.all(color: borderColor),
           ),
           child: bytes == null
-              ? const Column(
+              ? Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
@@ -272,7 +272,7 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
                             child: Text(
                               _fileName ?? '사진을 선택했습니다',
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 color: secondaryTextColor,
                               ),

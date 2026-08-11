@@ -21,8 +21,8 @@ class TemperatureRecordPage extends StatefulWidget {
 
 class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   static const Color buttonBlue = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color textColor = Color(0xFF1F2937);
+  Color get backgroundColor => context.colors.background;
+  Color get textColor => context.colors.textPrimary;
   static const double defaultTemperature = 36.5;
 
   final TextEditingController temperatureController = TextEditingController();
@@ -243,7 +243,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
             ],
             Text(
               paragraph,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
                 color: textColor,
@@ -300,10 +300,10 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           '체온 기록',
           style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
         ),
@@ -318,7 +318,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
             children: [
               const SizedBox(height: 20),
 
-              const Center(
+              Center(
                 child: Text(
                   '현재 체온',
                   style: TextStyle(
@@ -447,7 +447,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.error.withValues(alpha: 0.1) : Colors.white,
+          color: isSelected ? AppColors.error.withValues(alpha: 0.1) : context.colors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.error : context.colors.border,

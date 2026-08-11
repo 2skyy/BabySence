@@ -15,11 +15,11 @@ class FeedingRecordPage extends StatefulWidget {
 
 class _FeedingRecordPageState extends State<FeedingRecordPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color surfaceColor = Colors.white;
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get surfaceColor => context.colors.surface;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   final TextEditingController feedingAmountController = TextEditingController();
 
@@ -155,12 +155,12 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
+        title: Text(
           '수유 기록',
           style: TextStyle(
             color: textColor,
@@ -175,7 +175,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '수유 방식과 수유량을\n기록해주세요',
                 style: TextStyle(
                   fontSize: 28,
@@ -185,7 +185,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 '기록된 데이터는 AI 분석에 활용됩니다.',
                 style: TextStyle(
                   fontSize: 14,
@@ -193,7 +193,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text(
+              Text(
                 '수유 형태',
                 style: TextStyle(
                   fontSize: 15,
@@ -212,7 +212,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ],
               ),
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 '수유량 (ml)',
                 style: TextStyle(
                   fontSize: 15,
@@ -244,7 +244,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                     FilteringTextInputFormatter.digitsOnly,
                   ],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -333,7 +333,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
         decoration: BoxDecoration(
           color: isSelected
               ? primaryColor.withValues(alpha: 0.1)
-              : Colors.white,
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? primaryColor : borderColor,

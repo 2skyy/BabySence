@@ -88,7 +88,7 @@ class _PostWritePageState extends State<PostWritePage> {
       appBar: AppBar(
         title: Text(_isEditing ? '글 수정' : '글쓰기'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),

@@ -277,7 +277,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                     decoration: BoxDecoration(
                       color: _sleepType == type
                           ? AppColors.primary.withValues(alpha: 0.1)
-                          : Colors.white,
+                          : context.colors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _sleepType == type

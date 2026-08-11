@@ -115,9 +115,9 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
@@ -259,7 +259,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
         height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
+          color: selected ? AppColors.primary.withValues(alpha: 0.1) : context.colors.surface,
           border: Border.all(
             color: selected ? AppColors.primary : Colors.grey[300]!,
             width: selected ? 2 : 1,

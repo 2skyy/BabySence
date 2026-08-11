@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'vaccination_service.dart';
 
@@ -12,10 +13,10 @@ class VaccinationPage extends StatefulWidget {
 
 class _VaccinationPageState extends State<VaccinationPage> {
   static const Color primaryColor = Color(0xFF14B8A6);
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color surfaceColor = Colors.white;
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get surfaceColor => context.colors.surface;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   Baby? _baby;
   List<VaccinationStatus> _schedule = [];
@@ -101,10 +102,10 @@ class _VaccinationPageState extends State<VaccinationPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           '예방접종',
           style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
         ),
@@ -158,7 +159,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
           _buildSectionTitle('예정된 접종 (${upcoming.length})'),
           const SizedBox(height: 12),
           if (upcoming.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text(
                 '모든 접종을 완료했습니다.',
@@ -204,7 +205,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
         children: [
           const Icon(Icons.vaccines, color: primaryColor, size: 36),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '다음 접종',
             style: TextStyle(
               color: secondaryTextColor,
@@ -215,7 +216,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
           const SizedBox(height: 8),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: textColor,
               fontSize: 28,
               fontWeight: FontWeight.w900,
@@ -253,7 +254,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 28,
             backgroundColor: Color(0xFFE0F2F1),
             child: Icon(Icons.check, color: primaryColor),
@@ -263,7 +264,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '접종 진행률',
                   style: TextStyle(
                     color: textColor,
@@ -274,7 +275,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
                 const SizedBox(height: 4),
                 Text(
                   '$done / $total 완료',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: secondaryTextColor,
                     fontSize: 14,
                   ),
@@ -298,7 +299,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         color: textColor,
         fontSize: 18,
         fontWeight: FontWeight.w800,
@@ -321,7 +322,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
               ? primaryColor.withValues(alpha: 0.3)
               : isOverdue
                   ? const Color(0xFFFCA5A5)
-                  : const Color(0xFFE5E7EB),
+                  : context.colors.border,
         ),
       ),
       child: InkWell(
@@ -352,7 +353,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
                   children: [
                     Text(
                       status.vaccine.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: textColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -363,7 +364,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
                       isCompleted
                           ? '${status.vaccine.recommendedAgeLabel} · ${_formatDate(status.vaccinatedOn!)} 접종'
                           : '${status.vaccine.recommendedAgeLabel} · 예정 ${_formatDate(status.scheduledOn)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: secondaryTextColor,
                         fontSize: 13,
                       ),

@@ -42,7 +42,6 @@ class TemperaturePicker extends StatelessWidget {
   static const Color cautionColor = Color(0xFFF59E0B);
   static const Color consultColor = Color(0xFFDC2626);
   static const Color lowColor = Color(0xFF60A5FA);
-  static const Color _textColor = Color(0xFF1F2937);
 
   static Color colorFor(AssessmentLevel level) => switch (level) {
         AssessmentLevel.normal => normalColor,
@@ -67,7 +66,7 @@ class TemperaturePicker extends StatelessWidget {
     final consultAt =
         months == null ? null : TemperatureRules.consultThreshold(months);
     final accent =
-        assessment == null ? _textColor : colorFor(assessment.level);
+        assessment == null ? context.colors.textPrimary : colorFor(assessment.level);
 
     return Column(
       children: [
@@ -205,14 +204,14 @@ class TemperaturePicker extends StatelessWidget {
 
   Widget _buildStepButton(BuildContext context, IconData icon, VoidCallback onTap) {
     return Material(
-      color: Colors.white,
+      color: context.colors.surface,
       shape: CircleBorder(side: BorderSide(color: context.colors.border)),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: _textColor),
+          child: Icon(icon, size: 22, color: context.colors.textPrimary),
         ),
       ),
     );

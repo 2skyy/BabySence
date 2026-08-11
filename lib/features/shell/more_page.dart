@@ -35,7 +35,7 @@ class MorePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('전체'),
         centerTitle: false,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),

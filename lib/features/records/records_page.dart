@@ -97,7 +97,7 @@ class _RecordsPageState extends State<RecordsPage> {
       appBar: AppBar(
         title: const Text('기록'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),

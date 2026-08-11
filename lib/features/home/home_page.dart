@@ -98,10 +98,10 @@ class _HomePageState extends State<HomePage> {
 
   // --- 테마 및 스타일 상수 ---
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF9F9F9);
-  static const Color surfaceColor = Colors.white;
-  static const Color onSurfaceColor = Color(0xFF1A1C1C);
-  static const Color secondaryTextColor = Color(0xFF555F6A);
+  Color get backgroundColor => context.colors.background;
+  Color get surfaceColor => context.colors.surface;
+  Color get onSurfaceColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
   static const Color successColor = Color(0xFF31E193);
 
   // --- 이벤트 처리 / 네비게이션 함수 ---
@@ -283,11 +283,11 @@ class _HomePageState extends State<HomePage> {
 
   PreferredSizeWidget _buildTopAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white.withValues(alpha: 0.8),
+      backgroundColor: context.colors.surface.withValues(alpha: 0.8),
       elevation: 0,
       title: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 20,
             backgroundColor: Color(0xFFD9E3F1),
             child: Icon(Icons.child_care, color: Colors.white, size: 22),
@@ -295,7 +295,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 12),
           Text(
             _babyName,
-            style: const TextStyle(
+            style: TextStyle(
               color: onSurfaceColor,
               fontWeight: FontWeight.bold,
             ),
@@ -313,7 +313,7 @@ class _HomePageState extends State<HomePage> {
         // 아이가 지금 무엇을 하는지 앱은 알 수 없으므로 단정하지 않습니다.
         Text(
           '$_babyName의\n오늘 하루',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 32,
             height: 1.2,
             fontWeight: FontWeight.w900,
@@ -321,7 +321,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           '기록을 남기면 상태를 분석해 드려요',
           style: TextStyle(fontSize: 16, color: secondaryTextColor),
         ),
@@ -374,7 +374,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 16),
           Text(
             _feedingHeadline,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: onSurfaceColor,
@@ -387,7 +387,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: Text(
                   _feedingDetail,
-                  style: const TextStyle(color: secondaryTextColor),
+                  style: TextStyle(color: secondaryTextColor),
                 ),
               ),
               const Icon(Icons.schedule, color: primaryColor, size: 32),
@@ -446,8 +446,8 @@ class _HomePageState extends State<HomePage> {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: context.colors.surface,
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 26),

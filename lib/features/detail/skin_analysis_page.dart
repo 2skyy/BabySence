@@ -150,10 +150,10 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text("피부 AI 판단", style: TextStyle(color: Color(0xFF1A1C1C), fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: Text("피부 AI 판단", style: TextStyle(color: context.colors.textPrimary, fontWeight: FontWeight.bold)),
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leading: const BackButton(color: Colors.black),
       ),
@@ -162,9 +162,9 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "피부 사진을 업로드하면\nAI가 피부 상태를 알려드립니다.",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.4, color: Color(0xFF1A1C1C)),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.4, color: context.colors.textPrimary),
             ),
             const SizedBox(height: 12),
 
@@ -180,7 +180,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                 _resultText,
                 style: TextStyle(
                   fontSize: 14,
-                  color: _isNormal ? Colors.green[800] : const Color(0xFF555F6A),
+                  color: _isNormal ? Colors.green[800] : context.colors.textSecondary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -197,7 +197,7 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.colors.surface,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: _isNormal ? Colors.green.withValues(alpha: 0.5) : const Color(0xFFE3E3E3),

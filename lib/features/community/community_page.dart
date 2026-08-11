@@ -72,7 +72,7 @@ class _CommunityPageState extends State<CommunityPage> {
       appBar: AppBar(
         title: const Text('커뮤니티'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         foregroundColor: context.colors.textPrimary,
         elevation: 0,
       ),

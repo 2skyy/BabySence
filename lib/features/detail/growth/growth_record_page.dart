@@ -161,7 +161,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: context.colors.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.colors.border),
       ),

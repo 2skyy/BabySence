@@ -142,9 +142,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         // 로그인은 첫 화면이라 뒤로 갈 곳이 없습니다.
         // 뒤로가기 버튼을 두면 스택이 비어 빈 화면이 됩니다.
@@ -269,6 +269,8 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(width: 20),
                             _buildSocialImageButton(
                               imagePath: 'assets/images/google_logo.png',
+                              // 테마 예외: 구글 로그인 버튼은 브랜드 가이드가
+                              // 흰 바탕을 요구해 다크 모드에서도 그대로 둡니다.
                               backgroundColor: Colors.white,
                               onTap: () => handleSocialLogin(OAuthProvider.google),
                               hasBorder: true,

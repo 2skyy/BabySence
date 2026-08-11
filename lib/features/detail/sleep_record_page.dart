@@ -16,10 +16,10 @@ class SleepRecordPage extends StatefulWidget {
 
 class _SleepRecordPageState extends State<SleepRecordPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   SleepType selectedSleepType = SleepType.night;
   String startPeriod = '오후';
@@ -226,10 +226,10 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           '수면 기록',
           style: TextStyle(
             color: textColor,
@@ -270,7 +270,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
               Row(
                 children: [
                   Expanded(child: _timeBox(isStart: true)),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6), // 간격 소폭 축소
                     child: Text(
                       '~',
@@ -293,7 +293,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                   children: [
                     // 글자 크기를 키운 기기에서 라벨과 값이 한 줄을 넘겼습니다.
                     // 라벨이 먼저 줄어들도록 두고 값은 그대로 보여줍니다.
-                    const Flexible(
+                    Flexible(
                       child: Text(
                         '총 수면 시간',
                         overflow: TextOverflow.ellipsis,
@@ -400,7 +400,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : context.colors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -427,7 +427,7 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
