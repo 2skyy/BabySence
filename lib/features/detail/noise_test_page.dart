@@ -24,6 +24,13 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   double _currentDecibel = 0.0; // 실시간 데시벨 수치 저장
   bool _isNoiseMeasuring = false;
   StreamSubscription? _serviceSubscription;
+  StreamSubscription? _stateSubscription;
+
+  /// 시작 신호에 대한 서비스의 응답을 기다리는 곳.
+  Completer<bool>? _startAck;
+
+  /// 측정을 시작하는 중인지. 서비스 응답을 기다리는 동안 버튼을 잠급니다.
+  bool _starting = false;
 
   /// 이번 측정을 어떤 수면으로 기록할지. 측정 중에는 바꿀 수 없습니다
   /// (sleep_records 행이 이미 만들어진 뒤라 값만 바뀌면 어긋납니다).
@@ -42,15 +49,25 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   @override
   void dispose() {
     _serviceSubscription?.cancel();
+    _stateSubscription?.cancel();
     super.dispose();
   }
 
   void _checkInitialStatus() async {
     final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
-    setState(() {
-      _isNoiseMeasuring = isRunning;
-    });
+    if (!await service.isRunning()) return;
+
+    // 서비스가 켜져 있어도 백색소음만 재생 중이거나, 앱이 죽은 뒤 서비스만
+    // 되살아나 아무것도 측정하지 않는 상태일 수 있습니다. 켜짐 여부로 판단하면
+    // 측정하지도 않는데 '측정 중지'로 보입니다. 서비스에 직접 묻고, 답이 오면
+    // noise_state 리스너가 화면을 맞춥니다.
+    //
+    // 되살아나는 중이면 아직 답할 준비가 안 됐을 수 있어 몇 번 더 묻습니다.
+    for (var i = 0; i < 3; i++) {
+      if (!mounted) return;
+      service.invoke('queryNoiseState');
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 
   void _listenToBackgroundService() {
@@ -62,6 +79,18 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
           _currentDecibel = double.parse(event['db'].toString());
         });
       }
+    });
+
+    // 측정 여부는 서비스가 알려주는 값만 믿습니다.
+    _stateSubscription = service.on('noise_state').listen((event) {
+      final measuring = event?['measuring'] == true;
+
+      if (measuring && !(_startAck?.isCompleted ?? true)) {
+        _startAck!.complete(true);
+      }
+
+      if (!mounted) return;
+      setState(() => _isNoiseMeasuring = measuring);
     });
   }
 
@@ -166,7 +195,6 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
 
   void _toggleNoiseMeasurement() async {
     final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
 
     if (_isNoiseMeasuring) {
       service.invoke('stopNoiseOnly');
@@ -175,14 +203,54 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         _currentDecibel = 0.0;
       });
       await _showResult();
-    } else {
-      if (!isRunning) {
-        await service.startService();
+      return;
+    }
+
+    setState(() => _starting = true);
+    final started = await _startMeasuring();
+    if (!mounted) return;
+
+    setState(() {
+      _starting = false;
+      // 서비스가 실제로 시작했다고 답한 경우에만 '측정 중'으로 바꿉니다.
+      _isNoiseMeasuring = started;
+    });
+
+    if (!started) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('측정을 시작하지 못했습니다. 마이크 권한을 확인한 뒤 다시 시도해 주세요.'),
+        ),
+      );
+    }
+  }
+
+  /// 서비스를 켜고, 측정이 실제로 시작될 때까지 기다립니다.
+  ///
+  /// [FlutterBackgroundService.startService]는 서비스가 뜬 것까지만 기다리고,
+  /// 그 안에서 신호를 받을 준비가 끝났는지는 알려주지 않습니다. 준비 전에 보낸
+  /// 신호는 그냥 사라지므로, 시작했다는 답이 올 때까지 되풀이해 보냅니다.
+  /// 서비스 쪽에서 중복 신호를 걸러 주므로 기록이 겹치지 않습니다.
+  Future<bool> _startMeasuring() async {
+    final service = FlutterBackgroundService();
+    if (!await service.isRunning()) {
+      await service.startService();
+    }
+
+    final ack = _startAck = Completer<bool>();
+    try {
+      for (var i = 0; i < 12; i++) {
+        service.invoke('startNoiseOnly', {'sleepType': _sleepType.name});
+
+        final ok = await Future.any([
+          ack.future,
+          Future<bool>.delayed(const Duration(milliseconds: 500), () => false),
+        ]);
+        if (ok) return true;
       }
-      service.invoke('startNoiseOnly', {'sleepType': _sleepType.name});
-      setState(() {
-        _isNoiseMeasuring = true;
-      });
+      return false;
+    } finally {
+      _startAck = null;
     }
   }
 
@@ -312,15 +380,17 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                   const SizedBox(height: 28),
 
                   ElevatedButton.icon(
-                    // 결과를 불러오는 동안 다시 누르면 측정이 꼬입니다.
-                    onPressed: _loadingResult ? null : _toggleNoiseMeasurement,
+                    // 결과를 불러오거나 시작을 기다리는 동안 다시 누르면 꼬입니다.
+                    onPressed: (_loadingResult || _starting)
+                        ? null
+                        : _toggleNoiseMeasurement,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isNoiseMeasuring ? Colors.grey[800] : AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(200, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: _loadingResult
+                    icon: (_loadingResult || _starting)
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -334,9 +404,11 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                     label: Text(
                       _loadingResult
                           ? '결과를 정리하는 중…'
-                          : _isNoiseMeasuring
-                              ? '소음 측정 중지하기'
-                              : '실시간 소음 측정 시작',
+                          : _starting
+                              ? '측정을 준비하는 중…'
+                              : _isNoiseMeasuring
+                                  ? '소음 측정 중지하기'
+                                  : '실시간 소음 측정 시작',
                     ),
                   ),
                 ],

@@ -100,14 +100,19 @@ void onStart(ServiceInstance service) async {
   // 백그라운드 서비스는 UI와 다른 isolate에서 돕니다. main()에서 한 초기화는
   // 여기까지 오지 않으므로, 소음을 저장하려면 이 isolate에서 다시 초기화해야 합니다.
   // 로그인 세션은 로컬 저장소에서 자동으로 복원됩니다.
-  try {
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      publishableKey: SupabaseConfig.publishableKey,
-    );
-  } catch (e) {
-    debugPrint('백그라운드 Supabase 초기화 실패(소음 저장 불가): $e');
-  }
+  //
+  // 여기서 곧바로 기다리면 그동안 UI가 보낸 신호를 받을 리스너가 아직 없어
+  // 신호가 사라집니다. 그래서 시작만 해 두고, 저장이 필요한 시점에 기다립니다.
+  final Future<void> supabaseReady = () async {
+    try {
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        publishableKey: SupabaseConfig.publishableKey,
+      );
+    } catch (e) {
+      debugPrint('백그라운드 Supabase 초기화 실패(소음 저장 불가): $e');
+    }
+  }();
 
   final AudioPlayer audioPlayer = AudioPlayer();
   NoiseTracker noiseTracker = NoiseTracker();
@@ -117,6 +122,10 @@ void onStart(ServiceInstance service) async {
 
   bool isNoiseMeasuring = false;
   bool isWhiteNoisePlaying = false;
+
+  /// 시작 신호를 처리하는 중인지. UI가 같은 신호를 되풀이해 보내므로,
+  /// 처리 중에 들어온 신호를 걸러야 수면 기록이 겹치지 않습니다.
+  bool isStartingNoise = false;
 
   // 데시벨 수치 널뛰기 방지용 이동 평균 변수.
   // 0.0은 "조용함"이라는 정상 측정값이기도 하므로, 첫 측정 여부는 따로 둡니다.
@@ -212,15 +221,49 @@ void onStart(ServiceInstance service) async {
 
   // --- UI 신호(이벤트) 리스너 설정 ---
 
-  service.on('startNoiseOnly').listen((event) {
-    // UI에서 고른 밤잠/낮잠 값을 받습니다. 없으면 밤잠으로 봅니다.
-    noiseTracker.beginSession(SleepType.parse(event?['sleepType'] as String?));
-    startNoiseMeasurement();
+  /// 지금 측정 중인지를 UI에 알립니다. UI는 이 응답을 받고서야 화면을 바꿉니다.
+  void reportNoiseState() {
+    service.invoke('noise_state', {'measuring': isNoiseMeasuring});
+  }
+
+  service.on('startNoiseOnly').listen((event) async {
+    // 서비스가 준비되기 전에 온 신호는 사라지므로 UI가 같은 신호를 되풀이해
+    // 보냅니다. 두 번째부터는 무시하고, 이미 켜져 있다고만 알려줍니다.
+    if (isNoiseMeasuring || isStartingNoise) {
+      reportNoiseState();
+      return;
+    }
+
+    isStartingNoise = true;
+    try {
+      // 로그를 저장하려면 이 isolate의 Supabase가 준비돼 있어야 합니다.
+      await supabaseReady;
+      // UI에서 고른 밤잠/낮잠 값을 받습니다. 없으면 밤잠으로 봅니다.
+      noiseTracker.beginSession(SleepType.parse(event?['sleepType'] as String?));
+      startNoiseMeasurement();
+    } finally {
+      isStartingNoise = false;
+    }
+
+    // 마이크를 열지 못했으면 measuring이 false로 나갑니다. UI가 그걸 보고
+    // 시작에 실패했음을 알립니다.
+    reportNoiseState();
   });
 
   service.on('stopNoiseOnly').listen((event) {
     stopNoiseMeasurement();
+    reportNoiseState();
   });
+
+  // 화면에 들어왔을 때 UI가 현재 상태를 물어봅니다. 서비스가 켜져 있어도
+  // 백색소음만 재생 중일 수 있어, 켜짐 여부만으로는 알 수 없습니다.
+  service.on('queryNoiseState').listen((event) {
+    reportNoiseState();
+  });
+
+  // 앱이 죽은 뒤 서비스만 되살아나면 측정 중이 아닌 상태로 다시 시작합니다.
+  // 화면이 묻기 전에 먼저 알려, '측정 중지'로 잘못 보이는 것을 막습니다.
+  reportNoiseState();
 
   service.on('startWhiteNoiseOnly').listen((event) async {
     if (isWhiteNoisePlaying) return;
