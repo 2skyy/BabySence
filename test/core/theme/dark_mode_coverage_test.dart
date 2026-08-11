@@ -33,10 +33,23 @@ void main() {
       .toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 
+  /// 검사 대상은 화면과 공용 위젯입니다.
+  ///
+  /// 처음에는 `lib/features`만 봤는데, 그 사이 `CommonAppBar`가 흰 바탕을
+  /// 그대로 들고 있었습니다. 화면 6개가 그걸 쓰고 있었는데도 통과했습니다.
+  ///
+  /// 팔레트를 정의하는 두 파일은 당연히 색 값을 갖고 있으므로 뺍니다.
+  final themedSources = [
+    ...dartFilesIn('lib/features'),
+    ...dartFilesIn('lib/core'),
+  ].where((f) =>
+      !f.path.endsWith('app_colors.dart') &&
+      !f.path.endsWith('app_theme.dart')).toList();
+
   test('화면이 팔레트 색을 직접 적어 두지 않는다', () {
     final offenders = <String>[];
 
-    for (final file in dartFilesIn('lib/features')) {
+    for (final file in themedSources) {
       final source = file.readAsStringSync();
       lightPaletteLiterals.forEach((literal, slot) {
         if (source.contains(literal)) {
@@ -58,7 +71,7 @@ void main() {
     // 이유를 적어 두면 넘어갑니다. 조용히 빠져나가지 못하게 하려는 것입니다.
     final offenders = <String>[];
 
-    for (final file in dartFilesIn('lib/features')) {
+    for (final file in themedSources) {
       final lines = file.readAsStringSync().split('\n');
       for (var i = 0; i < lines.length; i++) {
         if (!RegExp(r'backgroundColor:\s*Colors\.white').hasMatch(lines[i])) {
@@ -80,7 +93,7 @@ void main() {
     // 한 곳도 안 쓴다면 그 화면은 통째로 밝은 채로 남아 있다는 뜻입니다.
     final untouched = <String>[];
 
-    for (final file in dartFilesIn('lib/features')) {
+    for (final file in themedSources) {
       if (!file.path.endsWith('_page.dart')) continue;
       if (!file.readAsStringSync().contains('context.colors')) {
         untouched.add(file.path);

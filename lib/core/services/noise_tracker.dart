@@ -19,8 +19,16 @@ class NoiseTracker {
   final List<Map<String, dynamic>> _buffer = [];
 
   String? _sleepRecordId;
-  bool _sending = false;
+
+  /// 진행 중인 전송. 같은 배치를 두 번 보내지 않기 위한 것입니다.
+  /// [finish]가 이걸 기다려야 마지막 배치를 놓치지 않습니다.
+  Future<void>? _inFlight;
+
   SleepType _sleepType = SleepType.night;
+
+  /// 아직 보내지 못한 로그 수. 측정이 끝나면 0이어야 합니다.
+  @visibleForTesting
+  int get bufferedCount => _buffer.length;
 
   static SupabaseClient get _client => Supabase.instance.client;
 
@@ -46,15 +54,38 @@ class NoiseTracker {
     });
 
     if (_buffer.length >= _batchSize) {
-      _flush();
+      _flushInBackground();
     }
+  }
+
+  /// 보내는 중이 아니면 전송을 시작합니다. 중이면 아무 일도 하지 않습니다.
+  void _flushInBackground() {
+    _inFlight ??= _flush().whenComplete(() => _inFlight = null);
   }
 
   /// 측정을 끝낼 때 호출합니다. 남은 버퍼를 보내고 수면 기록을 닫습니다.
   Future<void> finish() async {
-    await _flush();
+    // 보내는 중이면 끝날 때까지 기다립니다. 기다리지 않고 닫으면 그 배치가
+    // 통째로 사라집니다.
+    await _inFlight;
+    _flushInBackground();
+    await _inFlight;
 
     final recordId = _sleepRecordId;
+    _sleepRecordId = null;
+
+    // 못 보낸 로그는 여기서 버립니다.
+    //
+    // 이 인스턴스는 백그라운드 서비스가 살아 있는 동안 계속 재사용됩니다
+    // (main.dart에서 하나만 만듭니다). 남겨두면 다음 측정이 시작될 때
+    // _ensureSleepRecord가 만든 **새 sleep_records 행**에 딸려 들어가,
+    // 어젯밤 로그가 오늘 낮잠 기록으로 저장됩니다. 그 구간의 평균 소음이
+    // 오염되고 판정까지 틀어집니다.
+    if (_buffer.isNotEmpty) {
+      debugPrint('소음 로그 ${_buffer.length}건을 보내지 못해 버립니다.');
+      _buffer.clear();
+    }
+
     if (recordId == null) return;
 
     try {
@@ -65,12 +96,10 @@ class NoiseTracker {
     } catch (e) {
       debugPrint('수면 기록 종료 시각 저장 실패: $e');
     }
-    _sleepRecordId = null;
   }
 
   Future<void> _flush() async {
-    if (_sending || _buffer.isEmpty) return;
-    _sending = true;
+    if (_buffer.isEmpty) return;
 
     // 전송 중에도 스트림이 계속 값을 넣으므로, 지금 시점의 길이만 대상으로 삼습니다.
     final int count = _buffer.length;
@@ -93,8 +122,6 @@ class NoiseTracker {
       if (_buffer.length > _maxBufferedLogs) {
         _buffer.removeRange(0, _buffer.length - _maxBufferedLogs);
       }
-    } finally {
-      _sending = false;
     }
   }
 
