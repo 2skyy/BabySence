@@ -6,8 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/advice_page.dart';
-import '../advice/advice_service.dart';
+import '../advice/chat_page.dart';
 import '../detail/assessment/assessment.dart';
 import '../detail/assessment/assessment_service.dart';
 import '../detail/diaper_record_service.dart';
@@ -402,25 +401,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
     );
   }
 
-  /// 영역을 특정하지 않은 일반 질문. 최근 7일 요약을 맥락으로 넘깁니다.
+  /// 영역을 특정하지 않은 일반 상담. 아이 정보는 ChatContext가 모읍니다.
   Widget _buildAskLink() {
-    final s = _summary;
-
     return _card(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AdvicePage(
-            domain: AssessmentDomain.overall,
-            context: buildAdviceContext(
-              recentRecords: [
-                if (s != null && !s.isEmpty)
-                  '최근 7일: 수유 ${s.feedingCount}회, 배변 ${s.diaperCount}회'
-                      '${s.completedSleepCount > 0 ? ', 수면 ${formatDuration(s.sleepTotal)}' : ''}'
-                      '${s.highestTemperature != null ? ', 최고 체온 ${s.highestTemperature!.toStringAsFixed(1)}°C' : ''}',
-              ],
-            ),
-          ),
+          builder: (_) => const ChatPage(domain: AssessmentDomain.overall),
         ),
       ),
       child: Row(

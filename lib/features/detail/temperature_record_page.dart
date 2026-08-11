@@ -6,8 +6,7 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/advice_page.dart';
-import '../advice/advice_service.dart';
+import '../advice/chat_page.dart';
 import 'assessment/assessment.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
@@ -186,12 +185,10 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AdvicePage(
+            // 아이 정보와 최근 기록은 ChatContext가 직접 모읍니다.
+            builder: (_) => ChatPage(
               domain: AssessmentDomain.temperature,
-              context: buildAdviceContext(
-                ageInMonths: _ageInMonths,
-                assessment: assessment,
-              ),
+              assessment: assessment,
             ),
           ),
         ),

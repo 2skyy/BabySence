@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_config.dart';
 import '../detail/assessment/assessment.dart';
+import 'chat_message.dart';
 
 /// 서버가 돌려준 답변.
 class Advice {
@@ -27,12 +28,15 @@ class AdviceService {
     ),
   );
 
-  /// 서버에 질문하고 답변을 받습니다.
+  /// 대화를 이어 답변을 받습니다.
+  ///
+  /// [messages]의 마지막은 보호자의 말이어야 합니다. 서버가 대화를 저장하지
+  /// 않으므로 매번 전체를 보냅니다.
   ///
   /// [context]는 앱이 조립합니다 — 서버는 DB에 붙지 않아 기록을 직접
   /// 조회할 수 없습니다. 아이 이름 같은 식별 정보는 넣지 마세요.
   static Future<Advice> ask({
-    required String question,
+    required List<ChatMessage> messages,
     required AssessmentDomain domain,
     String? context,
   }) async {
@@ -40,7 +44,9 @@ class AdviceService {
       final response = await _dio.post(
         ApiConfig.advice,
         data: {
-          'question': question,
+          'messages': [
+            for (final m in trimForRequest(messages)) m.toJson(),
+          ],
           // enum 이름이 서버의 DOMAINS 키와 같습니다.
           'domain': domain.name,
           if (context != null && context.isNotEmpty) 'context': context,

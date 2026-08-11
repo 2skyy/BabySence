@@ -13,6 +13,7 @@
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,15 +77,24 @@ async def health() -> dict:
     }
 
 
-class AdviceRequest(BaseModel):
-    """육아 질문 한 건.
+class ChatMessage(BaseModel):
+    """대화의 한 마디."""
 
-    맥락(개월 수, 최근 기록, 앱이 낸 판정)은 **앱이 조립해 보냅니다.**
-    이 서버는 DB에 붙지 않으므로 기록을 직접 조회할 수 없습니다.
-    개인을 특정할 수 있는 값(이름, 아이디)은 보내지 마세요.
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=settings.max_question_chars)
+
+
+class AdviceRequest(BaseModel):
+    """대화 한 번의 요청.
+
+    이 서버는 대화를 **저장하지 않습니다.** DB에 붙지 않고, 여러 대에 띄워도
+    같은 답을 내야 하기 때문입니다. 기억은 앱이 들고 있고 매번 전부 보냅니다.
+
+    맥락(개월 수, 성별, 최근 기록, 앱이 낸 판정)도 **앱이 조립해 보냅니다.**
+    아이 이름처럼 개인을 특정하는 값은 보내지 마세요.
     """
 
-    question: str = Field(min_length=2, max_length=settings.max_question_chars)
+    messages: list[ChatMessage] = Field(min_length=1)
     domain: str = Field(default="overall")
     context: str | None = Field(default=None, max_length=settings.max_context_chars)
 
@@ -102,9 +112,20 @@ async def get_advice(request: AdviceRequest) -> dict:
             detail=f"알 수 없는 영역입니다: {request.domain}",
         )
 
+    if len(request.messages) > settings.max_chat_messages:
+        raise HTTPException(
+            status_code=413,
+            detail="대화가 너무 길어졌습니다. 새 대화를 시작해 주세요.",
+        )
+
+    # 마지막은 보호자의 말이어야 합니다. 답변으로 끝나 있으면 물어볼 것이
+    # 없는데 모델을 부르는 셈입니다.
+    if request.messages[-1].role != "user":
+        raise HTTPException(status_code=400, detail="질문이 없습니다.")
+
     try:
         answer = advice.client.ask(
-            question=request.question,
+            messages=[m.model_dump() for m in request.messages],
             domain=request.domain,
             context=request.context,
         )

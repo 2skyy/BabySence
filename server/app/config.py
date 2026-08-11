@@ -41,5 +41,10 @@ class Settings:
     #: 앱이 함께 보내는 맥락(기록 요약)의 길이 상한(자).
     max_context_chars: int = int(os.getenv("MAX_CONTEXT_CHARS", 2000))
 
+    #: 대화에서 서버가 받아 주는 최대 메시지 수(사용자+답변 합계).
+    #: 이 서버는 대화를 저장하지 않고 앱이 매번 전체를 보냅니다. 상한이 없으면
+    #: 대화가 길어질수록 요청과 비용이 무한정 커집니다.
+    max_chat_messages: int = int(os.getenv("MAX_CHAT_MESSAGES", 40))
+
 
 settings = Settings()
