@@ -26,6 +26,9 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
   /// 있어 대부분의 경우 시간을 건드릴 필요가 없습니다.
   final _time = RecordTimeController.now();
 
+  /// 대변이 섞여 있는 종류인가. 소변에는 대변 상태가 없습니다.
+  bool get _hasStool => selectedDiaperType != "소변";
+
   void selectDiaper(String type) {
     setState(() => selectedDiaperType = type);
   }
@@ -177,30 +180,34 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   Expanded(child: _diaperButton("혼합")),
                 ],
               ),
-              const SizedBox(height: 28),
-              Text(
-                "대변 상태",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
+              // 소변에는 대변 상태가 없습니다. 서비스도 NULL로 넣습니다.
+              // 고를 수 있게 두면 고른 값이 저장된다고 오해합니다.
+              if (_hasStool) ...[
+                const SizedBox(height: 28),
+                Text(
+                  "대변 상태",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 3.8,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _stoolButton("황금변", Colors.amber),
-                  _stoolButton("녹변", Colors.green),
-                  _stoolButton("묽음", Colors.blue),
-                  _stoolButton("단단함", Colors.brown),
-                ],
-              ),
+                const SizedBox(height: 14),
+                GridView.count(
+                  shrinkWrap: true,
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 3.8,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _stoolButton("황금변", Colors.amber),
+                    _stoolButton("녹변", Colors.green),
+                    _stoolButton("묽음", Colors.blue),
+                    _stoolButton("단단함", Colors.brown),
+                  ],
+                ),
+              ],
               const SizedBox(height: 28),
               RecordTimeField(
                 label: '교체 시간',

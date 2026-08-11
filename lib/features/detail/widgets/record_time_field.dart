@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'now_time_button.dart';
+import 'time_picker_box.dart';
 
 /// 오전/오후 + 시:분 입력칸들의 상태.
 ///
@@ -31,6 +31,29 @@ class RecordTimeController {
     period = t.period;
     hour.text = t.hour;
     minute.text = t.minute;
+  }
+
+  /// 지금 들어 있는 시각. 형식이 틀리면 null입니다.
+  ///
+  /// 저장할 값은 [toDateTime]이 만듭니다. 이 값은 화면에 보여 주고
+  /// 시간 선택기를 열 때의 시작점으로만 씁니다.
+  TimeOfDay? get timeOfDay {
+    final h = int.tryParse(hour.text);
+    final m = int.tryParse(minute.text);
+    if (h == null || m == null) return null;
+    if (h < 1 || h > 12 || m < 0 || m > 59) return null;
+
+    var hour24 = h % 12;
+    if (period == '오후') hour24 += 12;
+    return TimeOfDay(hour: hour24, minute: m);
+  }
+
+  /// 시간 선택기에서 고른 값을 입력칸에 넣습니다.
+  void setTimeOfDay(TimeOfDay time) {
+    period = time.hour < 12 ? '오전' : '오후';
+    final hour12 = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    hour.text = hour12.toString().padLeft(2, '0');
+    minute.text = time.minute.toString().padLeft(2, '0');
   }
 
   /// 입력값을 실제 시각으로 만듭니다. 형식이 틀리면 null입니다.
@@ -63,7 +86,7 @@ class RecordTimeController {
   }
 }
 
-/// 라벨 + '지금' 버튼 + 오전/오후 · 시:분 입력.
+/// 라벨 + '지금' 버튼 + 눌러서 고르는 시각.
 ///
 /// 기본값은 화면을 연 시각이고, 필요하면 직접 고칠 수 있습니다.
 class RecordTimeField extends StatelessWidget {
@@ -106,111 +129,17 @@ class RecordTimeField extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: context.colors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.colors.border),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _periodButton(context, '오전'),
-              const SizedBox(width: 6),
-              _periodButton(context, '오후'),
-              const SizedBox(width: 10),
-              _numberField(context, controller.hour, max: 12, min: 1),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  ':',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: context.colors.textPrimary,
-                  ),
-                ),
-              ),
-              _numberField(context, controller.minute, max: 59, min: 0),
-            ],
-          ),
+        TimePickerBox(
+          value: controller.timeOfDay,
+          helpText: label,
+          onChanged: (picked) {
+            controller.setTimeOfDay(picked);
+            onChanged();
+          },
         ),
       ],
     );
   }
 
-  Widget _periodButton(BuildContext context, String value) {
-    final selected = controller.period == value;
-    return GestureDetector(
-      onTap: () {
-        controller.period = value;
-        onChanged();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : context.colors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? AppColors.primary : context.colors.border,
-          ),
-        ),
-        child: Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: selected ? AppColors.primary : context.colors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _numberField(
-    BuildContext context,
-    TextEditingController field, {
-    required int max,
-    required int min,
-  }) {
-    return SizedBox(
-      width: 45,
-      child: TextField(
-        controller: field,
-        keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-          LengthLimitingTextInputFormatter(2),
-        ],
-        // 범위를 벗어나면 그 자리에서 되돌립니다. 저장할 때 알려주면
-        // 무엇이 잘못됐는지 찾아 올라가야 합니다.
-        onChanged: (value) {
-          if (value.isEmpty) return;
-          final parsed = int.tryParse(value);
-          if (parsed == null) return;
-          if (parsed < min) {
-            field.text = '$min';
-          } else if (parsed > max) {
-            field.text = '$max';
-          }
-          field.selection = TextSelection.fromPosition(
-            TextPosition(offset: field.text.length),
-          );
-          onChanged();
-        },
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: context.colors.textPrimary,
-        ),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-        ),
-      ),
-    );
-  }
 }

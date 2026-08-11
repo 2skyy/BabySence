@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:noise_meter/noise_meter.dart';
@@ -393,6 +394,9 @@ class _MyAppState extends State<MyApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: _theme.mode,
+          // 시간·날짜 선택기가 한국어로 뜨게 합니다.
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          supportedLocales: const [Locale('ko'), Locale('en')],
           // 저장된 세션이 있으면 로그인 화면을 건너뛰도록 AuthGate가 판단합니다.
           home: const AuthGate(),
           routes: {

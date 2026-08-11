@@ -6,6 +6,7 @@ import 'package:flutter_project/features/detail/feeding_record_page.dart';
 import 'package:flutter_project/features/detail/temperature_record_page.dart';
 import 'package:flutter_project/features/detail/widgets/now_time_button.dart';
 import 'package:flutter_project/features/detail/widgets/record_time_field.dart';
+import 'package:flutter_project/features/detail/widgets/time_picker_box.dart';
 
 /// Supabase 없이 띄웁니다. 이력 조회는 실패하지만 입력 부분은 그려집니다.
 ///
@@ -34,9 +35,11 @@ void main() {
       // 고칠 수 없었습니다.
       await pump(tester, build());
 
-      final now = nowTimeFields();
-      expect(find.text(now.hour), findsWidgets, reason: '$name 시');
-      expect(find.text(now.minute), findsWidgets, reason: '$name 분');
+      expect(
+        find.text(TimePickerBox.format(TimeOfDay.now())),
+        findsOneWidget,
+        reason: name,
+      );
     });
 
     testWidgets('$name 화면에 시간 입력과 지금 버튼이 있다', (tester) async {
@@ -44,6 +47,16 @@ void main() {
 
       expect(find.byType(RecordTimeField), findsOneWidget, reason: name);
       expect(find.byType(NowTimeButton), findsOneWidget, reason: name);
+    });
+
+    testWidgets('$name 시간을 누르면 선택기가 열린다', (tester) async {
+      // 예전에는 오전/오후를 누르고 시·분을 각각 타이핑해야 했습니다.
+      await pump(tester, build());
+
+      await tester.tap(find.byType(TimePickerBox));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsOneWidget, reason: name);
     });
   });
 }

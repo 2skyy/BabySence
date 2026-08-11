@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/sleep_type.dart';
 import 'sleep_record_service.dart';
 import 'widgets/now_time_button.dart';
+import 'widgets/time_picker_box.dart';
 import 'widgets/record_history.dart';
 
 class SleepRecordPage extends StatefulWidget {
@@ -22,21 +22,15 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   Color get secondaryTextColor => context.colors.textSecondary;
 
   SleepType selectedSleepType = SleepType.night;
-  String startPeriod = '오후';
-  String endPeriod = '오전';
 
-  final startHourController = TextEditingController(text: '08');
-  final startMinuteController = TextEditingController(text: '00');
-  final endHourController = TextEditingController(text: '06');
-  final endMinuteController = TextEditingController(text: '30');
+  /// 밤잠의 흔한 구간을 기본값으로 둡니다. 화면을 열 때 둘 다 지금으로
+  /// 채우면 길이 0인 기록이 되므로 그렇게 하지 않습니다.
+  TimeOfDay _startTime = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 6, minute: 30);
 
   @override
   void initState() {
     super.initState();
-    startHourController.addListener(() => setState(() {}));
-    startMinuteController.addListener(() => setState(() {}));
-    endHourController.addListener(() => setState(() {}));
-    endMinuteController.addListener(() => setState(() {}));
     _loadHistory();
   }
 
@@ -81,15 +75,6 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     }
   }
 
-  @override
-  void dispose() {
-    startHourController.dispose();
-    startMinuteController.dispose();
-    endHourController.dispose();
-    endMinuteController.dispose();
-    super.dispose();
-  }
-
   bool isSaving = false;
 
   /// 취침 또는 기상 칸을 지금 시각으로 채웁니다.
@@ -98,50 +83,37 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   /// 지금으로 채우면 길이 0인 기록이 됩니다. 그래서 기본값은 그대로 두고
   /// 재우는 순간·깨는 순간에 각각 누르도록 했습니다.
   void _setNow({required bool isStart}) {
-    final now = nowTimeFields();
+    final now = TimeOfDay.now();
     setState(() {
       if (isStart) {
-        startPeriod = now.period;
-        startHourController.text = now.hour;
-        startMinuteController.text = now.minute;
+        _startTime = now;
       } else {
-        endPeriod = now.period;
-        endHourController.text = now.hour;
-        endMinuteController.text = now.minute;
+        _endTime = now;
       }
     });
   }
 
-  /// 화면의 오전/오후 + 시:분을 실제 시각으로 만듭니다.
+  /// 고른 시각을 실제 날짜가 붙은 시각으로 만듭니다.
   ///
   /// 취침이 미래로 계산되면 어제로 봅니다(아침에 전날 밤잠을 기록하는 경우).
   /// 기상이 취침보다 이르면 서비스가 하루를 더합니다(자정을 넘긴 밤잠).
-  ({DateTime start, DateTime end})? _sleepPeriod() {
-    final sh = int.tryParse(startHourController.text);
-    final sm = int.tryParse(startMinuteController.text);
-    final eh = int.tryParse(endHourController.text);
-    final em = int.tryParse(endMinuteController.text);
-    if (sh == null || sm == null || eh == null || em == null) return null;
-    if (sh < 1 || sh > 12 || eh < 1 || eh > 12) return null;
-    if (sm < 0 || sm > 59 || em < 0 || em > 59) return null;
-
+  ///
+  /// 시간 선택기가 유효한 값만 주므로 실패할 수 없습니다. 예전에는 직접
+  /// 타이핑한 숫자를 파싱해야 해서 '13시' 같은 값을 걸러내야 했습니다.
+  ({DateTime start, DateTime end}) _sleepPeriod() {
     final now = DateTime.now();
     var start = DateTime(
-      now.year, now.month, now.day, _convertTo24Hour(startPeriod, sh), sm);
+        now.year, now.month, now.day, _startTime.hour, _startTime.minute);
     if (start.isAfter(now)) start = start.subtract(const Duration(days: 1));
 
     final end = DateTime(
-      start.year, start.month, start.day, _convertTo24Hour(endPeriod, eh), em);
+        start.year, start.month, start.day, _endTime.hour, _endTime.minute);
 
     return (start: start, end: end);
   }
 
   Future<void> handleAnalyze() async {
     final period = _sleepPeriod();
-    if (period == null) {
-      _showMessage('시간을 1~12시, 0~59분으로 입력해주세요.');
-      return;
-    }
 
     setState(() => isSaving = true);
     try {
@@ -181,40 +153,16 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     });
   }
 
-  int _convertTo24Hour(String period, int hour) {
-    if (period == '오전') {
-      if (hour == 12) return 0;
-      return hour;
-    }
-    if (hour == 12) return 12;
-    return hour + 12;
-  }
-
   String getTotalSleepTime() {
-    try {
-      int startHour = int.tryParse(startHourController.text) ?? 0;
-      int startMinute = int.tryParse(startMinuteController.text) ?? 0;
-      int endHour = int.tryParse(endHourController.text) ?? 0;
-      int endMinute = int.tryParse(endMinuteController.text) ?? 0;
+    final start =
+        Duration(hours: _startTime.hour, minutes: _startTime.minute);
+    var end = Duration(hours: _endTime.hour, minutes: _endTime.minute);
 
-      startHour = _convertTo24Hour(startPeriod, startHour);
-      endHour = _convertTo24Hour(endPeriod, endHour);
+    // 기상이 취침보다 이르면 자정을 넘긴 것입니다.
+    if (end < start) end += const Duration(days: 1);
 
-      final start = Duration(hours: startHour, minutes: startMinute);
-      var end = Duration(hours: endHour, minutes: endMinute);
-
-      if (end < start) {
-        end += const Duration(days: 1);
-      }
-
-      final diff = end - start;
-      final hours = diff.inHours;
-      final minutes = diff.inMinutes % 60;
-
-      return '$hours시간 $minutes분';
-    } catch (_) {
-      return '0시간 0분';
-    }
+    final diff = end - start;
+    return '${diff.inHours}시간 ${diff.inMinutes % 60}분';
   }
 
   @override
@@ -420,94 +368,16 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   }
 
   Widget _timeBox({required bool isStart}) {
-    final hourController = isStart ? startHourController : endHourController;
-    final minuteController = isStart ? startMinuteController : endMinuteController;
-    final selectedPeriod = isStart ? startPeriod : endPeriod;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: context.colors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      // 한 줄에 오전/오후 + 시:분을 모두 넣으면 좁은 기기나 글자 확대 설정에서
-      // 넘칩니다(320px에서 23px, 1.3배에서 12px 초과). 두 줄로 나눕니다.
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 오전/오후는 두 값뿐이라 드롭다운 대신 눌러서 바꾸는 칩으로 둡니다.
-          // 화살표 아이콘이 차지하던 폭도 함께 사라집니다.
-          _periodToggle(isStart: isStart, selected: selectedPeriod),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              // 남은 폭을 반씩 나눠 갖게 해서 어떤 글자 배율에서도 넘치지 않게 합니다.
-              Expanded(child: _timeField(hourController)),
-              const Text(':',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              Expanded(child: _timeField(minuteController)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 오전/오후 전환. 값이 둘뿐이라 누를 때마다 뒤집습니다.
-  Widget _periodToggle({required bool isStart, required String selected}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () {
-        setState(() {
-          final next = selected == '오전' ? '오후' : '오전';
-          if (isStart) {
-            startPeriod = next;
-          } else {
-            endPeriod = next;
-          }
-        });
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selected,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: primaryColor,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(Icons.swap_horiz, size: 14, color: primaryColor),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 시 또는 분 입력칸.
-  ///
-  /// 폭을 고정하지 않습니다. TextField는 고유 폭이 크게 잡혀서 IntrinsicWidth로
-  /// 감싸면 칸이 부풀어 좁은 기기에서 넘칩니다. 부모 Row가 Expanded로 폭을
-  /// 나눠주는 것을 그대로 받습니다.
-  Widget _timeField(TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      textAlign: TextAlign.center,
-      keyboardType: TextInputType.number,
-      maxLength: 2,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      decoration: const InputDecoration(
-        counterText: '',
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: EdgeInsets.zero,
-      ),
-      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+    return TimePickerBox(
+      value: isStart ? _startTime : _endTime,
+      helpText: isStart ? '시작 시간' : '종료 시간',
+      onChanged: (picked) => setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      }),
     );
   }
 }

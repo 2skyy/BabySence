@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_project/features/detail/widgets/record_time_field.dart';
+import 'package:flutter_project/features/detail/widgets/time_picker_box.dart';
 
 void main() {
   group('입력값을 시각으로', () {
@@ -83,32 +84,28 @@ void main() {
 
       expect(find.text('수유 시간'), findsOneWidget);
       expect(find.text('지금'), findsOneWidget);
-      expect(find.text('09'), findsOneWidget);
-      expect(find.text('05'), findsOneWidget);
+      expect(find.text('오전 9:05'), findsOneWidget);
     });
 
-    testWidgets('오전/오후를 누르면 바뀐다', (tester) async {
+    testWidgets('누르면 시간 선택기가 열린다', (tester) async {
+      // 예전에는 오전/오후 칩과 시·분 칸 두 개를 각각 눌러 고쳐야 했습니다.
       final c = RecordTimeController.now(DateTime(2026, 8, 8, 9, 5));
       addTearDown(c.dispose);
-      var changed = 0;
 
       await tester.pumpWidget(MaterialApp(
-        home: StatefulBuilder(
-          builder: (context, setState) => Scaffold(
-            body: RecordTimeField(
-              label: '측정 시간',
-              controller: c,
-              onChanged: () => setState(() => changed++),
-            ),
+        home: Scaffold(
+          body: RecordTimeField(
+            label: '측정 시간',
+            controller: c,
+            onChanged: () {},
           ),
         ),
       ));
 
-      await tester.tap(find.text('오후'));
-      await tester.pump();
+      await tester.tap(find.byType(TimePickerBox));
+      await tester.pumpAndSettle();
 
-      expect(c.period, '오후');
-      expect(changed, 1);
+      expect(find.byType(TimePickerDialog), findsOneWidget);
     });
 
     testWidgets('글자를 키워도 넘치지 않는다', (tester) async {

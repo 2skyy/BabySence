@@ -99,7 +99,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     if (!_isNoiseMeasuring) {
       return {
         "color": Colors.blueGrey[50]!,
-        "textColor": Colors.grey[700]!,
+        "textColor": context.colors.textSecondary,
         "text": "측정 대기 중",
         "icon": Icons.radar,
       };
@@ -282,7 +282,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                       border: Border.all(
                         color: _sleepType == type
                             ? AppColors.primary
-                            : Colors.grey[300]!,
+                            : context.colors.border,
                         width: _sleepType == type ? 2 : 1,
                       ),
                     ),
@@ -294,7 +294,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                         // 측정 중에는 선택된 쪽만 또렷하게 보여줍니다.
                         color: _sleepType == type
                             ? AppColors.primary
-                            : (_isNoiseMeasuring ? Colors.grey[350] : Colors.grey[600]),
+                            : (_isNoiseMeasuring ? context.colors.border : context.colors.textSecondary),
                       ),
                     ),
                   ),
@@ -374,7 +374,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Text('dB', style: TextStyle(fontSize: 20, color: Colors.black45, fontWeight: FontWeight.bold)),
+                      Text('dB', style: TextStyle(fontSize: 20, color: context.colors.textSecondary, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 28),
@@ -422,7 +422,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -431,7 +431,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                     children: [
                       Icon(
                         _noiseService.isPlaying ? Icons.music_note : Icons.music_off,
-                        color: _noiseService.isPlaying ? Colors.orange : Colors.grey,
+                        color: _noiseService.isPlaying ? Colors.orange : context.colors.textSecondary,
                         size: 28,
                       ),
                       const SizedBox(width: 12),
@@ -446,9 +446,9 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     '원하는 백색소음을 틀어둔 상태로 실시간 데시벨을 측정해 보세요.',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                    style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(

@@ -167,7 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+        style: TextStyle(color: context.colors.textSecondary, fontWeight: FontWeight.bold),
       ),
     );
   }

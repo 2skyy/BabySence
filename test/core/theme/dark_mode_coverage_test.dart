@@ -63,6 +63,30 @@ void main() {
             '${offenders.join('\n')}');
   });
 
+  test('회색·검정 글씨를 박아 두지 않는다', () {
+    // 처음 훑을 때 Colors.white와 색 코드만 봐서 이걸 통째로 놓쳤습니다.
+    // 그 결과 아이 이름·몸무게 입력 글씨가 다크 모드에서 안 보였습니다.
+    //
+    // 그림자(`Colors.black.withValues`)와 애플 로그인 버튼은 두 테마에서
+    // 모두 검정이라야 하므로 대상이 아닙니다.
+    final banned = RegExp(
+      r'Colors\.(grey\[(100|200|300|350|400|500|600|700)\]|grey\b(?!\[)'
+      r'|black87|black54|black45)',
+    );
+    final offenders = <String>[];
+
+    for (final file in themedSources) {
+      final lines = file.readAsStringSync().split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        if (banned.hasMatch(lines[i])) offenders.add('${file.path}:${i + 1}');
+      }
+    }
+
+    expect(offenders, isEmpty,
+        reason: '어두운 배경에서 묻힙니다. context.colors의 textSecondary나 border를 쓰세요.\n'
+            '${offenders.join('\n')}');
+  });
+
   test('화면 배경으로 흰색을 박아 두지 않는다', () {
     // 색깔 버튼 위의 흰 글씨는 두 테마에서 모두 흰색이라야 하므로 대상이
     // 아닙니다. 여기서 막는 것은 화면·앱바의 바탕입니다.

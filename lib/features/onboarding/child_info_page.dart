@@ -123,7 +123,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _leave,
-            child: Text('나중에 하기', style: TextStyle(color: Colors.grey[500])),
+            child: Text('나중에 하기', style: TextStyle(color: context.colors.textSecondary)),
           ),
         ],
       ),
@@ -134,19 +134,19 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 '우리 아이에 대해\n알려주세요',
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: context.colors.textPrimary,
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '입력한 정보로 맞춤 인사이트를 보여드려요',
-                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 14, color: context.colors.textSecondary),
               ),
               const SizedBox(height: 40),
 
@@ -154,9 +154,9 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '아이 이름',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                  hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                   focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
@@ -169,10 +169,10 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: '생년월일',
-                    labelStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+                    labelStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                     floatingLabelBehavior: FloatingLabelBehavior.always,
-                    border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                    border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                   ),
                   child: Text(
                     _birthDate == null
@@ -180,7 +180,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                         : '${_birthDate!.year}.${_birthDate!.month.toString().padLeft(2, '0')}.${_birthDate!.day.toString().padLeft(2, '0')}',
                     style: TextStyle(
                       fontSize: 16,
-                      color: _birthDate == null ? Colors.grey[400] : Colors.black87,
+                      color: _birthDate == null ? context.colors.textSecondary : context.colors.textPrimary,
                     ),
                   ),
                 ),
@@ -201,9 +201,9 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   hintText: '몸무게 (kg)',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                  hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                   focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
@@ -261,7 +261,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
         decoration: BoxDecoration(
           color: selected ? AppColors.primary.withValues(alpha: 0.1) : context.colors.surface,
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey[300]!,
+            color: selected ? AppColors.primary : context.colors.border,
             width: selected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -271,7 +271,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: selected ? AppColors.primary : Colors.grey[600],
+            color: selected ? AppColors.primary : context.colors.textSecondary,
           ),
         ),
       ),

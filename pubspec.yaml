@@ -11,6 +11,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 시간·날짜 선택기를 한국어로 띄우기 위한 것입니다. 없으면 'Select time',
+  # 'CANCEL' 처럼 영어로 나옵니다.
+  flutter_localizations:
+    sdk: flutter
+
   cupertino_icons: ^1.0.8
   desktop_drop: ^0.4.4
   http: ^1.6.0

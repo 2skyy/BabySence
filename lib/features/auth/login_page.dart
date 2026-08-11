@@ -179,12 +179,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           '이메일과 비밀번호를\n입력해주세요',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: context.colors.textPrimary,
                             height: 1.4,
                           ),
                         ),
@@ -195,14 +195,14 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress, // 이메일 키보드 모드
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[400]),
+                            prefixIcon: Icon(Icons.email_outlined, color: context.colors.textSecondary),
                             hintText: '이메일',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                             border: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             focusedBorder: const UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
@@ -217,14 +217,14 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _passwordController,
                           obscureText: true,
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[400]),
+                            prefixIcon: Icon(Icons.lock_outline, color: context.colors.textSecondary),
                             hintText: '비밀번호',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                             border: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             focusedBorder: const UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
@@ -241,7 +241,7 @@ class _LoginPageState extends State<LoginPage> {
                             child: Text(
                               '아직 계정이 없으신가요?',
                               style: TextStyle(
-                                color: Colors.grey[500],
+                                color: context.colors.textSecondary,
                                 fontSize: 14,
                                 decoration: TextDecoration.underline,
                               ),
@@ -252,7 +252,7 @@ class _LoginPageState extends State<LoginPage> {
                         Center(
                           child: Text(
                             '또는 SNS로 간편하게 시작하기',
-                            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -318,7 +318,7 @@ class _LoginPageState extends State<LoginPage> {
         decoration: BoxDecoration(
           color: backgroundColor,
           shape: BoxShape.circle,
-          border: hasBorder ? Border.all(color: Colors.grey[200]!) : null,
+          border: hasBorder ? Border.all(color: context.colors.border) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),

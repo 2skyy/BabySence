@@ -214,16 +214,16 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
                     borderRadius: BorderRadius.circular(24),
                     child: Image.file(_image!, fit: BoxFit.cover),
                   )
-                      : const Center(
+                      : Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_a_photo_outlined, size: 48, color: Colors.grey),
+                        Icon(Icons.add_a_photo_outlined, size: 48, color: context.colors.textSecondary),
                         SizedBox(height: 12),
                         Text(
                           "터치하여 사진 촬영 또는 선택",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                          style: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                         ),
                       ],
                     ),

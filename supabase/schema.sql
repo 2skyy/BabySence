@@ -447,9 +447,14 @@ create policy profiles_own on public.profiles
   with check (auth.uid() = id);
 
 -- 아이는 '만든 사람'이 아니라 '구성원'이 봅니다(함께 키우기).
+--
+-- `user_id = auth.uid()`를 함께 두는 이유는 `insert ... returning` 때문입니다.
+-- RETURNING으로 나가는 행에도 이 정책이 걸리는데, 구성원을 등록하는
+-- on_baby_created는 AFTER 트리거라 그 시점에 아직 실행되지 않았습니다.
+-- 이 조건이 없으면 아이 등록이 통째로 실패합니다(migrations/005 참고).
 create policy babies_select on public.babies
   for select to authenticated
-  using (public.owns_baby(id));
+  using (public.owns_baby(id) or user_id = auth.uid());
 
 create policy babies_insert on public.babies
   for insert to authenticated

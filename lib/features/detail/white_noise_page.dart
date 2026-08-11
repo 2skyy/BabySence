@@ -91,9 +91,9 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
     return Scaffold(
       backgroundColor: context.colors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '아기 안심 백색소음',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(fontWeight: FontWeight.bold, color: context.colors.textPrimary),
         ),
         backgroundColor: context.colors.surface,
         elevation: 0.5,
@@ -129,7 +129,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                       color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF1A73E8) : Colors.grey.shade200,
+                        color: isSelected ? const Color(0xFF1A73E8) : context.colors.border,
                         width: isSelected ? 2 : 1,
                       ),
                       boxShadow: [
@@ -146,7 +146,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                         Icon(
                           isSelected ? Icons.pause_circle_filled_rounded : item.icon,
                           size: 32,
-                          color: isSelected ? const Color(0xFF1A73E8) : Colors.grey.shade700,
+                          color: isSelected ? const Color(0xFF1A73E8) : context.colors.textSecondary,
                         ),
                         const SizedBox(height: 8),
                         Padding(
@@ -161,7 +161,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                               fontSize: 12,
                               height: 1.25,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? const Color(0xFF1A73E8) : Colors.black87,
+                              color: isSelected ? const Color(0xFF1A73E8) : context.colors.textPrimary,
                             ),
                           ),
                         ),
