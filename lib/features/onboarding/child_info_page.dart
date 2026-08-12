@@ -32,6 +32,10 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
   ChildSex? _sex;
   bool _isSaving = false;
 
+  /// 이미 만든 아이. 2단계(성장 기록)에서 실패해 다시 시도할 때, 아이를
+  /// 한 번 더 만들지 않으려고 들고 있습니다.
+  Baby? _created;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -113,7 +117,13 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
     try {
       setState(() => _isSaving = true);
 
-      final baby = await BabyService.create(
+      // 아이를 이미 만들었다면 다시 만들지 않습니다.
+      //
+      // 등록도 두 단계입니다(아이 → 첫 성장 기록). 2단계가 실패했을 때
+      // 통째로 다시 하면 **아이가 2행** 생기고, `loadCurrent()`는 늘 첫
+      // 행을 고르므로 나중에 적은 값은 어느 화면에도 나오지 않습니다.
+      // 중복 행을 지울 수단도 앱에 없습니다.
+      final baby = _created ??= await BabyService.create(
         name: _nameController.text.trim(),
         sex: _sex!,
         birthDate: _birthDate!,
@@ -131,7 +141,11 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장하지 못했습니다. $e')),
+        SnackBar(
+          content: Text(_created == null
+              ? '아이 정보를 저장하지 못했습니다. $e'
+              : '아이는 등록했지만 키·몸무게를 저장하지 못했습니다. 다시 시도해 주세요.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);

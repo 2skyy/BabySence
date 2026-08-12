@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/services/db_time.dart';
@@ -152,7 +153,18 @@ class TemperatureRecordService {
   ///
   /// 증상은 다중 선택이라 별도 테이블에 여러 행으로 들어갑니다. 먼저 체온 행을
   /// 만들고 그 id로 증상을 넣습니다.
-  static Future<void> save({
+  /// 체온과 동반 증상을 저장합니다.
+  ///
+  /// 두 표에 나눠 넣어야 해서 **한 번에 끝나지 않습니다.** 증상 저장이
+  /// 실패했을 때 통째로 예외를 던지면, 체온은 이미 들어갔는데 화면은
+  /// "저장하지 못했습니다"라고 말합니다. 사용자가 다시 누르면 같은 체온이
+  /// 한 번 더 쌓입니다.
+  ///
+  /// 그래서 증상 실패는 **예외 대신 결과로** 알립니다. 판정 저장이 이미
+  /// 그렇게 돼 있습니다 — 곁다리가 실패했다고 본체를 무효로 만들지 않습니다.
+  ///
+  /// 돌려주는 값이 false면 체온만 저장된 것입니다.
+  static Future<bool> save({
     required String babyId,
     required double temperatureC,
     required DateTime measuredAt,
@@ -172,8 +184,14 @@ class TemperatureRecordService {
       recordId: row['id'] as String,
       symptoms: symptoms,
     );
-    if (symptomRows.isEmpty) return;
+    if (symptomRows.isEmpty) return true;
 
-    await _client.from('temperature_symptoms').insert(symptomRows);
+    try {
+      await _client.from('temperature_symptoms').insert(symptomRows);
+      return true;
+    } catch (e) {
+      debugPrint('동반 증상 저장 실패: $e');
+      return false;
+    }
   }
 }

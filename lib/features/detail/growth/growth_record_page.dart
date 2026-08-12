@@ -274,6 +274,11 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
   /// 방금 저장한 기록의 판정. 없으면 아직 판정하지 않은 상태입니다.
   Assessment? _lastAssessment;
 
+  void _notify(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _handleAddRecord(Baby baby) async {
     final height = double.tryParse(_heightController.text);
     final weight = double.tryParse(_weightController.text);
@@ -281,6 +286,18 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('키 또는 몸무게 중 하나는 입력해주세요.')),
       );
+      return;
+    }
+
+    // growth_records의 CHECK 제약과 같은 범위입니다. 여기서 안 막으면
+    // `numeric field overflow` 영문 예외가 그대로 스낵바에 뜹니다 —
+    // 온보딩은 같은 값에 한국어로 안내하고 있어 화면마다 말이 달랐습니다.
+    if (height != null && (height < 20 || height > 150)) {
+      _notify('키는 20~150cm 사이로 입력해주세요.');
+      return;
+    }
+    if (weight != null && (weight < 0.5 || weight > 40)) {
+      _notify('몸무게는 0.5~40kg 사이로 입력해주세요.');
       return;
     }
 
@@ -366,12 +383,24 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           .toList();
     }
 
-    final childSpots = _records
+    // 표가 0~24개월이라 그 밖은 견줄 기준이 없습니다.
+    //
+    // 예전에는 clamp(0, 24)로 24개월 눈금 위에 얹었습니다. 30개월 아이의
+    // 점이 24개월 자리에 찍히고, 기록이 여러 건이면 같은 x에 겹쳐 수직선이
+    // 됐습니다. 곡선과 견준 것처럼 보이지만 견준 적이 없습니다.
+    final all = _records
         .where((r) => isWeight ? r.weightKg != null : r.heightCm != null)
-        .map((r) => FlSpot(
-              _ageInMonths(baby.birthDate, r.date).clamp(0, 24),
-              (isWeight ? r.weightKg : r.heightCm)!,
+        .map((r) => (
+              months: _ageInMonths(baby.birthDate, r.date),
+              value: (isWeight ? r.weightKg : r.heightCm)!,
             ))
+        .toList();
+
+    final beyondTable = all.where((r) => r.months > 24).length;
+
+    final childSpots = all
+        .where((r) => r.months >= 0 && r.months <= 24)
+        .map((r) => FlSpot(r.months, r.value))
         .toList()
       ..sort((a, b) => a.x.compareTo(b.x));
 
@@ -387,7 +416,23 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       step: isWeight ? 3.0 : 10.0,
     );
 
-    return SizedBox(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (beyondTable > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Text(
+              'WHO 표준과 견줄 수 있는 것은 만 24개월까지입니다. '
+              '그 이후 기록 $beyondTable건은 곡선에 넣지 않았습니다.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: context.colors.textSecondary,
+              ),
+            ),
+          ),
+        SizedBox(
       height: 220,
       child: LineChart(
         LineChartData(
@@ -456,6 +501,8 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           ],
         ),
       ),
+        ),
+      ],
     );
   }
 

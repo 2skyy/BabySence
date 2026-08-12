@@ -127,19 +127,30 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
     setState(() => isSaving = true);
     try {
-      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
-      final baby = _baby ?? await BabyService.loadCurrent();
+      // 화면을 열 때 잡은 아이에만 저장합니다.
+      //
+      // 예전에는 `_baby ?? await loadCurrent()`로 저장 순간에 아이를 다시
+      // 골랐습니다. 화면을 열 때 조회가 실패했다면, 그 사이 함께 보기가
+      // 끊기거나 해서 **다른 아이가 뽑힐 수 있습니다.** 보고 있던 아이가
+      // 아닌 곳에 체온이 저장되고, 사용자에게는 아무 표시도 없습니다.
+      final baby = _baby;
       if (baby == null) {
-        _showMessage('먼저 아이 정보를 등록해주세요.');
+        _showMessage('아이 정보를 불러오지 못해 저장하지 않았습니다. '
+            '화면을 다시 열어 주세요.');
         return;
       }
 
-      await TemperatureRecordService.save(
+      final symptomsSaved = await TemperatureRecordService.save(
         babyId: baby.id,
         temperatureC: value,
         measuredAt: measuredAt,
         symptoms: symptoms,
       );
+
+      // 체온은 들어갔습니다. 통째로 실패했다고 말하면 다시 눌러 중복이 됩니다.
+      if (!symptomsSaved) {
+        _showMessage('체온은 저장했지만 동반 증상은 저장하지 못했습니다.');
+      }
 
       // 연령대별 기준으로 판정하고 결과를 남깁니다.
       // 판정은 앱에서 계산하므로 저장이 실패해도 안내는 보여줄 수 있습니다.

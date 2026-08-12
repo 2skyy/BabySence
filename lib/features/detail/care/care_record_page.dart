@@ -138,9 +138,12 @@ class _CareRecordPageState extends State<CareRecordPage> {
 
     setState(() => _saving = true);
     try {
-      final baby = _baby ?? await BabyService.loadCurrent();
+      // 화면을 열 때 잡은 아이에만 저장합니다. 저장 순간에 다시 고르면,
+      // 화면을 열 때 조회가 실패했을 경우 다른 아이가 뽑힐 수 있습니다.
+      final baby = _baby;
       if (baby == null) {
-        _showMessage('먼저 아이 정보를 등록해주세요.');
+        _showMessage('아이 정보를 불러오지 못해 저장하지 않았습니다. '
+            '화면을 다시 열어 주세요.');
         return;
       }
 
