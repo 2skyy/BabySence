@@ -71,8 +71,29 @@ class NoiseTracker {
 
   String? _sleepRecordId;
 
+  /// 저장 한 번에 허용하는 시간.
+  ///
+  /// **화면이 기다리는 시간보다 짧아야 합니다.** 화면은 종료 신호를 15초까지
+  /// 기다립니다. 여기에 상한이 없으면 TCP는 붙어 있는데 응답이 안 오는 망
+  /// (지하, 캡티브 포털)에서 몇 분을 멎고, 그 사이 화면은 먼저 포기해
+  /// "끝맺지 못했습니다"로 돌아섭니다 — 집계는 메모리에 멀쩡히 있는데.
+  static const Duration _saveTimeout = Duration(seconds: 8);
+
   /// 진행 중인 쓰기. 같은 순간에 두 번 쓰지 않기 위한 것입니다.
   Future<void>? _inFlight;
+
+  /// 진행 중인 마무리. **끝맺는 길이 둘이라 겹칠 수 있습니다** —
+  /// 중지를 누른 직후 '완전히 끄기'를 누르면 그렇습니다. 막지 않으면 같은
+  /// 집계로 행이 두 번 만들어지고, 한 행은 종료 시각 없이 남아 기록 목록에
+  /// 영영 '측정 중'으로 보입니다.
+  Future<NoiseSessionResult>? _finishing;
+
+  /// 세션 일련번호.
+  ///
+  /// 시간 상한은 요청을 **취소하지 않습니다.** 늦게 돌아온 insert가 다음
+  /// 세션의 행 id를 어젯밤 것으로 채우면, 오늘 낮잠의 종료 시각이 어젯밤
+  /// 행에 찍힙니다.
+  int _session = 0;
 
   /// 마지막으로 행 만들기를 **시도한** 시각. 성공 여부와 무관하게 갱신합니다.
   DateTime? _lastAttempt;
@@ -97,6 +118,7 @@ class NoiseTracker {
   void beginSession(SleepType sleepType) {
     _sleepType = sleepType;
     _reset();
+    _session++;
     _startedAt = DateTime.now();
   }
 
@@ -169,15 +191,17 @@ class NoiseTracker {
 
     // 만들기에 실패했으면 잠시 뒤에 다시 해 봅니다. 실패할 때마다 곧바로
     // 다시 하면 망이 끊긴 밤에 초당 한 번씩 두드립니다.
+    // 앞 시도가 아직 도는 중이면 이번 주기는 건너뜁니다. `_inFlight ??=`만
+    // 두면 시각만 찍히고 아무 일도 안 해 그 기회가 버려집니다.
     final now = DateTime.now();
     final last = _lastAttempt;
-    if (last == null || now.difference(last) >= retryInterval) {
+    if (_inFlight == null &&
+        (last == null || now.difference(last) >= retryInterval)) {
       _lastAttempt = now;
-      _inFlight ??= _ensureSleepRecord()
-          .catchError((Object e) {
-            debugPrint('수면 기록 생성 실패(잠시 뒤 재시도): $e');
-            return '';
-          })
+      // **정말로 Future<void>여야 합니다.** `.catchError`로 String을 돌려주면
+      // 정적 타입만 void이고 런타임 타입은 Future<String>이라, 나중에
+      // `.timeout(onTimeout: () {})`을 붙일 때 타입이 안 맞아 터집니다.
+      _inFlight = _tryEnsureSleepRecord()
           .whenComplete(() => _inFlight = null);
     }
   }
@@ -191,7 +215,10 @@ class NoiseTracker {
   /// [NoiseSessionResult.saved]는 **수면 기록을 닫았는지**입니다. 판정과는
   /// 별개이며, false여도 결과는 보여줄 수 있습니다. 다만 저장까지 됐다고
   /// 말하면 안 됩니다.
-  Future<NoiseSessionResult> finish() async {
+  Future<NoiseSessionResult> finish() =>
+      _finishing ??= _finishOnce().whenComplete(() => _finishing = null);
+
+  Future<NoiseSessionResult> _finishOnce() async {
     // 모으던 창을 마지막 표본으로 남깁니다. 안 그러면 짧은 측정이 통째로
     // 0건이 됩니다.
     if (_windowStart != null) {
@@ -203,8 +230,8 @@ class NoiseTracker {
     }
 
     // 행을 만드는 중이면 끝날 때까지 기다립니다. 기다리지 않으면 방금 만든
-    // 행의 id를 놓칩니다.
-    await _inFlight;
+    // 행의 id를 놓칩니다. 다만 영영 기다리지는 않습니다.
+    await _inFlight?.timeout(_saveTimeout, onTimeout: () {});
 
     final stats = _count == 0
         ? null
@@ -219,11 +246,12 @@ class NoiseTracker {
     String? recordId = _sleepRecordId;
     if (stats != null) {
       try {
-        recordId = await _ensureSleepRecord();
+        recordId = await _ensureSleepRecord().timeout(_saveTimeout);
         await _client
             .from('sleep_records')
             .update({'ended_at': toDbTime(DateTime.now())})
-            .eq('id', recordId);
+            .eq('id', recordId)
+            .timeout(_saveTimeout);
         saved = true;
       } catch (e) {
         // 삼키지 않습니다. 화면이 "저장하지 못했다"고 말할 수 있어야 합니다.
@@ -239,10 +267,26 @@ class NoiseTracker {
     return NoiseSessionResult(stats: stats, recordId: recordId, saved: saved);
   }
 
+  /// 행 만들기를 한 번 해 봅니다. 실패는 삼킵니다 — 재는 도중이라 알릴
+  /// 곳이 없고, 다음 주기에 다시 합니다. 끝낼 때 또 실패하면 그때는
+  /// [NoiseSessionResult.saved]로 화면에 전해집니다.
+  Future<void> _tryEnsureSleepRecord() async {
+    try {
+      await _ensureSleepRecord();
+    } catch (e) {
+      debugPrint('수면 기록 생성 실패(잠시 뒤 재시도): $e');
+    }
+  }
+
   /// 이번 측정에 대응하는 sleep_records 행을 만들고 id를 돌려줍니다.
   Future<String> _ensureSleepRecord() async {
     final existing = _sleepRecordId;
     if (existing != null) return existing;
+
+    // 이 요청이 어느 세션의 것인지 붙잡아 둡니다. 상한에 걸려 포기한 뒤에도
+    // 요청 자체는 계속 살아 있어, 늦게 돌아왔을 때 다음 세션의 id를 어젯밤
+    // 것으로 덮을 수 있습니다.
+    final session = _session;
 
     final baby = await BabyService.loadCurrent();
     if (baby == null) {
@@ -261,6 +305,8 @@ class NoiseTracker {
         .select()
         .single();
 
-    return _sleepRecordId = row['id'] as String;
+    final id = row['id'] as String;
+    if (session == _session) _sleepRecordId = id;
+    return id;
   }
 }

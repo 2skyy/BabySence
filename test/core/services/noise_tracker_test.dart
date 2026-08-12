@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_project/core/services/noise_tracker.dart';
@@ -159,6 +161,57 @@ void main() {
       expect(result.stats, isNull);
       expect(result.recordId, isNull);
     });
+  });
+
+  group('끝맺기가 겹쳐도 한 번만 돈다', () {
+    test('동시에 두 번 부르면 같은 결과를 돌려준다', () async {
+      // 끝맺는 길이 둘입니다 — 중지, 그리고 '완전히 끄기'. 중지를 누른 직후
+      // 완전히 끄기를 누르면 겹칩니다. 막지 않으면 같은 집계로 행이 두 번
+      // 만들어지고, 한 행은 종료 시각 없이 남아 영영 '측정 중'이 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50, 60]);
+
+      final both = await Future.wait([t.finish(), t.finish()]);
+
+      expect(identical(both[0], both[1]), isTrue,
+          reason: '두 번째는 진행 중인 것을 그대로 기다려야 합니다');
+      expect(both[0].stats!.sampleCount, 3);
+    });
+
+    test('끝난 뒤 다시 부르면 새로 센다', () async {
+      // 재진입 방어가 끝난 마무리까지 붙들고 있으면 안 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50]);
+      await t.finish();
+
+      final again = await t.finish();
+      expect(again.stats, isNull, reason: '이미 비웠으므로 표본이 없습니다');
+    });
+  });
+
+  test('세션을 새로 열면 번호가 올라간다', () async {
+    // 상한에 걸려 포기해도 요청 자체는 살아 있습니다. 늦게 돌아온 insert가
+    // 다음 세션의 행 id를 어젯밤 것으로 덮으면, 오늘 낮잠의 종료 시각이
+    // 어젯밤 행에 찍힙니다. 번호가 그걸 가릅니다.
+    final source = File('lib/core/services/noise_tracker.dart').readAsStringSync();
+    expect(source.contains('final session = _session;'), isTrue);
+    expect(source.contains('if (session == _session) _sleepRecordId = id;'), isTrue);
+  });
+
+  test('저장에 시간 상한이 있다', () {
+    // 화면은 종료 신호를 15초까지 기다립니다. 여기에 상한이 없으면 TCP는
+    // 붙어 있는데 응답이 안 오는 망에서 몇 분을 멎고, 화면이 먼저 포기해
+    // "끝맺지 못했습니다"가 뜹니다 — 집계는 메모리에 멀쩡히 있는데.
+    final source = File('lib/core/services/noise_tracker.dart').readAsStringSync();
+    expect(source.contains('_saveTimeout'), isTrue);
+    expect(source.contains('.timeout(_saveTimeout)'), isTrue);
+
+    final page =
+        File('lib/features/detail/noise_test_page.dart').readAsStringSync();
+    expect(page.contains('Duration(seconds: 15)'), isTrue,
+        reason: '화면 대기가 저장 상한보다 길어야 합니다');
   });
 
   test('집계를 isolate 사이로 실어 보낼 수 있다', () {

@@ -125,6 +125,14 @@ void onStart(ServiceInstance service) async {
   bool isNoiseMeasuring = false;
   bool isWhiteNoisePlaying = false;
 
+  /// 진행 중인 마무리.
+  ///
+  /// 중지는 `isNoiseMeasuring`을 **먼저** 내리고 마무리를 던지므로, 그 사이에
+  /// 시작 신호가 오면 중복 가드를 그냥 통과합니다. 그러면 앞 세션의 finish()
+  /// 밑에서 beginSession()이 집계를 지워, 어젯밤 결과가 새 세션 숫자로
+  /// 만들어지고 그다음 마무리가 새 세션을 지웁니다.
+  Future<void>? endingSession;
+
   /// 시작 신호를 처리하는 중인지. UI가 같은 신호를 되풀이해 보내므로,
   /// 처리 중에 들어온 신호를 걸러야 수면 기록이 겹치지 않습니다.
   bool isStartingNoise = false;
@@ -151,6 +159,11 @@ void onStart(ServiceInstance service) async {
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(title: title, content: content);
     }
+  }
+
+  /// 지금 측정 중인지를 UI에 알립니다. UI는 이 응답을 받고서야 화면을 바꿉니다.
+  void reportNoiseState() {
+    service.invoke('noise_state', {'measuring': isNoiseMeasuring});
   }
 
   void startNoiseMeasurement() {
@@ -193,6 +206,12 @@ void onStart(ServiceInstance service) async {
           debugPrint('★ 백그라운드 소음 스트림 내부 에러 발생: $error');
           isNoiseMeasuring = false;
           updateNotification();
+          // 화면에도 알립니다. 안 알리면 '측정 중지하기' 버튼을 그대로 둔 채
+          // 숫자만 멈춰, 사용자는 몇 시간 뒤에야 알아챕니다.
+          // 여기서 끝맺지는 않습니다 — 화면이 없는 상태로 끝내면 그 집계를
+          // 받을 사람이 없습니다. 사용자가 중지를 누르면 그때까지의 집계가
+          // 그대로 나옵니다.
+          reportNoiseState();
         },
         cancelOnError: false,
       );
@@ -244,15 +263,12 @@ void onStart(ServiceInstance service) async {
     isNoiseMeasuring = false;
     updateNotification();
 
-    endNoiseSession();
+    // 던져두지 않고 붙잡아 둡니다. 다음 시작이 이걸 기다립니다.
+    endingSession = endNoiseSession();
   }
 
   // --- UI 신호(이벤트) 리스너 설정 ---
 
-  /// 지금 측정 중인지를 UI에 알립니다. UI는 이 응답을 받고서야 화면을 바꿉니다.
-  void reportNoiseState() {
-    service.invoke('noise_state', {'measuring': isNoiseMeasuring});
-  }
 
   service.on('startNoiseOnly').listen((event) async {
     // 서비스가 준비되기 전에 온 신호는 사라지므로 UI가 같은 신호를 되풀이해
@@ -264,8 +280,15 @@ void onStart(ServiceInstance service) async {
 
     isStartingNoise = true;
     try {
-      // 로그를 저장하려면 이 isolate의 Supabase가 준비돼 있어야 합니다.
+      // 저장하려면 이 isolate의 Supabase가 준비돼 있어야 합니다.
       await supabaseReady;
+
+      // 앞 세션의 마무리가 끝난 뒤에 시작합니다. 안 그러면 beginSession()이
+      // 아직 도는 finish() 밑에서 집계를 지웁니다. NoiseTracker의 저장 상한
+      // (8초)이 이 대기의 상한이기도 합니다.
+      await endingSession;
+      endingSession = null;
+
       // UI에서 고른 밤잠/낮잠 값을 받습니다. 없으면 밤잠으로 봅니다.
       noiseTracker.beginSession(SleepType.parse(event?['sleepType'] as String?));
       startNoiseMeasurement();
