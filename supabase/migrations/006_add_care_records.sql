@@ -16,7 +16,7 @@
 -- 그래서 사유는 고정 목록이고, 목록에 없는 것은 'other' + 메모로 남깁니다.
 
 -- ── 1. 약 복용 ──────────────────────────────────────────────────────────────
-create table public.medication_records (
+create table if not exists public.medication_records (
   id         uuid        primary key default gen_random_uuid(),
   baby_id    uuid        not null references public.babies (id) on delete cascade,
 
@@ -38,12 +38,12 @@ create table public.medication_records (
 comment on column public.medication_records.reason is
   'fever=발열, cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사, prescription=처방약 복용, other=기타';
 
-create index medication_records_baby_taken_idx
+create index if not exists medication_records_baby_taken_idx
   on public.medication_records (baby_id, taken_at desc);
 
 
 -- ── 2. 병원 방문 ────────────────────────────────────────────────────────────
-create table public.hospital_visits (
+create table if not exists public.hospital_visits (
   id            uuid        primary key default gen_random_uuid(),
   baby_id       uuid        not null references public.babies (id) on delete cascade,
 
@@ -67,21 +67,25 @@ comment on column public.hospital_visits.reason is
 comment on column public.hospital_visits.note is
   '보호자가 적는 진료 메모. 앱이 만들어 내는 진단이 아닙니다.';
 
-create index hospital_visits_baby_visited_idx
+create index if not exists hospital_visits_baby_visited_idx
   on public.hospital_visits (baby_id, visited_at desc);
 
 
 -- ── 3. RLS ──────────────────────────────────────────────────────────────────
+-- 중간에 실패해도 그대로 다시 붙여넣을 수 있게 전부 되풀이해도 되는 형태로
+-- 씁니다(if not exists / drop policy if exists).
 -- 다른 기록 표와 같습니다. owns_baby() 하나가 판정 근거이므로, 함께 키우기로
 -- 초대받은 구성원도 같은 규칙으로 보고 씁니다.
 alter table public.medication_records enable row level security;
 alter table public.hospital_visits    enable row level security;
 
+drop policy if exists medication_own on public.medication_records;
 create policy medication_own on public.medication_records
   for all to authenticated
   using (public.owns_baby(baby_id))
   with check (public.owns_baby(baby_id));
 
+drop policy if exists hospital_visit_own on public.hospital_visits;
 create policy hospital_visit_own on public.hospital_visits
   for all to authenticated
   using (public.owns_baby(baby_id))
