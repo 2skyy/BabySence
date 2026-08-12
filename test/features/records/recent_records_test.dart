@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_project/core/services/sleep_type.dart';
+import 'package:flutter_project/features/detail/care/care_record_service.dart';
 import 'package:flutter_project/features/detail/diaper_record_service.dart';
 import 'package:flutter_project/features/detail/feeding_record_service.dart';
+import 'package:flutter_project/features/detail/growth/growth_record.dart';
 import 'package:flutter_project/features/detail/sleep_record_service.dart';
 import 'package:flutter_project/features/detail/temperature_record_service.dart';
 import 'package:flutter_project/features/records/recent_records.dart';
@@ -23,6 +25,66 @@ void main() {
         measuredAt: at,
         symptoms: const [],
       );
+
+  GrowthRecord growth(DateTime on, {double? cm, double? kg}) =>
+      GrowthRecord(id: 'g', date: on, heightCm: cm, weightKg: kg);
+
+  MedicationRecord medication(DateTime at) => MedicationRecord(
+        id: 'm',
+        name: '해열시럽',
+        reason: MedicationReason.fever,
+        takenAt: at,
+      );
+
+  HospitalVisit visit(DateTime at) => HospitalVisit(
+        id: 'h',
+        reason: VisitReason.checkup,
+        visitedAt: at,
+      );
+
+  group('담는 범위', () {
+    test('성장·약·병원도 함께 선다', () {
+      // 기록 탭에서 격자를 걷어낸 뒤로는 이 목록이 탭의 전부입니다.
+      // 7종 중 4종만 담으면 남긴 기록이 어디에도 안 보입니다.
+      final merged = mergeRecentRecords(
+        feedings: [feeding(DateTime(2026, 8, 12, 9))],
+        growths: [growth(DateTime(2026, 8, 12), kg: 7.4)],
+        medications: [medication(DateTime(2026, 8, 12, 14))],
+        visits: [visit(DateTime(2026, 8, 12, 11))],
+      );
+
+      expect(merged.map((r) => r.kind), containsAll([
+        RecordKind.feeding,
+        RecordKind.growth,
+        RecordKind.medication,
+        RecordKind.hospital,
+      ]));
+    });
+
+    test('성장은 잰 시각을 모른다고 표시한다', () {
+      // recorded_on이 date 컬럼이라 시각이 없습니다. '오전 12:00'을 붙이면
+      // 자정에 쟀다는 뜻이 됩니다.
+      final merged = mergeRecentRecords(
+        growths: [growth(DateTime(2026, 8, 12), cm: 65.2, kg: 7.4)],
+        feedings: [feeding(DateTime(2026, 8, 12, 9))],
+      );
+
+      final g = merged.firstWhere((r) => r.kind == RecordKind.growth);
+      expect(g.hasTime, isFalse);
+
+      final f = merged.firstWhere((r) => r.kind == RecordKind.feeding);
+      expect(f.hasTime, isTrue);
+    });
+
+    test('성장 요약은 있는 값만 적는다', () {
+      expect(growthSummary(growth(DateTime(2026, 8, 12), kg: 7.4)), '몸무게 7.4kg');
+      expect(growthSummary(growth(DateTime(2026, 8, 12), cm: 65.2)), '키 65.2cm');
+      expect(
+        growthSummary(growth(DateTime(2026, 8, 12), cm: 65.2, kg: 7.4)),
+        '키 65.2cm · 몸무게 7.4kg',
+      );
+    });
+  });
 
   group('기록 합치기', () {
     test('종류가 섞여도 시간 역순으로 선다', () {

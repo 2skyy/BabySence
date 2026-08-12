@@ -25,12 +25,13 @@ void main() {
   }
 
   group('기록 탭', () {
-    testWidgets('기록 종류 5개를 모두 보여준다', (tester) async {
+    testWidgets('기록하러 가는 입구를 두지 않는다', (tester) async {
+      // 예전에는 여기에도 5칸 격자가 있었는데 홈의 9칸과 겹쳤고, 홈보다
+      // 적어서 여기서 기록한다고 배운 사람은 성장·약병원을 찾지 못했습니다.
       await pump(tester, const RecordsPage());
 
-      for (final label in ['수유', '배변', '수면', '체온', '예방접종']) {
-        expect(find.text(label), findsOneWidget, reason: label);
-      }
+      expect(find.text('무엇을 기록할까요'), findsNothing);
+      expect(find.byType(GridView), findsNothing);
     });
 
     testWidgets('조회에 실패해도 터지지 않고 안내한다', (tester) async {
@@ -42,7 +43,6 @@ void main() {
     });
 
     testWidgets('글자를 키워도 넘치지 않는다', (tester) async {
-      // 바로가기가 3열 격자라 글자가 커지면 눌리기 쉽습니다.
       await pump(tester, const RecordsPage(), textScale: 1.3);
       expect(tester.takeException(), isNull);
     });

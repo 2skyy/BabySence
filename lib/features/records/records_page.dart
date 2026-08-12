@@ -5,22 +5,23 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
-import '../detail/diaper_record_page.dart';
+import '../detail/care/care_record_service.dart';
 import '../detail/diaper_record_service.dart';
-import '../detail/feeding_record_page.dart';
 import '../detail/feeding_record_service.dart';
-import '../detail/sleep_record_page.dart';
+import '../detail/growth/growth_record.dart';
+import '../detail/growth/growth_record_service.dart';
 import '../detail/sleep_record_service.dart';
-import '../detail/temperature_record_page.dart';
 import '../detail/temperature_record_service.dart';
-import '../detail/vaccination_page.dart';
 import 'recent_records.dart';
 
-/// 기록 탭 — 기록하러 가는 입구와 지금까지 남긴 기록을 한 곳에 둡니다.
+/// 기록 탭 — **지금까지 남긴 기록만** 시간순으로 봅니다.
 ///
-/// 예전에는 홈 타일로만 각 기록 화면에 들어갈 수 있었고, 종류를 넘나드는
-/// 목록은 아예 없었습니다. 수유 화면에서는 수유만, 배변 화면에서는 배변만
-/// 보여 "어젯밤에 무슨 일이 있었는지"를 이어서 볼 수 없었습니다.
+/// 수유 화면에서는 수유만, 배변 화면에서는 배변만 보여 "어젯밤에 무슨 일이
+/// 있었는지"를 이어서 볼 수 없습니다. 그것을 잇는 자리입니다.
+///
+/// 기록하러 들어가는 입구는 두지 않습니다. 예전에는 여기에도 5칸 격자가
+/// 있었는데 홈의 9칸과 겹쳤고, 홈보다 적어서 여기서 기록한다고 배운 사람은
+/// 성장·약병원을 찾지 못했습니다. 입구는 홈 한 곳입니다.
 class RecordsPage extends StatefulWidget {
   const RecordsPage({super.key});
 
@@ -59,12 +60,15 @@ class _RecordsPageState extends State<RecordsPage> {
         return;
       }
 
-      // 네 종류를 동시에 부릅니다. 하나씩 기다리면 네 배로 느려집니다.
+      // 동시에 부릅니다. 하나씩 기다리면 종류 수만큼 느려집니다.
       final results = await Future.wait([
         FeedingRecordService.loadRecent(baby.id, limit: 30),
         DiaperRecordService.loadRecent(baby.id, limit: 30),
         SleepRecordService.loadRecent(baby.id, limit: 30),
         TemperatureRecordService.loadRecent(baby.id, limit: 30),
+        GrowthRecordService.loadRecords(baby.id),
+        CareRecordService.loadMedications(baby.id, limit: 30),
+        CareRecordService.loadVisits(baby.id, limit: 30),
       ]);
 
       if (!mounted) return;
@@ -75,6 +79,9 @@ class _RecordsPageState extends State<RecordsPage> {
           diapers: results[1] as List<DiaperRecord>,
           sleeps: results[2] as List<SleepRecord>,
           temperatures: results[3] as List<TemperatureRecord>,
+          growths: results[4] as List<GrowthRecord>,
+          medications: results[5] as List<MedicationRecord>,
+          visits: results[6] as List<HospitalVisit>,
         );
       });
     } catch (e) {
@@ -84,12 +91,6 @@ class _RecordsPageState extends State<RecordsPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  /// 기록 화면에서 돌아오면 목록을 다시 읽습니다.
-  Future<void> _openRecord(Widget page) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-    if (mounted) _load();
   }
 
   @override
@@ -102,76 +103,11 @@ class _RecordsPageState extends State<RecordsPage> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            _sectionTitle('무엇을 기록할까요'),
-            const SizedBox(height: AppSpacing.md),
-            _buildShortcuts(),
-            const SizedBox(height: AppSpacing.xl),
-            _sectionTitle('최근 기록'),
-            const SizedBox(height: AppSpacing.md),
             ..._buildTimeline(),
             const SizedBox(height: 100),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _sectionTitle(String title) => Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: context.colors.textPrimary,
-        ),
-      );
-
-  Widget _buildShortcuts() {
-    final items = [
-      (Icons.baby_changing_station, '수유', AppColors.primary,
-          () => _openRecord(const FeedingRecordPage())),
-      (Icons.opacity, '배변', Colors.amber.shade700,
-          () => _openRecord(const DiaperRecordPage())),
-      (Icons.bedtime, '수면', Colors.indigo,
-          () => _openRecord(const SleepRecordPage())),
-      (Icons.thermostat, '체온', Colors.red,
-          () => _openRecord(const TemperatureRecordPage())),
-      (Icons.vaccines, '예방접종', Colors.teal,
-          () => _openRecord(const VaccinationPage())),
-    ];
-
-    return GridView.count(
-      crossAxisCount: 3,
-      crossAxisSpacing: AppSpacing.md,
-      mainAxisSpacing: AppSpacing.md,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.15,
-      children: [
-        for (final (icon, label, color, onTap) in items)
-          Material(
-            color: context.colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: color, size: 26),
-                  const SizedBox(height: 8),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: context.colors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
     );
   }
 
@@ -207,7 +143,7 @@ class _RecordsPageState extends State<RecordsPage> {
     if (_records.isEmpty) {
       return [
         Text(
-          '아직 남긴 기록이 없습니다.\n위에서 기록을 시작해 보세요.',
+          '아직 남긴 기록이 없습니다.\n홈 화면에서 기록을 시작해 보세요.',
           style: TextStyle(
             color: context.colors.textSecondary,
             fontSize: 13,
@@ -242,11 +178,16 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   Widget _buildRow(RecentRecord record) {
+    // 홈 타일과 같은 아이콘·색을 씁니다. 다르면 같은 기록이 화면마다
+    // 다른 것처럼 보입니다.
     final (icon, color) = switch (record.kind) {
       RecordKind.feeding => (Icons.baby_changing_station, AppColors.primary),
       RecordKind.diaper => (Icons.opacity, Colors.amber.shade700),
       RecordKind.sleep => (Icons.bedtime, Colors.indigo),
       RecordKind.temperature => (Icons.thermostat, Colors.red),
+      RecordKind.growth => (Icons.show_chart, Colors.blue),
+      RecordKind.medication => (Icons.medication_outlined, Colors.redAccent),
+      RecordKind.hospital => (Icons.local_hospital_outlined, Colors.redAccent),
     };
 
     return Container(
@@ -283,13 +224,16 @@ class _RecordsPageState extends State<RecordsPage> {
               ],
             ),
           ),
-          Text(
-            formatTimeOfDay(record.at),
-            style: TextStyle(
-              fontSize: 12,
-              color: context.colors.textSecondary,
+          // 성장은 잰 시각을 모릅니다(date 컬럼). '오전 12:00'을 붙이면
+          // 자정에 쟀다는 뜻이 되므로 비웁니다.
+          if (record.hasTime)
+            Text(
+              formatTimeOfDay(record.at),
+              style: TextStyle(
+                fontSize: 12,
+                color: context.colors.textSecondary,
+              ),
             ),
-          ),
         ],
       ),
     );
