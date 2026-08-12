@@ -98,10 +98,11 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
       기록이 없으면 지어내지 않고 '기록 없음'을 표시합니다.
 - [x] **로그아웃** — 설정 화면 한 곳에서 `auth.signOut()` (확인 대화상자 포함)
 - [x] **분석 탭** — 최근 7일 집계 + `assessments` 조회 (`lib/features/analysis/`)
-- [ ] **소음 리포트를 판정 규칙에 연결** — `noise_rules.dart`(WHO 1999 기준)를 만들어
-      뒀지만 `noise_result_page.dart`는 여전히 근거 없는 50/70dB를 씁니다.
-      **선행 조건**: `-15dB` 마이크 보정이 검증되지 않아, 바꿔도 "정말 30dB인가"를
-      알 수 없습니다. 실제 소음계와 대조가 먼저입니다.
+- [x] **소음 리포트를 판정 규칙에 연결** — 완료. `noise_test_page`와
+      `noise_result_page` 모두 `NoiseRules`의 값을 씁니다. 근거 없는 50/70dB는
+      더 이상 없습니다. (이 항목이 한동안 미완으로 잘못 남아 있었습니다.)
+- [ ] **마이크 −15dB 보정 검증** — 위가 끝났어도 이게 남습니다. 보정이 틀리면
+      기준을 옳게 써도 값이 틀립니다. 실제 소음계와 대조가 필요합니다.
 - [ ] `assessments`의 나머지 영역(성장·수면·수유·배변) — 임계값 미정.
       출처와 검증 상태는 [assessment-rules.md](assessment-rules.md) 참고.
 
