@@ -5,6 +5,7 @@ import '../../core/services/baby_service.dart';
 import '../detail/assessment/temperature_rules.dart' show ageInMonthsAt;
 import '../detail/diaper_record_service.dart';
 import '../feeding_reminder/next_feeding_card.dart';
+import '../../routes/app_routes.dart';
 import '../detail/feeding_record_service.dart';
 import '../detail/sleep_record_service.dart';
 import '../detail/temperature_record_service.dart';
@@ -276,24 +277,45 @@ class _HomePageState extends State<HomePage> {
     return AppBar(
       backgroundColor: context.colors.surface.withValues(alpha: 0.8),
       elevation: 0,
-      title: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Color(0xFFD9E3F1),
-            child: Icon(Icons.child_care, color: Colors.white, size: 22),
+      // 사진과 이름을 누르면 마이페이지로 갑니다. 아이 정보를 고치는 자리가
+      // 거기 하나뿐이라, 이름을 누른 사람이 기대하는 곳입니다.
+      title: InkWell(
+        onTap: _openMyPage,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Color(0xFFD9E3F1),
+                child: Icon(Icons.child_care, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _babyName,
+                style: TextStyle(
+                  color: onSurfaceColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 18, color: secondaryTextColor),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            _babyName,
-            style: TextStyle(
-              color: onSurfaceColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// 마이페이지에 다녀옵니다.
+  ///
+  /// 아이 이름·생년월일이 바뀌었을 수 있어 돌아오면 다시 읽습니다. 생년월일은
+  /// 개월 수의 근거라 수유 알림의 기본 간격 제안에도 쓰입니다.
+  Future<void> _openMyPage() async {
+    await Navigator.pushNamed(context, AppRoutes.mypage);
+    if (mounted) await _loadBaby();
   }
 
   Widget _buildHeroSection() {

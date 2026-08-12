@@ -170,17 +170,18 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         return;
       }
 
-      // 백그라운드가 알려준 기록을 씁니다. 못 받았을 때만 가장 최근 기록으로
-      // 되돌아갑니다 — 그 사이 손으로 적은 수면 기록이 있으면 그쪽을 집을 수
-      // 있어, 어디까지나 차선입니다.
-      var recordId = _endedSleepRecordId;
+      // 백그라운드가 알려준 기록만 씁니다.
+      //
+      // 예전에는 못 받았을 때 '가장 최근 수면 기록'으로 되돌아갔는데, 그
+      // 기록이 이번 측정인지 확인하지 않았습니다. 이번 측정이 한 건도 저장되지
+      // 않았어도(마이크 스트림이 죽거나 전송이 계속 실패) **어젯밤 통계로 만든
+      // 판정**이 오늘 날짜로 화면에 뜨고 assessments에 저장됐습니다.
+      // 다른 날 데이터로 만든 판정은 기록 자체를 오염시킵니다.
+      final recordId = _endedSleepRecordId;
       if (recordId == null) {
-        final recent = await SleepRecordService.loadRecent(baby.id, limit: 1);
-        if (recent.isEmpty) {
-          _notify('저장된 측정 기록을 찾지 못했습니다.');
-          return;
-        }
-        recordId = recent.first.id;
+        _notify('이번 측정을 저장하지 못해 결과를 만들 수 없습니다. '
+            '연결을 확인하고 다시 측정해 주세요.');
+        return;
       }
 
       final stats = await SleepRecordService.loadNoiseStats(recordId);
@@ -190,14 +191,19 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         sampleCount: stats.sampleCount,
       );
 
-      if (!mounted) return;
-
       if (assessment == null) {
-        // 표본이 적으면 판정하지 않습니다. 근거 없는 안내보다 낫습니다.
-        _notify('측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.');
+        // 표본이 없는 것과 적은 것은 원인이 다릅니다. 한 건도 없으면 측정이
+        // 짧았던 것이 아니라 저장이 안 된 것입니다.
+        _notify(stats.sampleCount == 0
+            ? '측정값이 하나도 저장되지 않았습니다. 연결을 확인하고 다시 측정해 주세요.'
+            : '측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.');
         return;
       }
 
+      // 저장을 mounted 검사보다 먼저 합니다. 예전에는 뒤에 있어서, 결과를
+      // 기다리는 2초 사이에 화면을 나가면 판정이 사라졌습니다. 한 시간을 잰
+      // 판정을 다시 만들 길은 없습니다.
+      //
       // 판정은 앱에서 계산하므로 저장이 실패해도 결과는 보여줄 수 있습니다.
       try {
         await AssessmentService.save(babyId: baby.id, assessment: assessment);

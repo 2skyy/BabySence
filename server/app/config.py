@@ -82,6 +82,17 @@ class Settings:
     #: 질문 길이 상한(자). 프롬프트 주입과 비용 폭주를 함께 막습니다.
     max_question_chars: int = int(os.getenv("MAX_QUESTION_CHARS", 500))
 
+    #: 대화에 실려 오는 **답변**의 길이 상한(자).
+    #:
+    #: 질문 상한(500자)을 답변에도 걸어 두었더니, 답변이 500자를 넘는 순간
+    #: 그 대화의 다음 질문이 계속 422로 막혔습니다. 앱이 매 턴 전체 대화를
+    #: 다시 보내기 때문입니다. 화면에는 원인이 안 보여 사용자는 화면을
+    #: 나갔다 와야 했습니다.
+    #:
+    #: 답변 길이는 우리가 정하는 값이라(ADVICE_MAX_TOKENS) 사용자 입력처럼
+    #: 좁게 막을 이유가 없습니다. 터무니없이 큰 본문만 걸러 냅니다.
+    max_answer_chars: int = int(os.getenv("MAX_ANSWER_CHARS", 4000))
+
     #: 앱이 함께 보내는 맥락(기록 요약)의 길이 상한(자).
     max_context_chars: int = int(os.getenv("MAX_CONTEXT_CHARS", 2000))
 

@@ -64,10 +64,15 @@ class SleepNoiseStats {
   static const empty =
       SleepNoiseStats(averageDb: 0, maxDb: 0, sampleCount: 0);
 
-  /// 로그 행들에서 통계를 계산합니다.
-  ///
-  /// 집계를 앱에서 하는 이유: Supabase REST로는 avg/max 집계를 바로 쓸 수 없고,
-  /// 한 수면 구간의 로그는 많아도 수천 건이라 클라이언트에서 계산해도 충분합니다.
+  /// 집계 결과 한 행에서 만듭니다(`sleep_noise_stats` RPC).
+  factory SleepNoiseStats.fromRow(Map<String, dynamic> row) => SleepNoiseStats(
+        averageDb: (row['average_db'] as num? ?? 0).toDouble(),
+        maxDb: (row['max_db'] as num? ?? 0).toDouble(),
+        sampleCount: (row['sample_count'] as num? ?? 0).toInt(),
+      );
+
+  /// 로그 값들에서 직접 계산합니다. 지금은 테스트에서만 씁니다 —
+  /// 실제 조회는 DB가 집계합니다([SleepRecordService.loadNoiseStats]).
   factory SleepNoiseStats.fromDecibels(List<double> decibels) {
     if (decibels.isEmpty) return empty;
 
@@ -90,15 +95,22 @@ class SleepRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// 한 수면 구간에 쌓인 소음 로그의 평균·최대를 구합니다.
+  ///
+  /// **집계는 DB가 합니다**(009 마이그레이션의 `sleep_noise_stats`).
+  /// 예전에는 로그를 limit도 order도 없이 전부 받아 와 앱에서 셌는데,
+  /// 하룻밤이면 수만 행이라 PostgREST의 행 상한에 잘렸습니다. 잘린 자리가
+  /// 어디인지도 알 수 없어(order 없음) 밤새 잰 결과가 사실상 **측정 시작
+  /// 직후 몇 분**의 통계가 됐고, 그 통계로 만든 판정이 저장됐습니다.
   static Future<SleepNoiseStats> loadNoiseStats(String sleepRecordId) async {
-    final rows = await _client
-        .from('sleep_noise_logs')
-        .select('decibel')
-        .eq('sleep_record_id', sleepRecordId);
+    final rows = await _client.rpc(
+      'sleep_noise_stats',
+      params: {'p_sleep_record_id': sleepRecordId},
+    );
 
-    return SleepNoiseStats.fromDecibels([
-      for (final row in rows) (row['decibel'] as num).toDouble(),
-    ]);
+    if (rows is List && rows.isNotEmpty) {
+      return SleepNoiseStats.fromRow(rows.first as Map<String, dynamic>);
+    }
+    return SleepNoiseStats.empty;
   }
 
   static Future<List<SleepRecord>> loadRecent(String babyId,

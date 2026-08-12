@@ -121,6 +121,35 @@ class TestRequestShape:
         )
         assert response.status_code == 413
 
+    def test_allows_a_long_answer_in_the_history(self, logged_in, answers):
+        """긴 답변이 섞인 대화도 통과해야 합니다.
+
+        질문 상한(500자)을 답변에도 걸어 두었더니, 답변이 500자를 넘는 순간
+        그 대화의 다음 질문이 계속 422로 막혔습니다. 앱은 매 턴 전체 대화를
+        다시 보내므로 화면을 나갔다 와야 풀렸습니다.
+        """
+        response = client.post(
+            "/api/advice",
+            json={
+                "messages": [
+                    {"role": "user", "content": "열이 나요"},
+                    {"role": "assistant", "content": "가" * 1500},
+                    {"role": "user", "content": "그럼 어떻게 하나요"},
+                ]
+            },
+            headers=AUTHED,
+        )
+        assert response.status_code == 200
+
+    def test_rejects_too_long_a_question(self, logged_in, answers):
+        # 질문 상한은 그대로입니다. 다만 대화 전체가 아니라 이번에 물은 것에만.
+        response = client.post(
+            "/api/advice",
+            json={"messages": [{"role": "user", "content": "가" * 501}]},
+            headers=AUTHED,
+        )
+        assert response.status_code == 400
+
 
 class TestRateLimit:
     def test_blocks_a_user_past_the_limit(self, logged_in, answers, monkeypatch):

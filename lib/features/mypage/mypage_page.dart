@@ -6,6 +6,7 @@ import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/growth_calculator.dart';
 import '../../core/widgets/common_app_bar.dart';
+import 'baby_edit_page.dart';
 import '../../routes/app_routes.dart';
 import 'baby_member_service.dart';
 import 'co_parenting_page.dart';
@@ -176,6 +177,9 @@ class _MyPagePageState extends State<MyPagePage> {
     }
 
     return _card(
+      // 예전에는 등록만 있고 고칠 길이 없었습니다. 생년월일은 체온·성장
+      // 판정의 기준이라, 틀린 채로 두면 판정도 계속 틀립니다.
+      onTap: () => _openEdit(baby),
       child: Row(
         children: [
           const Icon(Icons.child_care, color: AppColors.brand, size: 28),
@@ -204,9 +208,19 @@ class _MyPagePageState extends State<MyPagePage> {
               ],
             ),
           ),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
+  }
+
+  /// 아이 정보 수정으로 갑니다. 고치고 돌아오면 바뀐 값을 바로 반영합니다.
+  Future<void> _openEdit(Baby baby) async {
+    final updated = await Navigator.push<Baby>(
+      context,
+      MaterialPageRoute(builder: (_) => BabyEditPage(baby: baby)),
+    );
+    if (updated != null && mounted) setState(() => _baby = updated);
   }
 
   /// 함께 키우는 사람 관리.

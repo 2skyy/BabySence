@@ -104,10 +104,15 @@ async def health() -> dict:
 
 
 class ChatMessage(BaseModel):
-    """대화의 한 마디."""
+    """대화의 한 마디.
+
+    길이 상한이 역할마다 다릅니다. 질문은 사용자가 적는 값이라 좁게 막지만,
+    답변은 우리가 만든 값이라 같은 잣대를 댈 이유가 없습니다. 예전에는 둘 다
+    500자로 두어, 답변이 길어지는 순간 그 대화가 통째로 막혔습니다.
+    """
 
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=settings.max_question_chars)
+    content: str = Field(min_length=1, max_length=settings.max_answer_chars)
 
 
 class AdviceRequest(BaseModel):
@@ -155,6 +160,14 @@ async def get_advice(
     # 없는데 모델을 부르는 셈입니다.
     if request.messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="질문이 없습니다.")
+
+    # 질문 길이는 **이번에 물은 것**에만 겁니다. 대화 전체에 걸면 앞선 답변
+    # 때문에 새 질문이 막힙니다.
+    if len(request.messages[-1].content) > settings.max_question_chars:
+        raise HTTPException(
+            status_code=400,
+            detail=f"질문은 {settings.max_question_chars}자 이하로 적어 주세요.",
+        )
 
     # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
     if not _global_limit.allow("*"):

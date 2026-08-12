@@ -8,10 +8,14 @@ import '../../routes/app_routes.dart';
 
 /// 로그인 후 등록된 아이가 없을 때 보여주는 최초 온보딩 화면.
 ///
-/// babies 테이블에 아이를 만들고, 입력받은 몸무게는 오늘 날짜의
+/// babies 테이블에 아이를 만들고, 입력받은 키·몸무게는 오늘 날짜의
 /// growth_records 한 건으로 함께 저장합니다.
-/// (babies에는 몸무게 컬럼이 없습니다. 몸무게는 시간에 따라 변하는
-///  측정값이라 성장 기록 쪽이 맞는 자리입니다.)
+/// (babies에는 키·몸무게 컬럼이 없습니다. 자라면서 변하는 측정값이라
+///  성장 기록 쪽이 맞는 자리입니다.)
+///
+/// 키는 **선택**입니다. 몸무게만 아는 채로 오는 보호자가 많고, WHO 판정은
+/// 둘 중 하나만 있어도 됩니다. 다만 키가 있어야 신장 곡선을 그릴 수 있어
+/// 비워 두면 그 사실을 알려줍니다.
 class ChildInfoPage extends StatefulWidget {
   const ChildInfoPage({super.key});
 
@@ -22,6 +26,7 @@ class ChildInfoPage extends StatefulWidget {
 class _ChildInfoPageState extends State<ChildInfoPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _heightController = TextEditingController();
 
   DateTime? _birthDate;
   ChildSex? _sex;
@@ -31,6 +36,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
   void dispose() {
     _nameController.dispose();
     _weightController.dispose();
+    _heightController.dispose();
     super.dispose();
   }
 
@@ -85,6 +91,25 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
       return;
     }
 
+    // 키는 선택입니다. 적었다면 growth_records.height_cm의 CHECK(20~150)를 지킵니다.
+    double? height;
+    final heightText = _heightController.text.trim();
+    if (heightText.isNotEmpty) {
+      height = double.tryParse(heightText);
+      if (height == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('키는 숫자로 입력해주세요.')),
+        );
+        return;
+      }
+      if (height < 20 || height > 150) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('키는 20~150cm 사이로 입력해주세요.')),
+        );
+        return;
+      }
+    }
+
     try {
       setState(() => _isSaving = true);
 
@@ -98,6 +123,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
         babyId: baby.id,
         date: DateTime.now(),
         weightKg: weight,
+        heightCm: height,
       );
 
       if (!mounted) return;
@@ -193,6 +219,21 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
                   const SizedBox(width: 12),
                   Expanded(child: _buildGenderButton(ChildSex.female, '여아')),
                 ],
+              ),
+              const SizedBox(height: 24),
+
+              TextField(
+                controller: _heightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  hintText: '키 (cm) — 선택',
+                  hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
 

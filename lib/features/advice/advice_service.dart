@@ -115,6 +115,13 @@ class AdviceService {
         : null;
     if (detail is String && detail.isNotEmpty) return detail;
 
+    // FastAPI의 요청 검증 실패(422)는 detail이 문자열이 아니라 목록입니다.
+    // 위 검사만 두면 여기로 새어 나가 "답변을 받지 못했습니다"만 보이고
+    // 무엇이 잘못됐는지 알 수 없습니다.
+    if (detail is List && detail.isNotEmpty) {
+      return '보낸 내용이 서버 형식과 맞지 않습니다. 새 대화를 시작해 주세요.';
+    }
+
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.connectionError:

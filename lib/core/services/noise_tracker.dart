@@ -12,6 +12,12 @@ import 'sleep_type.dart';
 /// 백그라운드 서비스 isolate에서 동작하므로, 그 isolate에서도 Supabase가
 /// 초기화되어 있어야 합니다(main.dart의 onStart 참고).
 class NoiseTracker {
+  /// 한 행으로 묶는 시간. 테스트는 [Duration.zero]를 넣어 값마다 한 행을
+  /// 만듭니다.
+  final Duration sampleInterval;
+
+  NoiseTracker({this.sampleInterval = const Duration(seconds: 1)});
+
   static const int _batchSize = 30;
 
   /// 전송에 계속 실패할 때 메모리가 무한히 늘어나지 않도록 두는 상한.
@@ -45,7 +51,21 @@ class NoiseTracker {
   /// 첫 배치를 보낼 때 만들 sleep_records 행에 이 값이 들어갑니다.
   void beginSession(SleepType sleepType) {
     _sleepType = sleepType;
+    // 지난 측정의 창이 남아 있으면 첫 행이 어제 시각으로 들어갑니다.
+    _windowStart = null;
+    _windowMax = 0;
   }
+
+  /// 지금 모으는 중인 창의 시작과, 그 창에서 본 가장 큰 값.
+  ///
+  /// 오디오 콜백은 초당 여러 번 오는데 그대로 다 넣으면 하룻밤에 수만 행이
+  /// 됩니다. 수면 환경 소음은 1초 단위면 충분합니다.
+  ///
+  /// 평균이 아니라 **최댓값**을 남깁니다. 아이를 깨우는 것은 평균이 아니라
+  /// 순간의 큰 소리입니다. (넘어오는 값 자체가 이미 이동평균이라는 것은
+  /// 별개 문제입니다 — 그건 원본 최대를 함께 저장해야 풀립니다.)
+  DateTime? _windowStart;
+  double _windowMax = 0;
 
   /// 보정이 끝난 데시벨 값을 받습니다.
   ///
@@ -56,10 +76,30 @@ class NoiseTracker {
 
     // sleep_noise_logs.decibel의 CHECK 제약(0~200)을 벗어나면 insert 전체가 실패합니다.
     final bounded = decibel.clamp(0.0, 200.0);
+    final now = DateTime.now();
 
+    final start = _windowStart;
+    if (start == null) {
+      _windowStart = now;
+      _windowMax = bounded;
+      return;
+    }
+
+    if (now.difference(start) < sampleInterval) {
+      if (bounded > _windowMax) _windowMax = bounded;
+      return;
+    }
+
+    _record(start, _windowMax);
+    _windowStart = now;
+    _windowMax = bounded;
+  }
+
+  /// 모으던 창을 한 행으로 만듭니다.
+  void _record(DateTime at, double decibel) {
     _buffer.add({
-      'measured_at': toDbTime(DateTime.now()),
-      'decibel': double.parse(bounded.toStringAsFixed(2)),
+      'measured_at': toDbTime(at),
+      'decibel': double.parse(decibel.toStringAsFixed(2)),
     });
 
     if (_buffer.length >= _batchSize) {
@@ -74,6 +114,15 @@ class NoiseTracker {
 
   /// 측정을 끝낼 때 호출합니다. 남은 버퍼를 보내고 수면 기록을 닫습니다.
   Future<void> finish() async {
+    // 모으던 1초 창을 마지막 한 행으로 남깁니다. 안 그러면 짧은 측정이
+    // 통째로 0건이 됩니다.
+    final start = _windowStart;
+    if (start != null) {
+      _record(start, _windowMax);
+      _windowStart = null;
+      _windowMax = 0;
+    }
+
     // 보내는 중이면 끝날 때까지 기다립니다. 기다리지 않고 닫으면 그 배치가
     // 통째로 사라집니다.
     await _inFlight;
