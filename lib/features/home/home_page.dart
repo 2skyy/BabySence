@@ -51,6 +51,14 @@ class _HomePageState extends State<HomePage> {
   /// 실제로 기록이 있는데도 없다고 오해하게 됩니다.
   bool _loadingToday = true;
 
+  /// **날짜와 무관하게** 가장 최근 수유 시각. 다음 수유 카드가 이걸 씁니다.
+  ///
+  /// `_today.feeding`을 쓰면 안 됩니다. 그쪽은 오늘 것만 담으므로 자정을
+  /// 넘기는 순간 null이 되고, 밤 11시에 먹인 아이가 새벽 1시에는 "수유를
+  /// 기록해 주세요"로 되돌아갑니다. 알림 예약까지 함께 취소됩니다 —
+  /// 하필 이 기능이 필요한 시간대입니다.
+  DateTime? _lastFedAt;
+
   Future<void> _loadBaby() async {
     try {
       final baby = await BabyService.loadCurrent();
@@ -77,10 +85,14 @@ class _HomePageState extends State<HomePage> {
         SleepRecordService.loadRecent(babyId, limit: 5),
       ]);
 
+      final feedings = results[0] as List<FeedingRecord>;
+
       if (!mounted) return;
       setState(() {
+        // loadRecent가 최신순으로 주므로 첫 항목이 가장 최근입니다.
+        _lastFedAt = feedings.isEmpty ? null : feedings.first.fedAt;
         _today = TodaySummary.from(
-          feedings: results[0] as List<FeedingRecord>,
+          feedings: feedings,
           temperatures: results[1] as List<TemperatureRecord>,
           diapers: results[2] as List<DiaperRecord>,
           sleeps: results[3] as List<SleepRecord>,
@@ -160,7 +172,7 @@ class _HomePageState extends State<HomePage> {
             _buildHeroSection(),
             const SizedBox(height: 32),
             NextFeedingCard(
-              lastFedAt: _today.feeding?.fedAt,
+              lastFedAt: _lastFedAt,
               ageInMonths: _baby == null
                   ? null
                   : ageInMonthsAt(_baby!.birthDate, DateTime.now()),
