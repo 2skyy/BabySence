@@ -176,14 +176,22 @@ class CareRecordService {
 
   // ── 약 복용 ──────────────────────────────────────────────────────────────
 
-  static Future<List<MedicationRecord>> loadMedications(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('medication_records')
-        .select()
-        .eq('baby_id', babyId)
-        .order('taken_at', ascending: false)
-        .limit(limit);
+  /// 최근 투약 기록.
+  ///
+  /// [since]를 주면 그 시각 이후만 읽습니다. 반복 집계는 [repeatWindowDays]
+  /// 동안을 세는데, 기본 [limit]에만 기대면 그 창 안의 옛 기록이 목록에서
+  /// 통째로 빠져 셀 수 없습니다.
+  static Future<List<MedicationRecord>> loadMedications(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+  }) async {
+    var query =
+        _client.from('medication_records').select().eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('taken_at', toDbTime(since));
+
+    final rows = await query.order('taken_at', ascending: false).limit(limit);
 
     return rows.map(MedicationRecord.fromMap).toList();
   }
@@ -231,14 +239,17 @@ class CareRecordService {
 
   // ── 병원 방문 ────────────────────────────────────────────────────────────
 
-  static Future<List<HospitalVisit>> loadVisits(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('hospital_visits')
-        .select()
-        .eq('baby_id', babyId)
-        .order('visited_at', ascending: false)
-        .limit(limit);
+  /// 최근 병원 방문. [since]의 뜻은 [loadMedications]와 같습니다.
+  static Future<List<HospitalVisit>> loadVisits(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+  }) async {
+    var query = _client.from('hospital_visits').select().eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('visited_at', toDbTime(since));
+
+    final rows = await query.order('visited_at', ascending: false).limit(limit);
 
     return rows.map(HospitalVisit.fromMap).toList();
   }

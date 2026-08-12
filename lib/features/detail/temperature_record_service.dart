@@ -90,15 +90,27 @@ class TemperatureRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// 최근 기록을 증상과 함께 가져옵니다.
-  static Future<List<TemperatureRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
+  /// 최근 체온 기록.
+  ///
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 3일"이라 적어 두고
+  /// 실제로는 최신 20건만 보게 됩니다. 열이 나서 자주 잰 아이일수록 그 창의
+  /// 앞쪽(첫날 고열)이 빠지는데, 하필 가장 알고 싶은 값입니다.
+  static Future<List<TemperatureRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+  }) async {
+    var query = _client
         .from('temperature_records')
         // 증상은 별도 테이블이라 중첩 select로 한 번에 읽습니다.
         .select('*, temperature_symptoms(symptom)')
-        .eq('baby_id', babyId)
-        .order('measured_at', ascending: false)
-        .limit(limit);
+        .eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('measured_at', toDbTime(since));
+
+    final rows =
+        await query.order('measured_at', ascending: false).limit(limit);
 
     return rows.map(TemperatureRecord.fromMap).toList();
   }

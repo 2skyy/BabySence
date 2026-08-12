@@ -69,10 +69,19 @@ class _VaccinationPageState extends State<VaccinationPage> {
       if (baby != null) {
         try {
           // 서로 독립이라 순서대로 기다릴 이유가 없습니다.
+          // 확인 목록이 보는 창(3일) 전체를 읽습니다. 기본 20건에만 기대면
+          // 열이 나서 자주 잰 아이일수록 창 앞쪽(첫날 고열)이 빠지는데,
+          // 하필 진료실에서 가장 말할 가치가 있는 값입니다. 앱 자체가 2시간
+          // 간격 재측정을 권하므로 흔한 상황입니다.
+          final since = DateTime.now()
+              .subtract(const Duration(days: readinessWindowDays));
+
           final sources = await Future.wait([
-            TemperatureRecordService.loadRecent(baby.id),
-            CareRecordService.loadMedications(baby.id),
-            CareRecordService.loadVisits(baby.id),
+            TemperatureRecordService.loadRecent(baby.id,
+                since: since, limit: 200),
+            CareRecordService.loadMedications(baby.id,
+                since: since, limit: 200),
+            CareRecordService.loadVisits(baby.id, since: since, limit: 200),
           ]);
           readiness = buildReadiness(
             temperatures: sources[0] as List<TemperatureRecord>,

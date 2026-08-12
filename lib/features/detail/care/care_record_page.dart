@@ -64,6 +64,14 @@ class _CareRecordPageState extends State<CareRecordPage> {
     super.dispose();
   }
 
+  /// 반복 창(90일) 안의 기록을 넉넉히 담을 상한. 이 기간에 이만큼 적는
+  /// 경우는 없다고 봅니다.
+  static const int _windowLimit = 300;
+
+  /// 아래 이력 목록에 보여줄 건수. 창 전체를 그대로 늘어놓으면 화면이
+  /// 끝없이 길어집니다.
+  static const int _historyLimit = 20;
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -72,13 +80,24 @@ class _CareRecordPageState extends State<CareRecordPage> {
 
     try {
       final baby = await BabyService.loadCurrent();
+
+      // 반복 집계가 세는 창 전체를 읽습니다. 기본 20건에만 기대면 "지난
+      // 90일 동안 ○○로 N번"이라 적어 두고 실제로는 최신 20건만 세게 됩니다
+      // — 3주 전 구토 3건이 목록에서 통째로 사라집니다.
+      //
+      // 아래 이력 목록은 이 중 앞의 [_historyLimit]건만 보여줍니다.
+      final since = DateTime.now()
+          .subtract(const Duration(days: CareRecordService.repeatWindowDays));
+
       // 반복 집계가 두 기록을 함께 보므로 한 번에 읽습니다.
       final medications = baby == null
           ? <MedicationRecord>[]
-          : await CareRecordService.loadMedications(baby.id);
+          : await CareRecordService.loadMedications(baby.id,
+              since: since, limit: _windowLimit);
       final visits = baby == null
           ? <HospitalVisit>[]
-          : await CareRecordService.loadVisits(baby.id);
+          : await CareRecordService.loadVisits(baby.id,
+              since: since, limit: _windowLimit);
 
       if (!mounted) return;
       setState(() {
@@ -221,7 +240,7 @@ class _CareRecordPageState extends State<CareRecordPage> {
                     : '아직 병원 방문 기록이 없습니다.',
                 entries: _tab == _Tab.medication
                     ? [
-                        for (final m in _medications)
+                        for (final m in _medications.take(_historyLimit))
                           RecordHistoryEntry(
                             id: m.id,
                             title: formatRecordTime(m.takenAt),
@@ -229,7 +248,7 @@ class _CareRecordPageState extends State<CareRecordPage> {
                           ),
                       ]
                     : [
-                        for (final v in _visits)
+                        for (final v in _visits.take(_historyLimit))
                           RecordHistoryEntry(
                             id: v.id,
                             title: formatRecordTime(v.visitedAt),

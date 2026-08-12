@@ -54,7 +54,14 @@ class VaccinationStatus {
   bool get isDone => vaccinatedOn != null;
 
   /// 예정일이 지났는데 아직 맞지 않은 상태.
-  bool isOverdue(DateTime now) => !isDone && scheduledOn.isBefore(now);
+  ///
+  /// **날짜로만 비교합니다.** [scheduledOn]은 자정인데 [now]는 현재 시각이라
+  /// 그대로 견주면 접종일 당일 오전부터 '지남'이 됩니다. 같은 화면의 D-day는
+  /// 날짜만 보고 '오늘'이라 적고 있어, 한 항목에 '오늘'과 빨간 '지남'이
+  /// 함께 떴습니다.
+  bool isOverdue(DateTime now) =>
+      !isDone &&
+      scheduledOn.isBefore(DateTime(now.year, now.month, now.day));
 }
 
 /// vaccines 조회 + vaccination_records 기록.
