@@ -37,7 +37,7 @@ import 'assessment.dart';
 /// "연령별 표준편차 기준"이라고 밝혔기 때문입니다.
 class GrowthRules {
   /// 임계값이나 계산이 바뀌면 올려야 합니다.
-  static const String version = 'growth-who2006-2026-08-11';
+  static const String version = 'growth-who2006-2026-08-12';
 
   /// 주의 경계. 이 밖으로 나가면 주의입니다.
   static const double cautionZ = 2.0;
@@ -56,16 +56,26 @@ class GrowthRules {
   /// 두 지표 중 **더 높은 단계를 그 기록의 판정**으로 삼습니다. 체중과 신장은
   /// 근거가 같은 하나의 표에서 나오므로 이 결합은 서로 다른 출처를 섞는 것이
   /// 아닙니다.
+  /// [ageInMonths]는 **소수점을 살린 개월 수**여야 합니다.
+  ///
+  /// 만 개월(내림)을 넘기면 LMS 표 사이의 보간이 죽어 판정이 최대 한 달만큼
+  /// 어린 기준으로 계산됩니다. 이 시기에는 한 달 차이가 큽니다 — 생후 89일
+  /// 남아 4.6kg은 실제 z=−2.61(저체중 구간)인데, 2개월로 내리면 z=−1.52가
+  /// 되어 '정상'으로 안내됐습니다. 같은 화면의 차트는 실수 개월을 써서
+  /// 3백분위 아래에 점을 찍으므로 카드와 그래프가 반대말을 했습니다.
+  ///
+  /// 체온 규칙의 [ageInMonthsAt]은 3·6개월 경계를 넘었는지만 보므로 내림이
+  /// 맞습니다. 여기와 용도가 다릅니다.
   static Assessment? assess({
     required ChildSex sex,
-    required int ageInMonths,
+    required double ageInMonths,
     double? weightKg,
     double? heightCm,
   }) {
     if (ageInMonths < 0 || ageInMonths > maxAgeInMonths) return null;
     if (weightKg == null && heightCm == null) return null;
 
-    final age = ageInMonths.toDouble();
+    final age = ageInMonths;
 
     final weightZ = weightKg == null
         ? null
@@ -82,19 +92,14 @@ class GrowthRules {
     return Assessment(
       domain: AssessmentDomain.growth,
       level: level,
-      guideText: _guide(
-        level: level,
-        weightZ: weightZ,
-        heightZ: heightZ,
-        ageInMonths: ageInMonths,
-      ),
+      guideText: _guide(level: level, weightZ: weightZ, heightZ: heightZ),
       // 판정 근거를 남깁니다. 원본 기록이 지워져도 이 값은 보존됩니다.
       inputs: {
         'weight_kg': ?weightKg,
         'height_cm': ?heightCm,
         if (weightZ != null) 'weight_z': _round(weightZ),
         if (heightZ != null) 'height_z': _round(heightZ),
-        'age_in_months': ageInMonths,
+        'age_in_months': _round(ageInMonths),
         'sex': sex.name,
         'caution_z': cautionZ,
         'consult_z': consultZ,
@@ -127,7 +132,6 @@ class GrowthRules {
     required AssessmentLevel level,
     required double? weightZ,
     required double? heightZ,
-    required int ageInMonths,
   }) {
     final parts = <String>[];
     if (weightZ != null) parts.add('체중 ${_describe(weightZ)}');

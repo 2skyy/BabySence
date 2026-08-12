@@ -14,7 +14,6 @@ import '../../../routes/app_routes.dart';
 import '../assessment/assessment.dart';
 import '../assessment/assessment_service.dart';
 import '../assessment/growth_rules.dart';
-import '../assessment/temperature_rules.dart' show ageInMonthsAt;
 import 'growth_chart_axis.dart';
 import 'growth_record.dart';
 import 'growth_repository.dart';
@@ -298,7 +297,9 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       // 판정은 앱에서 계산하므로 저장이 실패해도 안내는 보여줄 수 있습니다.
       final assessment = GrowthRules.assess(
         sex: baby.sex,
-        ageInMonths: ageInMonthsAt(baby.birthDate, _recordDate),
+        // 차트와 같은 값을 씁니다. 만 개월로 내리면 판정이 한 달 어린
+        // 기준으로 계산됩니다.
+        ageInMonths: _ageInMonths(baby.birthDate, _recordDate),
         weightKg: weight,
         heightCm: height,
       );

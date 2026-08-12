@@ -16,7 +16,7 @@ void main() {
 
   Assessment? assessWeight(double z, {int months = 12}) => GrowthRules.assess(
         sex: ChildSex.male,
-        ageInMonths: months,
+        ageInMonths: months.toDouble(),
         weightKg: weightForZ(z, months: months),
       );
 
@@ -67,7 +67,7 @@ void main() {
     test('둘 중 더 높은 단계를 그 기록의 판정으로 삼는다', () {
       final a = GrowthRules.assess(
         sex: ChildSex.male,
-        ageInMonths: 12,
+        ageInMonths: 12.0,
         weightKg: weightForZ(0), // 정상
         heightCm: heightForZ(-3.2), // 상담 권장
       );
@@ -79,7 +79,7 @@ void main() {
       expect(
         GrowthRules.assess(
           sex: ChildSex.male,
-          ageInMonths: 12,
+          ageInMonths: 12.0,
           heightCm: heightForZ(0),
         )?.level,
         AssessmentLevel.normal,
@@ -88,7 +88,7 @@ void main() {
 
     test('둘 다 없으면 판정하지 않는다', () {
       expect(
-        GrowthRules.assess(sex: ChildSex.male, ageInMonths: 12),
+        GrowthRules.assess(sex: ChildSex.male, ageInMonths: 12.0),
         isNull,
       );
     });
@@ -150,6 +150,41 @@ void main() {
 
     test('정상에서도 추세를 보라고 안내한다', () {
       expect(assessWeight(0)!.guideText, contains('추세'));
+    });
+  });
+
+  group('나이는 소수점을 살려 넘긴다', () {
+    // 만 개월로 내리면 LMS 표 사이 보간이 죽어, 판정이 최대 한 달 어린
+    // 기준으로 계산됩니다. 이 시기에는 한 달 차이가 큽니다.
+    test('생후 89일 4.6kg 남아는 주의 이상이다', () {
+      const days = 89;
+      final exact = days / 30.4375; // 2.92개월
+
+      final z = GrowthCalculator.weightZScore(ChildSex.male, exact, 4.6);
+      expect(z, lessThan(-2.0), reason: 'WHO 저체중 구간이어야 합니다');
+
+      final assessment = GrowthRules.assess(
+        sex: ChildSex.male,
+        ageInMonths: exact,
+        weightKg: 4.6,
+      );
+      expect(assessment!.level, isNot(AssessmentLevel.normal));
+    });
+
+    test('같은 아이를 만 개월로 내리면 정상으로 뒤집힌다', () {
+      // 고친 것이 무엇인지 남깁니다. 이 값이 판정에 쓰이면 안 됩니다.
+      final floored = (89 / 30.4375).floor().toDouble(); // 2.0
+      final z = GrowthCalculator.weightZScore(ChildSex.male, floored, 4.6);
+      expect(z, greaterThan(-2.0));
+    });
+
+    test('판정 근거에 소수점 개월이 남는다', () {
+      final a = GrowthRules.assess(
+        sex: ChildSex.male,
+        ageInMonths: 2.92,
+        weightKg: 6.0,
+      );
+      expect(a!.inputs['age_in_months'], closeTo(2.92, 0.01));
     });
   });
 }

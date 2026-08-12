@@ -399,9 +399,8 @@ as $$
   select exists (
     select 1
     from public.sleep_records s
-    join public.babies b on b.id = s.baby_id
     where s.id = p_sleep_record_id
-      and b.user_id = auth.uid()
+      and public.owns_baby(s.baby_id)
   );
 $$;
 
@@ -415,9 +414,8 @@ as $$
   select exists (
     select 1
     from public.temperature_records t
-    join public.babies b on b.id = t.baby_id
     where t.id = p_temperature_record_id
-      and b.user_id = auth.uid()
+      and public.owns_baby(t.baby_id)
   );
 $$;
 
