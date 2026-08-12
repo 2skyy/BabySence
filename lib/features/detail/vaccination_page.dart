@@ -31,6 +31,10 @@ class _VaccinationPageState extends State<VaccinationPage> {
 
   /// 접종 전에 진료실에서 말할 만한 최근 기록. 판정이 아닙니다.
   VaccinationReadiness _readiness = const VaccinationReadiness(notes: []);
+
+  /// 최근 기록을 못 읽었는지. 못 읽은 것과 "기록이 없는 것"은 다릅니다 —
+  /// 빈 카드를 그냥 보여주면 확인했는데 아무것도 없었다는 뜻이 됩니다.
+  bool _readinessFailed = false;
   bool _loading = true;
   String? _error;
 
@@ -61,15 +65,23 @@ class _VaccinationPageState extends State<VaccinationPage> {
       // 접종 전 확인 목록은 최근 기록에서 만듭니다. 실패해도 일정은 보여야
       // 하므로 따로 감쌉니다.
       var readiness = const VaccinationReadiness(notes: []);
+      var readinessFailed = false;
       if (baby != null) {
         try {
+          // 서로 독립이라 순서대로 기다릴 이유가 없습니다.
+          final sources = await Future.wait([
+            TemperatureRecordService.loadRecent(baby.id),
+            CareRecordService.loadMedications(baby.id),
+            CareRecordService.loadVisits(baby.id),
+          ]);
           readiness = buildReadiness(
-            temperatures: await TemperatureRecordService.loadRecent(baby.id),
-            medications: await CareRecordService.loadMedications(baby.id),
-            visits: await CareRecordService.loadVisits(baby.id),
+            temperatures: sources[0] as List<TemperatureRecord>,
+            medications: sources[1] as List<MedicationRecord>,
+            visits: sources[2] as List<HospitalVisit>,
           );
         } catch (e) {
-          debugPrint('접종 전 확인 목록을 만들지 못했습니다: \$e');
+          readinessFailed = true;
+          debugPrint('접종 전 확인 목록을 만들지 못했습니다: $e');
         }
       }
 
@@ -78,6 +90,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
         _baby = baby;
         _schedule = schedule;
         _readiness = readiness;
+        _readinessFailed = readinessFailed;
         _loading = false;
       });
     } catch (e) {
@@ -301,7 +314,26 @@ class _VaccinationPageState extends State<VaccinationPage> {
           ),
           const SizedBox(height: 14),
 
-          if (notes.isEmpty)
+          if (_readinessFailed)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '최근 기록을 불러오지 못했습니다. 아래 목록이 비어 있는 것은 '
+                    '기록이 없어서가 아닙니다.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else if (notes.isEmpty)
             Text(
               '최근 $readinessWindowDays일 안에 적어 둔 기록이 없습니다.\n'
               '기록이 없다고 접종해도 된다는 뜻은 아닙니다 — 아이 상태는 '

@@ -57,7 +57,11 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
   void didUpdateWidget(NextFeedingCard old) {
     super.didUpdateWidget(old);
     // 수유를 기록하고 돌아오면 마지막 시각이 바뀝니다. 알림도 다시 잡습니다.
-    if (old.lastFedAt != widget.lastFedAt) _apply(_settings);
+    // 설정은 그대로이므로 저장까지 하지는 않습니다.
+    if (old.lastFedAt != widget.lastFedAt) {
+      FeedingReminderService.reschedule(_schedule(_settings),
+          notify: _settings.notify);
+    }
   }
 
   @override
