@@ -1,18 +1,22 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
+import 'skin/skin_service.dart';
 import '../../core/constants/app_colors.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_selector/file_selector.dart' as fs;
-import 'package:dio/dio.dart';
-
-import '../../core/constants/api_config.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../../core/widgets/medical_disclaimer.dart';
 
+/// 피부 사진을 보고 지금 무엇을 하면 좋을지 안내하는 화면.
+///
+/// **진단하지 않습니다.** 예전에는 "진단 결과: 흑색종 (88.4%)"처럼 병명과
+/// 확률을 띄웠습니다. 뒤에 있던 것은 성인 피부암 데이터셋으로 만든 분류기
+/// 자리였고, 실제로는 늘 같은 값을 돌려주는 껍데기였습니다. 영유아에게는
+/// 거의 없는 질환들이라 기저귀 발진 사진에 '흑색종'이 붙을 수 있었습니다.
+///
+/// 지금은 서버가 보이는 것과 단계(정상/주의/상담 권장)만 돌려줍니다.
 class SkinAnalysisPage extends StatefulWidget {
   const SkinAnalysisPage({super.key});
 
@@ -22,251 +26,180 @@ class SkinAnalysisPage extends StatefulWidget {
 
 class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   File? _image;
-  Uint8List? _imageBytes;
   final ImagePicker _picker = ImagePicker();
 
-  String _resultText = "사진을 선택한 후 '분석하기' 버튼을 눌러주세요.";
-  bool _isLoading = false;
-  bool _isNormal = false;
+  bool _loading = false;
 
-  final Map<String, String> _koDiseases = {
-    "normal": "정상 피부",
-    "Atopic Dermatitis": "아토피성 피부염",
-    "Melanoma": "흑색종",
-    "Actinic keratosis": "광선각화증",
-    "Benign keratosis": "양성 각화증",
-    "Candidiasis Ringworm Tinea": "칸디다증/백선",
-    "Dermatofibroma": "피부섬유종",
-    "Melanocytic nevus": "멜라닌세포모반",
-    "Squamous carcinoma cell": "편평세포암",
-    "Vascular lesion": "혈관성 병변"
-  };
+  /// 분석 결과. 아직 분석하지 않았으면 null입니다.
+  SkinReading? _reading;
 
-  // 1. 카메라로 촬영
-  Future<void> _takePhoto() async {
+  /// 안내 문구. 결과가 없을 때 그 자리에 대신 보여줍니다.
+  String _notice = "사진을 고르고 '확인하기'를 눌러 주세요.";
+
+  /// [_notice]가 오류인지. 오류는 다른 색으로 그립니다.
+  bool _noticeIsError = false;
+
+  Future<void> _pick(ImageSource source) async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
-        setState(() {
-          _image = File(pickedFile.path);
-          _imageBytes = bytes;
-          _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
-          _isNormal = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("카메라 에러: $e");
-    }
-  }
-
-  Future<void> _getFromGallery() async {
-    try {
-      const fs.XTypeGroup typeGroup = fs.XTypeGroup(
-        label: 'images',
-        extensions: <String>['jpg', 'jpeg', 'png', 'JPG', 'PNG'],
+      // 여기서 줄여 보냅니다. 요즘 휴대폰 사진은 한 장에 5MB를 넘는데,
+      // 서버는 4MB까지만 받습니다(그 너머는 Claude가 받지 않습니다).
+      // 긴 변 1568px이면 모델이 보는 해상도와 같아 더 키워도 얻는 것이 없습니다.
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1568,
+        maxHeight: 1568,
+        imageQuality: 85,
       );
+      if (picked == null || !mounted) return;
 
-      final fs.XFile? file = await fs.openFile(acceptedTypeGroups: <fs.XTypeGroup>[typeGroup]);
-
-      if (file != null) {
-        final bytes = await file.readAsBytes();
-        setState(() {
-          _image = File(file.path);
-          _imageBytes = bytes;
-          _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
-          _isNormal = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("파일 선택 에러: $e");
-      try {
-        final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-        if (pickedFile != null) {
-          final bytes = await pickedFile.readAsBytes();
-          setState(() {
-            _image = File(pickedFile.path);
-            _imageBytes = bytes;
-            _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
-            _isNormal = false;
-          });
-        }
-      } catch (err) {
-        debugPrint("백업 기기 선택 에러: $err");
-      }
-    }
-  }
-  // 3. AI 서버(FastAPI) 분석 요청
-  Future<void> _sendToAiServer() async {
-    if (_image == null) return;
-
-    setState(() {
-      _isLoading = true;
-      _resultText = "AI가 피부 상태를 분석 중입니다. 잠시만 기다려주세요...";
-    });
-
-    Dio dio = Dio();
-    String serverUrl = ApiConfig.skinDiagnose;
-
-    try {
-      FormData formData = FormData.fromMap({
-        "file": await MultipartFile.fromFile(_image!.path, filename: "baby_skin.jpg"),
+      setState(() {
+        _image = File(picked.path);
+        _reading = null;
+        _notice = "사진을 담았습니다. '확인하기'를 눌러 주세요.";
+        _noticeIsError = false;
       });
-
-      Response response = await dio.post(serverUrl, data: formData);
-      // 분석은 몇 초 걸립니다. 그 사이 뒤로 가면 이 화면은 이미 사라집니다.
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        var data = response.data;
-
-        // 확률이 서버 기준에 못 미치면 진단명을 보여주지 않습니다.
-        // 조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 처리입니다.
-        if (data['status'] == 'low_confidence') {
-          setState(() {
-            _isNormal = false;
-            _resultText = data['message'] ??
-                '정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요.';
-          });
-          return;
-        }
-
-        String rawDisease = data['disease'] ?? "normal";
-        double prob = (data['probability'] as num).toDouble();
-
-        String translatedDisease = _koDiseases[rawDisease] ?? rawDisease;
-
-        setState(() {
-          _isNormal = (rawDisease == "normal");
-          _resultText = "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)";
-        });
-      }
     } catch (e) {
+      // 예전에는 debugPrint만 하고 넘어가, 권한을 거부한 사용자에게는
+      // 아무 일도 일어나지 않는 것처럼 보였습니다.
+      debugPrint('사진 선택 실패: $e');
       if (!mounted) return;
       setState(() {
-        _resultText = "서버 연동 실패: $e";
-        _isNormal = false;
+        _notice = source == ImageSource.camera
+            ? '카메라를 열지 못했습니다. 설정에서 카메라 권한을 확인해 주세요.'
+            : '사진을 가져오지 못했습니다. 설정에서 사진 접근 권한을 확인해 주세요.';
+        _noticeIsError = true;
+      });
+    }
+  }
+
+  Future<void> _analyze() async {
+    final image = _image;
+    if (image == null) return;
+
+    setState(() {
+      _loading = true;
+      _reading = null;
+      _notice = '사진을 확인하는 중입니다…';
+      _noticeIsError = false;
+    });
+
+    try {
+      final reading = await SkinService.analyze(image.path);
+      if (!mounted) return;
+      setState(() => _reading = reading);
+    } on SkinUnreadable catch (e) {
+      // 판독이 안 된 것이지 정상이 아닙니다. 결과 카드를 그리지 않습니다.
+      if (!mounted) return;
+      setState(() {
+        _notice = e.message;
+        _noticeIsError = true;
+      });
+    } on SkinException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _notice = e.message;
+        _noticeIsError = true;
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: context.colors.background,
+      backgroundColor: colors.background,
       appBar: const CommonAppBar(
-        title: '피부 AI 판단',
+        title: '피부 살펴보기',
         actions: [AskAction(domain: AssessmentDomain.skin)],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "피부 사진을 업로드하면\nAI가 피부 상태를 알려드립니다.",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.4, color: context.colors.textPrimary),
+              '아이 피부 사진을 올리면\n무엇이 보이는지 알려드려요.',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                height: 1.4,
+                color: colors.textPrimary,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Text(
+              '병명을 가려내지는 않습니다.',
+              style: TextStyle(fontSize: 14, color: colors.textSecondary),
+            ),
+            const SizedBox(height: 16),
 
-            // 결과/상태 안내 박스
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _isNormal
-                    ? Colors.green.withValues(alpha: 0.15)
-                    : context.colors.primarySurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _resultText,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: context.colors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            if (_reading != null)
+              _ReadingCard(reading: _reading!)
+            else
+              _NoticeCard(text: _notice, isError: _noticeIsError),
+
             const SizedBox(height: 12),
-            // AI가 낸 결과 옆에는 반드시 둡니다.
             const MedicalDisclaimer(),
             const SizedBox(height: 18),
 
-            // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _showImageSourceBottomSheet(),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: context.colors.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: _isNormal
-                          ? Colors.green.withValues(alpha: 0.5)
-                          : context.colors.border,
-                      width: _isNormal ? 2 : 1,
-                    ),
-                  ),
-                  child: (_imageBytes != null)
-                      ? ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.memory(_imageBytes!, fit: BoxFit.cover),
-                  )
-                      : (_image != null)
-                      ? ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.file(_image!, fit: BoxFit.cover),
-                  )
-                      : Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_a_photo_outlined, size: 48, color: context.colors.textSecondary),
-                        SizedBox(height: 12),
-                        Text(
-                          "터치하여 사진 촬영 또는 선택",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: context.colors.textSecondary, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
+            GestureDetector(
+              onTap: _loading ? null : _showSourceSheet,
+              child: Container(
+                width: double.infinity,
+                height: 280,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: colors.border),
                 ),
+                child: _image == null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo_outlined,
+                                size: 48, color: colors.textSecondary),
+                            const SizedBox(height: 12),
+                            Text(
+                              '터치해서 사진 찍기 또는 고르기',
+                              style: TextStyle(
+                                  color: colors.textSecondary, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.file(_image!, fit: BoxFit.cover),
+                      ),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
 
-            // 분석하기 버튼
             SizedBox(
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
-                onPressed: (_image != null || _imageBytes != null) && !_isLoading ? _sendToAiServer : null,
+                onPressed: _image != null && !_loading ? _analyze : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isNormal
-                      ? Colors.green
-                      : context.colors.primarySurface,
+                  backgroundColor: colors.primarySurface,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                 ),
-                child: _isLoading
-                    ? CircularProgressIndicator(color: AppColors.primary)
-                    : Text(
-                  "분석하기",
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: _isNormal ? Colors.white : AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _loading
+                    ? const CircularProgressIndicator(color: AppColors.primary)
+                    : const Text(
+                        '확인하기',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -275,30 +208,149 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     );
   }
 
-  void _showImageSourceBottomSheet() {
+  void _showSourceSheet() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('카메라로 아기 피부 촬영하기'),
+              title: const Text('카메라로 찍기'),
               onTap: () {
-                Navigator.pop(context);
-                _takePhoto();
+                Navigator.pop(sheetContext);
+                _pick(ImageSource.camera);
               },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('갤러리에서 아기 사진 가져오기'),
+              title: const Text('앨범에서 고르기'),
               onTap: () {
-                Navigator.pop(context);
-                _getFromGallery();
+                Navigator.pop(sheetContext);
+                _pick(ImageSource.gallery);
               },
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 결과가 없을 때 그 자리에 놓는 안내.
+class _NoticeCard extends StatelessWidget {
+  final String text;
+  final bool isError;
+
+  const _NoticeCard({required this.text, required this.isError});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isError
+            ? Colors.orange.withValues(alpha: 0.15)
+            : colors.primarySurface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isError) ...[
+            const Icon(Icons.error_outline, size: 20, color: Colors.orange),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14, color: colors.textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 사진을 보고 나온 결과.
+///
+/// 병명도 확률도 없습니다. 단계, 보이는 것, 지금 할 수 있는 것 셋뿐입니다.
+class _ReadingCard extends StatelessWidget {
+  final SkinReading reading;
+
+  const _ReadingCard({required this.reading});
+
+  Color get _accent {
+    if (reading.urgent) return Colors.red;
+    switch (reading.level) {
+      case AssessmentLevel.normal:
+        return Colors.green;
+      case AssessmentLevel.caution:
+        return Colors.orange;
+      case AssessmentLevel.consult:
+        return Colors.deepOrange;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _accent.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                reading.urgent ? Icons.priority_high : Icons.remove_red_eye,
+                size: 18,
+                color: _accent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                reading.urgent ? '오늘 진료를 받아 보세요' : reading.level.label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _accent,
+                ),
+              ),
+            ],
+          ),
+          if (reading.observations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final o in reading.observations)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '· $o',
+                  style: TextStyle(fontSize: 14, color: colors.textPrimary),
+                ),
+              ),
+          ],
+          if (reading.advice.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              reading.advice,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: colors.textPrimary,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

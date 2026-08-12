@@ -25,16 +25,31 @@ def _path_from_env(name: str, default: str | None) -> Path | None:
 
 
 class Settings:
-    #: 피부 질환 분류 모델 경로. 아직 학습된 모델이 없어 기본값이 없습니다.
-    #: 저장소에는 모델 파일을 넣지 않습니다(용량, 이력 오염).
-    skin_model_path: Path | None = _path_from_env("SKIN_MODEL_PATH", None)
+    #: 업로드 상한(바이트).
+    #:
+    #: 예전에는 50MB였습니다(Spring 시절 값). 지금은 사진을 Claude에 그대로
+    #: 실어 보내는데, Anthropic API는 이미지 한 장을 5MB까지만 받습니다.
+    #: 게다가 base64로 감싸면 크기가 1.33배가 되므로, 받아 두고 나서
+    #: 못 보내는 일이 없도록 그 앞에서 막습니다.
+    #:
+    #: 앱은 촬영·선택 단계에서 이미 긴 변 1568px로 줄여 보냅니다. 그 크기면
+    #: 대개 1MB 밑이라 이 상한에 닿을 일이 거의 없습니다.
+    max_upload_bytes: int = int(os.getenv("MAX_UPLOAD_BYTES", 4 * 1024 * 1024))
 
-    #: 업로드 상한(바이트). Spring에서 50MB로 올려뒀던 값을 따릅니다.
-    max_upload_bytes: int = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024))
+    #: 피부 사진을 볼 모델. 상담과 같은 키를 씁니다.
+    skin_model: str = os.getenv("SKIN_MODEL", "claude-opus-5")
 
-    #: 이 확률(%)에 못 미치면 진단명을 내놓지 않고 재촬영을 안내합니다.
-    #: 오진을 막기 위한 기준이며, Spring 서버에서 쓰던 값과 같습니다.
-    skin_min_probability: float = float(os.getenv("SKIN_MIN_PROBABILITY", 50.0))
+    #: 사진 한 장에 대한 토큰 상한. 추론과 본문이 함께 씁니다.
+    skin_max_tokens: int = int(os.getenv("SKIN_MAX_TOKENS", 2048))
+
+    #: 피부 분석의 횟수 상한. **상담과 따로 셉니다.**
+    #:
+    #: 사진 한 장은 글자 질문보다 토큰을 훨씬 많이 먹습니다. 같은 통에 넣으면
+    #: 사진 몇 장에 상담이 막히고, 반대로 상담 상한에 맞춰 넉넉히 열어 두면
+    #: 사진 쪽이 크레딧을 다 태웁니다. 두 기능이 **같은 지갑**을 쓰기 때문에
+    #: 통을 나누는 것 자체가 서로를 지키는 장치입니다.
+    skin_rate_limit: int = int(os.getenv("SKIN_RATE_LIMIT", 10))
+    skin_global_rate_limit: int = int(os.getenv("SKIN_GLOBAL_RATE_LIMIT", 100))
 
     #: Claude API 키. **앱에 넣지 마세요.** 앱 패키지는 뜯을 수 있습니다.
     #: 없으면 /api/advice가 503을 반환하고 나머지 기능은 그대로 동작합니다.

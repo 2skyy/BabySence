@@ -4,12 +4,12 @@
 분석 결과를 skin_analyses에 남기는 것도 앱이 합니다. 그래서 이 서버는 DB에
 붙지 않습니다.
 
-다만 /api/advice는 요청마다 Claude 크레딧을 쓰므로, 앱이 보낸 Supabase 액세스
+두 엔드포인트 모두 요청마다 Claude 크레딧을 쓰므로, 앱이 보낸 Supabase 액세스
 토큰이 유효한지만 확인합니다(app/auth.py). 인가(누가 어떤 행을 볼 수 있는가)는
 여전히 Supabase의 RLS가 앱과 직접 처리합니다.
 
-주의: 현재 피부 모델이 준비되지 않아 **동작하는 추론 엔드포인트가 없습니다.**
-/health는 응답하지만 /api/skin/diagnose는 503을 반환합니다.
+**둘은 같은 API 키를 씁니다.** 곧 같은 크레딧을 나눠 쓰므로, 한쪽이 폭주하면
+다른 쪽이 멈춥니다. 그래서 횟수 상한을 기능별로 따로 셉니다.
 
 실행:
     uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -73,6 +73,19 @@ _per_user_limit = SlidingWindow(
 #: 총액이 막히지 않습니다.
 _global_limit = SlidingWindow(
     limit=settings.advice_global_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
+)
+
+#: 피부 분석은 **통을 따로 씁니다.** 사진 한 장은 글자 질문보다 토큰을 훨씬
+#: 많이 먹습니다. 같은 통에 넣으면 사진 몇 장에 상담이 막히고, 반대로 상담에
+#: 맞춰 넉넉히 열면 사진 쪽이 크레딧을 다 태웁니다. 두 기능이 같은 API 키,
+#: 곧 **같은 지갑**을 쓰기 때문에 통을 나누는 것이 서로를 지키는 장치입니다.
+_skin_per_user_limit = SlidingWindow(
+    limit=settings.skin_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
+)
+_skin_global_limit = SlidingWindow(
+    limit=settings.skin_global_rate_limit,
     window_seconds=settings.advice_rate_window_seconds,
 )
 
@@ -212,30 +225,73 @@ async def get_advice(
 
 
 @app.post("/api/skin/diagnose")
-async def diagnose_skin(file: UploadFile = File(...)) -> dict:
-    """피부 사진 진단.
+async def diagnose_skin(
+    user_id: Annotated[str, Depends(auth.require_user)],
+    file: UploadFile = File(...),
+) -> dict:
+    """피부 사진을 보고 지금 무엇을 하면 좋을지 안내합니다.
 
-    확률이 기준(기본 50%)에 못 미치면 진단명을 내놓지 않고 재촬영을 안내합니다.
-    조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 기준입니다.
+    **진단하지 않습니다.** 병명을 붙이지 않고, 암은 다루지 않습니다.
+    보이는 것을 옮기고 단계(정상/주의/상담 권장)를 정할 뿐입니다.
+
+    **로그인한 사용자만 부를 수 있습니다.** 예전에는 열려 있었는데, 그때는
+    고정값을 돌려주는 자리라 크레딧이 나가지 않았기 때문입니다. 이제 사진
+    한 장마다 Claude를 부르므로 상담과 같은 문을 씁니다.
     """
     image = await _read_upload(file)
 
+    # 형식은 매직 바이트로 봅니다. 확장자와 Content-Type은 보내는 쪽이
+    # 마음대로 적을 수 있고, 틀리면 Anthropic이 영문 400을 내는데 그 문구가
+    # 그대로 보호자 화면에 뜹니다.
+    media_type = skin.detect_media_type(image)
+    if media_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="사진 파일만 올릴 수 있습니다. JPG나 PNG로 다시 시도해 주세요.",
+        )
+
+    # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
+    if not _skin_global_limit.allow("*"):
+        logger.warning("피부 분석 서버 전체 상한에 걸렸습니다.")
+        raise HTTPException(
+            status_code=429,
+            detail="지금 이용이 많습니다. 잠시 후 다시 시도해 주세요.",
+            headers={"Retry-After": str(_skin_global_limit.retry_after_seconds("*"))},
+        )
+
+    if not _skin_per_user_limit.allow(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="사진을 너무 많이 보내셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_skin_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
     try:
-        disease, probability = skin.model.predict(image)
+        # Anthropic 클라이언트는 동기라 그대로 부르면 이벤트 루프를 막습니다.
+        reading = await run_in_threadpool(skin.model.read, image, media_type)
     except skin.SkinModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        logger.exception("피부 분석 실패")
-        raise HTTPException(
-            status_code=500, detail=f"피부 상태를 분석하지 못했습니다: {exc}"
-        ) from exc
+        status, detail = advice.to_http_detail(exc)
+        raise HTTPException(status_code=status, detail=detail) from exc
 
-    if probability < settings.skin_min_probability:
+    # 피부가 아니거나 판독이 안 되는 사진. 단계를 내보내면 화면이 '정상'으로
+    # 그립니다 — 확인이 안 됐다는 사실과 정상은 다른 말입니다.
+    if not reading.is_skin:
         return {
-            "status": "low_confidence",
-            "disease": disease,
-            "probability": probability,
-            "message": "정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요.",
+            "status": "unreadable",
+            "message": reading.advice,
+            "disclaimer": advice.DISCLAIMER,
         }
 
-    return {"status": "success", "disease": disease, "probability": probability}
+    return {
+        "status": "success",
+        "level": reading.level,
+        "urgent": reading.urgent,
+        "observations": reading.observations,
+        "advice": reading.advice,
+        # 고지는 서버가 붙입니다. 모델이 쓰게 두면 결과마다 문구가 달라집니다.
+        "disclaimer": advice.DISCLAIMER,
+    }
