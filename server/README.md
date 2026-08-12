@@ -190,26 +190,60 @@ flutter run --dart-define-from-file=env.json \
 
 ### `POST /api/skin/diagnose`
 
-확률이 기준 이상일 때:
+multipart. 필드 셋을 받습니다.
 
-```json
-{ "status": "success", "disease": "Atopic Dermatitis", "probability": 88.4 }
-```
+| 필드 | 필수 | 값 |
+|---|---|---|
+| `file` | ✅ | 사진. 4MB 이하, JPG·PNG·WebP·GIF |
+| `age_months` | ✅ | 개월 수 |
+| `has_fever` | | `yes` / `no` / `unknown` (기본 `unknown`) |
 
-기준 미만일 때 — 앱은 `status`를 보고 진단명 대신 `message`를 보여줍니다
-(`skin_analysis_page.dart`에 구현되어 있습니다):
+`age_months`가 **필수인 이유**: 나이에 걸린 안전 조항(3개월 미만의 발열,
+아주 어린 아기의 물집, 아직 기지 못하는 아이의 멍)이 여기 달려 있습니다.
+선택으로 두면 앱이 안 보내도 200이 나가고, 그 조항들이 조용히 죽은 채로
+서비스가 돕니다.
+
+`has_fever`가 **세 값인 이유**: 예/아니요 둘이면 "재보지 않았음"이
+"아니요"로 접힙니다. 발진과 발열이 함께 있는 것은 카메라가 담지 못하는
+가장 값진 신호입니다. 앱은 최근 12시간의 체온 기록에서 찾아 넘깁니다.
+
+**진단하지 않습니다.** 병명도 확률도 돌려주지 않습니다.
 
 ```json
 {
-  "status": "low_confidence",
-  "disease": "Atopic Dermatitis",
-  "probability": 41.2,
-  "message": "정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요."
+  "status": "success",
+  "level": "caution",
+  "urgent": false,
+  "observations": ["기저귀가 닿는 부위에 붉은 기가 넓게 보입니다."],
+  "unknown": "사진으로는 가려운지, 언제부터인지는 알 수 없어요.",
+  "advice": "기저귀를 자주 갈아 주시고 …",
+  "disclaimer": "이 안내는 참고용이며 …"
 }
 ```
 
-`disease`에는 모델이 낸 **원본 라벨**을 넣습니다. 한글 변환은 앱이 담당합니다
-(모델을 교체해도 DB에 쌓인 과거 이력이 깨지지 않게 하려는 것입니다).
+`level`은 `caution` / `consult` 둘뿐입니다. **`normal`이 없습니다** — 사진
+한 장으로 '정상'이라고 말하는 것은 안심이 아니라 반대 방향의 진단이고,
+체온과 달리 사진에는 정상의 근거가 없습니다.
+
+`urgent`는 오늘 안에 진료가 필요해 보이는 경우입니다. 모델이 낸 값을
+코드가 한 번 더 잠급니다(`skin._settle`) — **내리지 않고 올리기만** 합니다.
+구조화 출력은 모양만 보장하므로 `{"level":"caution","urgent":true}`도
+스키마를 통과하기 때문입니다. 열이 있으면 코드가 `consult`로 올리고,
+3개월 미만이면 `urgent`까지 켭니다.
+
+피부가 아니거나 판독이 안 되는 사진:
+
+```json
+{
+  "status": "unreadable",
+  "message": "사진이 어두워서 피부 상태를 보기 어려워요. …",
+  "disclaimer": "…"
+}
+```
+
+앱은 여기에 "확인하지 못했다는 것은 괜찮다는 뜻이 아닙니다"를 덧붙입니다.
+새벽에 어두운 방에서 찍은 사진이 예외가 아니라 표준이고, 그때 "다시 찍어
+주세요"로만 끝나면 그것이 안심으로 번역되기 때문입니다.
 
 ### `POST /api/advice`
 

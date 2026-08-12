@@ -4,8 +4,11 @@ import 'package:image_picker/image_picker.dart';
 
 import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
+import 'assessment/temperature_rules.dart' show ageInMonthsAt;
 import 'skin/skin_service.dart';
+import 'temperature_record_service.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/baby_service.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../../core/widgets/medical_disclaimer.dart';
 
@@ -23,6 +26,18 @@ class SkinAnalysisPage extends StatefulWidget {
   @override
   State<SkinAnalysisPage> createState() => _SkinAnalysisPageState();
 }
+
+/// 열이 있다고 볼 체온(℃).
+///
+/// 연령별 상담 권장 하한(`TemperatureRules.consultThreshold`)이 아니라 이
+/// 값을 쓰는 이유: 여기서 묻는 것은 판정이 아니라 **발진에 열이 동반됐는가**
+/// 하나입니다. `temperature_rules.dart`의 출처 주석에 적혀 있듯, 연령별
+/// 구분값(38.0/38.5/39.0)은 인용한 문서에서 확인되지 않았고 확인된 것은
+/// "38.0℃ 이상 병원 권고"뿐입니다. 확인된 쪽을 씁니다.
+const double _feverC = 38.0;
+
+/// 이 시간 안에 잰 것만 봅니다. 어제 열은 오늘 발진의 동반 증상이 아닙니다.
+const Duration _feverWindow = Duration(hours: 12);
 
 class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   File? _image;
@@ -72,6 +87,31 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     }
   }
 
+  /// 최근에 잰 열이 있으면 함께 보냅니다.
+  ///
+  /// **열은 사진에 없습니다.** 발진과 발열이 함께 있는 것은 카메라가 담지
+  /// 못하는 가장 값진 신호라, 이미 가지고 있는 체온 기록에서 찾아 넘깁니다.
+  /// 보호자에게 따로 묻지 않는 것은 걸음을 하나 더 두지 않으려는 것입니다.
+  ///
+  /// 기록이 없거나 오래됐으면 `'unknown'`입니다. **`'no'`로 접지 마세요** —
+  /// 재보지 않은 것과 열이 없는 것은 다른 말입니다.
+  static Future<String> _recentFever(String babyId) async {
+    try {
+      final since = DateTime.now().subtract(_feverWindow);
+      final records =
+          await TemperatureRecordService.loadRecent(babyId, since: since);
+      if (records.isEmpty) return 'unknown';
+
+      // 창 안에 한 번이라도 넘었으면 있음으로 봅니다. 마지막 한 번만 보면
+      // 해열제로 잠시 내려간 값이 '없음'이 됩니다.
+      final feverish = records.any((r) => r.temperatureC >= _feverC);
+      return feverish ? 'yes' : 'no';
+    } catch (_) {
+      // 조회 실패를 '없음'으로 바꾸지 않습니다.
+      return 'unknown';
+    }
+  }
+
   Future<void> _analyze() async {
     final image = _image;
     if (image == null) return;
@@ -84,14 +124,30 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
     });
 
     try {
-      final reading = await SkinService.analyze(image.path);
+      // 개월 수는 서버가 필수로 받습니다. 나이에 걸린 안전 조항이 여기
+      // 달려 있어, 못 읽었으면 보내지 않고 그 사실을 말합니다.
+      final baby = await BabyService.loadCurrent();
+      if (baby == null) {
+        throw const SkinException('아이 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
+      final reading = await SkinService.analyze(
+        image.path,
+        ageInMonths: ageInMonthsAt(baby.birthDate, DateTime.now()),
+        hasFever: await _recentFever(baby.id),
+      );
       if (!mounted) return;
       setState(() => _reading = reading);
     } on SkinUnreadable catch (e) {
-      // 판독이 안 된 것이지 정상이 아닙니다. 결과 카드를 그리지 않습니다.
+      // 판독이 안 된 것이지 정상이 아닙니다. 결과 카드를 그리지 않고,
+      // **못 봤다는 것이 안심으로 읽히지 않게** 한 줄을 덧붙입니다.
+      // 새벽에 어두운 방에서 한 손으로 아이를 잡고 찍은 사진이 예외가 아니라
+      // 표준이고, 그때 "다시 찍어 주세요"로만 끝나면 그것이 안심이 됩니다.
       if (!mounted) return;
       setState(() {
-        _notice = e.message;
+        _notice = '${e.message}\n\n'
+            '확인하지 못했다는 것은 괜찮다는 뜻이 아닙니다. '
+            '걱정되시면 사진과 관계없이 진료를 받아 주세요.';
         _noticeIsError = true;
       });
     } on SkinException catch (e) {
@@ -143,7 +199,9 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
 
             const SizedBox(height: 12),
             const MedicalDisclaimer(),
-            const SizedBox(height: 18),
+            const SizedBox(height: 4),
+            const _EmergencyNotice(),
+            const SizedBox(height: 14),
 
             GestureDetector(
               onTap: _loading ? null : _showSourceSheet,
@@ -286,13 +344,28 @@ class _ReadingCard extends StatelessWidget {
   Color get _accent {
     if (reading.urgent) return Colors.red;
     switch (reading.level) {
-      case AssessmentLevel.normal:
-        return Colors.green;
+      // 초록은 쓰지 않습니다. 사진 한 장으로 '괜찮다'고 말할 근거가 없고,
+      // 초록을 본 보호자는 그 화면을 근거로 자기 판단을 멈춥니다.
       case AssessmentLevel.caution:
-        return Colors.orange;
+        return Colors.blueGrey;
       case AssessmentLevel.consult:
         return Colors.deepOrange;
+      case AssessmentLevel.normal:
+        // 서버가 보내지 않는 값입니다. 혹시 오더라도 초록이 되지 않게.
+        return Colors.blueGrey;
     }
+  }
+
+  /// 화면에 적을 단계 이름.
+  ///
+  /// `AssessmentLevel.label`('주의'/'상담 권장')을 쓰지 않습니다. 그 말은
+  /// 체온·성장처럼 **공인 임계값으로 계산한** 판정의 이름입니다. 사진은
+  /// 판정이 아니라 관찰이라, 판정처럼 보이지 않는 말을 씁니다.
+  String get _headline {
+    if (reading.urgent) return '지금 진료를 받아 주세요';
+    return reading.level == AssessmentLevel.consult
+        ? '진료를 받아 보세요'
+        : '사진에서는 급해 보이는 신호가 보이지 않습니다';
   }
 
   @override
@@ -311,6 +384,7 @@ class _ReadingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 reading.urgent ? Icons.priority_high : Icons.remove_red_eye,
@@ -318,16 +392,27 @@ class _ReadingCard extends StatelessWidget {
                 color: _accent,
               ),
               const SizedBox(width: 6),
-              Text(
-                reading.urgent ? '오늘 진료를 받아 보세요' : reading.level.label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: _accent,
+              Expanded(
+                child: Text(
+                  _headline,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _accent,
+                  ),
                 ),
               ),
             ],
           ),
+          if (reading.urgent)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 24),
+              child: Text(
+                '밤이라면 응급실로 가 주세요.',
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.bold, color: _accent),
+              ),
+            ),
           if (reading.observations.isNotEmpty) ...[
             const SizedBox(height: 10),
             for (final o in reading.observations)
@@ -350,6 +435,84 @@ class _ReadingCard extends StatelessWidget {
               ),
             ),
           ],
+          // **접지 않습니다.** 이 앱이 진단하지 않는다는 사실을 보호자에게
+          // 보여주는 유일한 자리입니다.
+          if (reading.unknown.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              reading.unknown,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            '사진으로는 병을 가려내지 않습니다. 이 안내는 진단이 아닙니다.',
+            style: TextStyle(fontSize: 12, color: colors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 사진과 관계없이 항상 보이는 응급 안내.
+///
+/// 문구는 서버 상담 프롬프트(`advice.py`)의 응급 목록과 **같은 문장**입니다.
+/// 앱 안에서 같은 말이 화면마다 다르게 적히면 안 됩니다.
+///
+/// 접히지만 제목은 늘 보입니다. 결과가 무엇이든, 결과를 받기 전이든 자리를
+/// 지킵니다 — 사진에 안 찍히는 신호가 사진에 찍히는 것보다 급한 경우가
+/// 있기 때문입니다.
+class _EmergencyNotice extends StatelessWidget {
+  const _EmergencyNotice();
+
+  static const _signs = [
+    '생후 3개월이 안 된 아기에게 열이 있을 때',
+    '경련하거나, 의식이 흐리거나, 숨쉬기 힘들어할 때',
+    '심하게 늘어져 있거나 깨우기 어려울 때',
+    '소변이 거의 없거나, 입술이 마르거나, 울어도 눈물이 없을 때',
+    '보호자가 보시기에 평소와 확실히 다를 때',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Theme(
+      // ExpansionTile의 기본 구분선을 지웁니다.
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+        leading: const Icon(Icons.local_hospital_outlined,
+            size: 20, color: Colors.red),
+        title: const Text(
+          '사진과 관계없이 지금 바로 진료를 받아 주세요',
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red),
+        ),
+        children: [
+          for (final sign in _signs)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('· ',
+                      style: TextStyle(color: colors.textSecondary)),
+                  Expanded(
+                    child: Text(
+                      sign,
+                      style: TextStyle(
+                          fontSize: 13, color: colors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

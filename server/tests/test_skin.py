@@ -37,8 +37,12 @@ READING = skin.SkinReading(
     level="caution",
     urgent=False,
     observations=["볼 주변에 붉은 기가 보입니다."],
+    unknown="사진으로는 가려운지 알 수 없어요.",
     advice="보습을 자주 해 주세요.",
 )
+
+#: 나이는 서버가 필수로 받습니다. 나이에 걸린 안전 조항이 여기 달려 있습니다.
+FIELDS = {"age_months": "5"}
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +64,7 @@ def logged_in():
 @pytest.fixture
 def reads(monkeypatch):
     """Claude 대신 고정 결과를 돌려줍니다."""
-    monkeypatch.setattr(skin.model, "read", lambda image, media_type: READING)
+    monkeypatch.setattr(skin.model, "read", lambda image, media_type, age, fever: READING)
 
 
 class TestAuthRequired:
@@ -80,7 +84,7 @@ class TestAuthRequired:
     def test_does_not_call_claude_when_anonymous(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            skin.model, "read", lambda image, media_type: calls.append(1) or READING
+            skin.model, "read", lambda image, media_type, age, fever: calls.append(1) or READING
         )
         client.post("/api/skin/diagnose", files=photo())
         assert calls == []
@@ -92,6 +96,7 @@ class TestFileShape:
     def test_rejects_an_empty_file(self, logged_in, reads):
         response = client.post(
             "/api/skin/diagnose", files={"file": ("x.jpg", b"", "image/jpeg")},
+            data=FIELDS,
             headers=AUTHED,
         )
         assert response.status_code == 400
@@ -101,6 +106,7 @@ class TestFileShape:
         response = client.post(
             "/api/skin/diagnose",
             files={"file": ("skin.jpg", b"not an image at all", "image/jpeg")},
+            data=FIELDS,
             headers=AUTHED,
         )
         assert response.status_code == 400
@@ -108,11 +114,12 @@ class TestFileShape:
     def test_does_not_call_claude_for_a_non_image(self, logged_in, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            skin.model, "read", lambda image, media_type: calls.append(1) or READING
+            skin.model, "read", lambda image, media_type, age, fever: calls.append(1) or READING
         )
         client.post(
             "/api/skin/diagnose",
             files={"file": ("skin.jpg", b"%PDF-1.4 fake", "image/jpeg")},
+            data=FIELDS,
             headers=AUTHED,
         )
         assert calls == []
@@ -120,7 +127,7 @@ class TestFileShape:
     def test_rejects_too_large_a_photo(self, logged_in, reads, monkeypatch):
         monkeypatch.setattr(main.settings, "max_upload_bytes", 128)
         response = client.post(
-            "/api/skin/diagnose", files=photo(JPEG + b"\x00" * 500), headers=AUTHED
+            "/api/skin/diagnose", files=photo(JPEG + b"\x00" * 500), data=FIELDS, headers=AUTHED
         )
         assert response.status_code == 413
 
@@ -128,6 +135,7 @@ class TestFileShape:
         response = client.post(
             "/api/skin/diagnose",
             files={"file": ("skin.png", PNG, "image/png")},
+            data=FIELDS,
             headers=AUTHED,
         )
         assert response.status_code == 200
@@ -156,14 +164,14 @@ class TestMediaTypeDetection:
 
 class TestResult:
     def test_returns_the_reading(self, logged_in, reads):
-        body = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED).json()
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert body["status"] == "success"
         assert body["level"] == "caution"
         assert body["urgent"] is False
         assert body["advice"] == "보습을 자주 해 주세요."
 
     def test_server_attaches_the_disclaimer(self, logged_in, reads):
-        body = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED).json()
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert body["disclaimer"] == advice.DISCLAIMER
 
     def test_never_returns_a_diagnosis_name(self, logged_in, reads):
@@ -172,7 +180,7 @@ class TestResult:
         앱 전체가 병명을 말하지 않기로 했습니다(advice.py의 SYSTEM_PROMPT).
         예전 이 화면만 '진단 결과: 흑색종 (88.4%)'을 띄웠습니다.
         """
-        body = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED).json()
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert "disease" not in body
         assert "probability" not in body
 
@@ -185,15 +193,16 @@ class TestResult:
         monkeypatch.setattr(
             skin.model,
             "read",
-            lambda image, media_type: skin.SkinReading(
+            lambda image, media_type, age, fever: skin.SkinReading(
                 is_skin=False,
                 level="normal",
                 urgent=False,
                 observations=[],
+                unknown="",
                 advice="사진이 어두워 잘 보이지 않습니다. 밝은 곳에서 다시 찍어 주세요.",
             ),
         )
-        body = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED).json()
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert body["status"] == "unreadable"
         assert "level" not in body
 
@@ -201,21 +210,150 @@ class TestResult:
         monkeypatch.setattr(
             skin.model,
             "read",
-            lambda image, media_type: READING._replace(level="consult", urgent=True),
+            lambda image, media_type, age, fever: READING._replace(level="consult", urgent=True),
         )
-        body = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED).json()
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert body["urgent"] is True
 
     def test_turns_a_failure_into_korean(self, logged_in, monkeypatch):
         # 예전에는 f"...: {exc}"로 예외를 그대로 내보내 영문 원문이 화면에
         # 그대로 떴습니다.
-        def boom(image, media_type):
+        def boom(image, media_type, age, fever):
             raise RuntimeError("Connection reset by peer")
 
         monkeypatch.setattr(skin.model, "read", boom)
-        response = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED)
+        response = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED)
         assert response.status_code == 500
         assert "Connection reset" not in response.json()["detail"]
+
+
+class TestSafetyFloor:
+    """모델이 낸 값을 코드가 한 번 더 잠급니다. **내리지 않고 올리기만.**
+
+    구조화 출력은 **모양만** 보장합니다. 스키마를 100% 통과하면서도
+    앞뒤가 안 맞는 값이 나올 수 있습니다.
+    """
+
+    def test_urgent_pulls_the_level_up(self):
+        # {"level":"caution","urgent":true}는 스키마를 통과하는데, 앱은 색을
+        # level로 그리므로 급한 결과가 덜 급한 색으로 나갑니다.
+        assert skin._settle(
+            level="caution", urgent=True, age_months=5, has_fever="no"
+        ) == ("consult", True)
+
+    def test_fever_pulls_the_level_up(self):
+        # 열은 사진에 없습니다. 이 판단만은 모델이 아니라 코드가 합니다.
+        assert skin._settle(
+            level="caution", urgent=False, age_months=8, has_fever="yes"
+        ) == ("consult", False)
+
+    def test_fever_under_three_months_is_urgent(self):
+        # advice.py의 응급 목록 맨 위에 있는 항목입니다.
+        assert skin._settle(
+            level="caution", urgent=False, age_months=2, has_fever="yes"
+        ) == ("consult", True)
+
+    def test_unknown_fever_is_not_treated_as_none(self):
+        # 재보지 않은 것과 열이 없는 것은 다른 말입니다.
+        assert skin._settle(
+            level="caution", urgent=False, age_months=2, has_fever="unknown"
+        ) == ("caution", False)
+
+    def test_never_pulls_the_level_down(self):
+        assert skin._settle(
+            level="consult", urgent=False, age_months=20, has_fever="no"
+        ) == ("consult", False)
+
+    def test_normal_is_not_a_level(self):
+        """'정상'은 안심이 아니라 반대 방향의 진단입니다.
+
+        체온은 공인 임계값이 있어 정상을 말할 수 있지만, 사진 한 장에는
+        정상의 근거가 없습니다.
+        """
+        assert skin.RESPONSE_SCHEMA["properties"]["level"]["enum"] == [
+            "caution",
+            "consult",
+        ]
+
+    def test_unknown_is_required(self):
+        # 한 덩어리 글로 받으면 "모른다"가 가장 먼저 빠지는 문장입니다.
+        assert "unknown" in skin.RESPONSE_SCHEMA["required"]
+
+
+class TestContext:
+    """나이와 열은 사진에 없습니다. 앱이 실어 보냅니다."""
+
+    def test_age_is_required(self, logged_in, reads):
+        # 선택으로 두면 앱이 안 보내도 200이 나가고, 나이에 걸린 안전 조항이
+        # 조용히 죽은 채로 서비스가 돕니다.
+        response = client.post(
+            "/api/skin/diagnose", files=photo(), headers=AUTHED
+        )
+        assert response.status_code == 422
+
+    def test_fever_defaults_to_unknown(self, logged_in, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(
+            skin.model,
+            "read",
+            lambda image, media_type, age, fever: seen.update(fever=fever) or READING,
+        )
+        client.post(
+            "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
+        )
+        assert seen["fever"] == "unknown"
+
+    def test_rejects_a_nonsense_fever_value(self, logged_in, reads):
+        response = client.post(
+            "/api/skin/diagnose",
+            files=photo(),
+            data={**FIELDS, "has_fever": "아마도"},
+            headers=AUTHED,
+        )
+        assert response.status_code == 422
+
+    def test_passes_age_and_fever_through(self, logged_in, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(
+            skin.model,
+            "read",
+            lambda image, media_type, age, fever: seen.update(age=age, fever=fever)
+            or READING,
+        )
+        client.post(
+            "/api/skin/diagnose",
+            files=photo(),
+            data={"age_months": "2", "has_fever": "yes"},
+            headers=AUTHED,
+        )
+        assert seen == {"age": 2, "fever": "yes"}
+
+
+class TestPromptHasNoCancerCriteria:
+    """암을 안 다루기로 해 놓고 암 판별 기준을 남겨 두면 안 됩니다.
+
+    한때 프롬프트에 "검거나 짙게 변한 점, 모양이 고르지 않은 점"과
+    "상처가 아물지 않고 남아 있는 것"이 있었습니다. 각각 흑색종 ABCDE와
+    비치유성 병변 기준으로, 폐기한 성인 데이터셋의 임상 로직이 단어만 빠진
+    채 돌아와 있던 것입니다. 스무 줄 위에는 "암은 다루지 않습니다"가
+    적혀 있었습니다.
+    """
+
+    def test_no_melanoma_abcde(self):
+        for phrase in ["모양이 고르지 않은", "짙게 변한 점", "색이 고르지 않"]:
+            assert phrase not in skin.SYSTEM_PROMPT, phrase
+
+    def test_no_non_healing_lesion(self):
+        assert "아물지 않" not in skin.SYSTEM_PROMPT
+
+    def test_no_cancer_names(self):
+        # 금지어를 적는 것 자체가 그 단어를 프롬프트 안으로 들여오는 일입니다.
+        for name in ["흑색종", "편평세포암", "광선각화증"]:
+            assert name not in skin.SYSTEM_PROMPT, name
+
+    def test_urgency_is_not_measured_by_area(self):
+        # 신생아의 물집 두세 개는 "넓게" 번진 것이 아닙니다.
+        assert "넓이로 재지 마세요" in skin.SYSTEM_PROMPT
 
 
 class TestRateLimit:
@@ -231,22 +369,22 @@ class TestRateLimit:
 
         for _ in range(2):
             assert client.post(
-                "/api/skin/diagnose", files=photo(), headers=AUTHED
+                "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
             ).status_code == 200
 
-        blocked = client.post("/api/skin/diagnose", files=photo(), headers=AUTHED)
+        blocked = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED)
         assert blocked.status_code == 429
         assert "Retry-After" in blocked.headers
 
     def test_does_not_call_claude_when_blocked(self, logged_in, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            skin.model, "read", lambda image, media_type: calls.append(1) or READING
+            skin.model, "read", lambda image, media_type, age, fever: calls.append(1) or READING
         )
         monkeypatch.setattr(main._skin_per_user_limit, "_limit", 1)
 
-        client.post("/api/skin/diagnose", files=photo(), headers=AUTHED)
-        client.post("/api/skin/diagnose", files=photo(), headers=AUTHED)
+        client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED)
+        client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED)
         assert len(calls) == 1
 
     def test_global_limit_catches_many_accounts(self, reads, monkeypatch):
@@ -255,12 +393,12 @@ class TestRateLimit:
         for i in range(3):
             main.app.dependency_overrides[auth.require_user] = lambda i=i: f"user-{i}"
             assert client.post(
-                "/api/skin/diagnose", files=photo(), headers=AUTHED
+                "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
             ).status_code == 200
 
         main.app.dependency_overrides[auth.require_user] = lambda: "user-new"
         assert client.post(
-            "/api/skin/diagnose", files=photo(), headers=AUTHED
+            "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
         ).status_code == 429
 
     def test_photos_do_not_eat_the_advice_budget(
@@ -272,9 +410,9 @@ class TestRateLimit:
             advice.client, "ask", lambda **kw: advice.Answer("네", False)
         )
 
-        client.post("/api/skin/diagnose", files=photo(), headers=AUTHED)
+        client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED)
         assert client.post(
-            "/api/skin/diagnose", files=photo(), headers=AUTHED
+            "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
         ).status_code == 429
 
         answer = client.post(

@@ -19,7 +19,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -228,15 +228,27 @@ async def get_advice(
 async def diagnose_skin(
     user_id: Annotated[str, Depends(auth.require_user)],
     file: UploadFile = File(...),
+    age_months: int = Form(..., ge=0, le=300),
+    has_fever: Literal["yes", "no", "unknown"] = Form("unknown"),
 ) -> dict:
     """피부 사진을 보고 지금 무엇을 하면 좋을지 안내합니다.
 
     **진단하지 않습니다.** 병명을 붙이지 않고, 암은 다루지 않습니다.
-    보이는 것을 옮기고 단계(정상/주의/상담 권장)를 정할 뿐입니다.
+    보이는 것을 옮기고 단계를 정할 뿐입니다. 단계에 '정상'은 없습니다 —
+    사진 한 장으로 괜찮다고 말하는 것도 진단입니다.
 
     **로그인한 사용자만 부를 수 있습니다.** 예전에는 열려 있었는데, 그때는
     고정값을 돌려주는 자리라 크레딧이 나가지 않았기 때문입니다. 이제 사진
     한 장마다 Claude를 부르므로 상담과 같은 문을 씁니다.
+
+    [age_months]는 **필수입니다.** 선택으로 두면 앱이 안 보내도 200이 나가고,
+    나이에 걸린 안전 조항(3개월 미만 발열, 아주 어린 아기의 물집, 아직 기지
+    못하는 아이의 멍)이 조용히 죽은 채로 서비스가 돕니다. 비어도 아무도
+    모르는 안전장치가 가장 나쁩니다.
+
+    [has_fever]가 **세 값인 이유**: 예/아니요 둘이면 "재보지 않았음"이
+    "아니요"로 접힙니다. 발진과 발열이 함께 있는 것은 카메라가 담지 못하는
+    가장 값진 신호라, 그것을 조용히 지우면 안 됩니다.
     """
     image = await _read_upload(file)
 
@@ -270,7 +282,9 @@ async def diagnose_skin(
 
     try:
         # Anthropic 클라이언트는 동기라 그대로 부르면 이벤트 루프를 막습니다.
-        reading = await run_in_threadpool(skin.model.read, image, media_type)
+        reading = await run_in_threadpool(
+            skin.model.read, image, media_type, age_months, has_fever
+        )
     except skin.SkinModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
@@ -291,6 +305,9 @@ async def diagnose_skin(
         "level": reading.level,
         "urgent": reading.urgent,
         "observations": reading.observations,
+        # 사진으로 알 수 없는 것. 이 앱이 진단하지 않는다는 사실을 화면에서
+        # 보여주는 유일한 자리라, 앱이 접지 않고 늘 보여줍니다.
+        "unknown": reading.unknown,
         "advice": reading.advice,
         # 고지는 서버가 붙입니다. 모델이 쓰게 두면 결과마다 문구가 달라집니다.
         "disclaimer": advice.DISCLAIMER,

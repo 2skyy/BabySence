@@ -273,15 +273,27 @@ comment on column public.vaccination_records.vaccinated_on is 'NULL이면 미접
 -- 파이썬 AI 서버가 반환한 원본 라벨을 그대로 저장합니다.
 -- 한글 변환은 앱에서 처리해야 모델을 교체해도 과거 이력이 깨지지 않습니다.
 create table public.skin_analyses (
-  id              uuid         primary key default gen_random_uuid(),
-  baby_id         uuid         not null references public.babies (id) on delete cascade,
-  image_path      text         not null,
-  disease_result  text         not null,
-  probability     numeric(5,2) not null check (probability between 0 and 100),
-  analyzed_at     timestamptz  not null default now()
+  id            uuid        primary key default gen_random_uuid(),
+  baby_id       uuid        not null references public.babies (id) on delete cascade,
+  image_path    text        not null,
+  level         text        not null default 'caution'
+                            check (level in ('caution', 'consult')),
+  urgent        boolean     not null default false,
+  observations  text[]      not null default '{}',
+  unknown_note  text        not null default '',
+  advice        text        not null default '',
+  analyzed_at   timestamptz not null default now()
 );
 
 comment on column public.skin_analyses.image_path is 'Storage 경로. 형식: {user_id}/{baby_id}/{파일명}';
+comment on column public.skin_analyses.level is
+  '진료 권유 단계. normal은 없다 — 사진으로 정상을 말하는 것도 진단이다';
+comment on column public.skin_analyses.urgent is
+  '오늘 안에 진료가 필요해 보이는 경우';
+comment on column public.skin_analyses.observations is
+  '사진에서 보이는 것을 옮긴 문장. 병명은 들어가지 않는다';
+comment on column public.skin_analyses.unknown_note is
+  '사진으로는 알 수 없는 것. 화면에서 접지 않고 늘 보여준다';
 
 
 -- 2.11 판정 결과 -------------------------------------------------------------

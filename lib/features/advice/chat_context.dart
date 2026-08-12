@@ -136,8 +136,14 @@ class ChatContext {
           final visits =
               await CareRecordService.loadVisits(babyId, limit: recentLimit);
           return [
+            // **약 이름과 용량은 보내지 않습니다.** 둘 다 보호자가 직접
+            // 적는 자유 입력이고, 맥락에는 "답변할 때 참고하세요"가 붙습니다.
+            // 모델에게는 약 이름·용량·복용법을 말하지 말라고 해 두었는데,
+            // 그 값이 바로 옆에 놓여 있으면 "쓰고 계신 ○○를 계속…"처럼
+            // 되짚는 순간 금지한 것이 그대로 나갑니다.
+            // 병원 방문은 아래처럼 이미 라벨만 보내고 있습니다.
             for (final m in medications)
-              '${formatRecordTime(m.takenAt)} · ${m.summary}',
+              '${formatRecordTime(m.takenAt)} · 약 ${m.reason.label}',
             for (final v in visits)
               '${formatRecordTime(v.visitedAt)} · 병원 ${v.reason.label}',
           ];

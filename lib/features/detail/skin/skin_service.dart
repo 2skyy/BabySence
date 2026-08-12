@@ -13,7 +13,17 @@ class SkinReading {
   /// 사진에서 보이는 것을 옮긴 문장들. 병명은 들어 있지 않습니다.
   final List<String> observations;
 
-  /// 다른 화면과 같은 판정 단계(정상/주의/상담 권장).
+  /// 사진으로는 알 수 없는 것.
+  ///
+  /// **화면에서 접지 마세요.** 이 앱이 진단하지 않는다는 사실을 보호자에게
+  /// 보여주는 유일한 자리입니다.
+  final String unknown;
+
+  /// 판정 단계.
+  ///
+  /// **`normal`이 오지 않습니다.** 사진 한 장으로 '정상'이라고 말하는 것은
+  /// 안심이 아니라 반대 방향의 진단입니다. 체온은 공인 임계값이 있어 정상을
+  /// 말할 수 있지만 사진에는 그 근거가 없습니다.
   final AssessmentLevel level;
 
   /// 오늘 안에 진료가 필요해 보이는 경우.
@@ -30,6 +40,7 @@ class SkinReading {
 
   const SkinReading({
     required this.observations,
+    required this.unknown,
     required this.level,
     required this.urgent,
     required this.advice,
@@ -70,7 +81,18 @@ class SkinService {
     ),
   );
 
-  static Future<SkinReading> analyze(String imagePath) async {
+  /// [ageInMonths]는 **필수입니다.** 나이에 걸린 안전 조항(3개월 미만의 발열,
+  /// 아주 어린 아기의 물집, 아직 기지 못하는 아이의 멍)이 여기에 달려 있어,
+  /// 없으면 서버가 400으로 막습니다.
+  ///
+  /// [hasFever]는 세 값입니다 — `yes` / `no` / `unknown`. 열은 사진에 없고,
+  /// 발진과 발열이 함께 있는 것은 카메라가 담지 못하는 가장 값진 신호입니다.
+  /// **예/아니요 둘로 두면 "재보지 않았음"이 "아니요"로 접힙니다.**
+  static Future<SkinReading> analyze(
+    String imagePath, {
+    required int ageInMonths,
+    String hasFever = 'unknown',
+  }) async {
     final token = await _accessToken();
 
     final Response response;
@@ -80,6 +102,8 @@ class SkinService {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
         data: FormData.fromMap({
           'file': await MultipartFile.fromFile(imagePath, filename: 'skin.jpg'),
+          'age_months': ageInMonths,
+          'has_fever': hasFever,
         }),
       );
     } on DioException catch (e) {
@@ -99,6 +123,7 @@ class SkinService {
       observations: [
         for (final o in (data['observations'] as List? ?? [])) o.toString(),
       ],
+      unknown: data['unknown'] as String? ?? '',
       level: _levelFrom(data['level'] as String?),
       urgent: data['urgent'] as bool? ?? false,
       advice: data['advice'] as String? ?? '',
@@ -109,11 +134,13 @@ class SkinService {
   /// 서버의 level 문자열을 앱의 판정 단계로 옮깁니다.
   ///
   /// 모르는 값이 오면 **높은 쪽으로** 붙입니다. 낮은 쪽으로 떨어뜨리면
-  /// 서버가 무엇을 보냈든 화면은 '정상'이 됩니다.
+  /// 서버가 무엇을 보냈든 화면이 덜 급하게 그려집니다.
+  ///
+  /// `normal`은 서버가 보내지 않습니다. 그래서 여기서도 받지 않습니다 —
+  /// 언젠가 서버가 실수로 보내더라도 화면이 초록색 '정상'을 그리는 일은
+  /// 없어야 합니다.
   static AssessmentLevel _levelFrom(String? raw) {
     switch (raw) {
-      case 'normal':
-        return AssessmentLevel.normal;
       case 'caution':
         return AssessmentLevel.caution;
       default:
