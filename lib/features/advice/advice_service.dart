@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/api_config.dart';
 import '../detail/assessment/assessment.dart';
@@ -11,7 +12,17 @@ class Advice {
   /// 서버가 붙이는 고정 고지 문구. 모델이 쓰지 않습니다.
   final String disclaimer;
 
-  const Advice({required this.answer, required this.disclaimer});
+  /// 토큰 상한에 걸려 문장이 중간에 끊긴 경우.
+  ///
+  /// 끊긴 답을 완성된 답인 것처럼 보여주면 보호자가 잘린 문장을 결론으로
+  /// 읽습니다.
+  final bool truncated;
+
+  const Advice({
+    required this.answer,
+    required this.disclaimer,
+    this.truncated = false,
+  });
 }
 
 /// 육아 질문에 대한 답변을 받아옵니다.
@@ -40,9 +51,12 @@ class AdviceService {
     required AssessmentDomain domain,
     String? context,
   }) async {
+    final token = await _accessToken();
+
     try {
       final response = await _dio.post(
         ApiConfig.advice,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
         data: {
           'messages': [
             for (final m in trimForRequest(messages)) m.toJson(),
@@ -57,10 +71,40 @@ class AdviceService {
       return Advice(
         answer: data['answer'] as String,
         disclaimer: data['disclaimer'] as String,
+        truncated: data['truncated'] as bool? ?? false,
       );
     } on DioException catch (e) {
       throw AdviceException(_messageFor(e));
     }
+  }
+
+  /// 서버에 보낼 Supabase 액세스 토큰.
+  ///
+  /// 서버는 이 토큰으로 로그인한 사용자인지 확인합니다. 인증이 없으면 서버
+  /// 주소를 아는 누구나 Claude 크레딧을 태울 수 있기 때문입니다.
+  ///
+  /// 만료된 토큰을 그냥 보내면 서버가 401을 내고 사용자는 이유를 모릅니다.
+  /// 여기서 한 번 갱신해 봅니다.
+  static Future<String> _accessToken() async {
+    final auth = Supabase.instance.client.auth;
+    var session = auth.currentSession;
+
+    if (session == null) {
+      throw const AdviceException('로그인이 필요합니다.');
+    }
+
+    if (session.isExpired) {
+      try {
+        session = (await auth.refreshSession()).session;
+      } catch (_) {
+        throw const AdviceException('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+      }
+      if (session == null) {
+        throw const AdviceException('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+      }
+    }
+
+    return session.accessToken;
   }
 
   /// 서버가 상황별 한국어 문구를 내려주므로 그대로 씁니다.

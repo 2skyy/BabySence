@@ -7,12 +7,14 @@ Claude를 실제로 부르지 않습니다. 부르면 테스트가 네트워크�
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import advice  # noqa: E402
+from app.config import settings  # noqa: E402
 
 
 class TestSystemPrompt:
@@ -125,3 +127,91 @@ class TestAskGuard:
         with pytest.raises(advice.AdviceUnavailable):
             client.ask(messages=[{"role": "user", "content": "안녕하세요"}],
                        domain="temperature")
+
+
+class _FakeStream:
+    def __init__(self, message):
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def get_final_message(self):
+        return self._message
+
+
+class _FakeMessages:
+    def __init__(self, message):
+        self._message = message
+        self.kwargs: dict = {}
+
+    def stream(self, **kwargs):
+        self.kwargs = kwargs
+        return _FakeStream(self._message)
+
+
+def _client_returning(stop_reason: str, text: str = "") -> advice._AdviceClient:
+    """Claude 대신 정해진 응답을 돌려주는 클라이언트."""
+    message = SimpleNamespace(
+        stop_reason=stop_reason,
+        content=[SimpleNamespace(type="text", text=text)] if text else [],
+    )
+    client = advice._AdviceClient()
+    client._client = SimpleNamespace(messages=_FakeMessages(message))
+    return client
+
+
+def _ask(client: advice._AdviceClient):
+    return client.ask(
+        messages=[{"role": "user", "content": "열이 나요"}], domain="temperature"
+    )
+
+
+class TestAnswer:
+    """끊긴 답변과 거절을 성공으로 착각하지 않아야 합니다."""
+
+    def test_normal_answer_is_not_marked_truncated(self):
+        answer = _ask(_client_returning("end_turn", "  충분히 재워 주세요.  "))
+        assert answer.text == "충분히 재워 주세요."
+        assert answer.truncated is False
+
+    def test_marks_an_answer_cut_off_by_the_token_limit(self):
+        # 잘린 문장을 완성된 답인 것처럼 돌려주면 그게 결론으로 읽힙니다.
+        answer = _ask(_client_returning("max_tokens", "열이 날 때는"))
+        assert answer.truncated is True
+
+    def test_empty_truncated_answer_is_an_error(self):
+        # 상한을 추론이 다 쓰면 본문이 한 글자도 없습니다. 성공으로 돌려주면
+        # 화면에 빈 말풍선이 뜹니다.
+        with pytest.raises(advice.AdviceUnavailable):
+            _ask(_client_returning("max_tokens", ""))
+
+    def test_refusal_is_an_error(self):
+        with pytest.raises(advice.AdviceUnavailable):
+            _ask(_client_returning("refusal", ""))
+
+
+class TestRequestShape:
+    """claude-opus-5에 실제로 무엇을 넘기는지."""
+
+    def test_sends_the_configured_token_limit(self):
+        client = _client_returning("end_turn", "네")
+        _ask(client)
+        assert client._client.messages.kwargs["max_tokens"] == settings.advice_max_tokens
+
+    def test_leaves_room_for_reasoning(self):
+        # max_tokens는 추론과 본문이 함께 쓰는 상한입니다. 1024처럼 빠듯하게
+        # 두면 추론이 조금만 길어져도 답이 끊깁니다.
+        assert settings.advice_max_tokens >= 2048
+
+    def test_does_not_turn_thinking_off(self):
+        # claude-opus-5는 thinking을 끄면 <thinking> 태그가 답변에 새어 나오는
+        # 일이 있습니다. 비용은 effort로 낮춥니다.
+        client = _client_returning("end_turn", "네")
+        _ask(client)
+        kwargs = client._client.messages.kwargs
+        assert "thinking" not in kwargs
+        assert kwargs["output_config"] == {"effort": "low"}

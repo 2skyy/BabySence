@@ -7,9 +7,16 @@ class ChatMessage {
 
   final String text;
 
-  const ChatMessage.user(this.text) : fromUser = true;
-  const ChatMessage.assistant(this.text) : fromUser = false;
+  /// 답변이 토큰 상한에 걸려 중간에 끊겼는지. 화면에서 그 사실을 밝힙니다.
+  final bool truncated;
 
+  const ChatMessage.user(this.text)
+      : fromUser = true,
+        truncated = false;
+  const ChatMessage.assistant(this.text, {this.truncated = false})
+      : fromUser = false;
+
+  /// 서버로는 역할과 내용만 보냅니다. 끊겼다는 사실은 화면에서만 씁니다.
   Map<String, String> toJson() => {
         'role': fromUser ? 'user' : 'assistant',
         'content': text,

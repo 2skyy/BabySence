@@ -2,6 +2,13 @@ fastapi==0.138.0
 uvicorn[standard]==0.49.0
 python-multipart==0.0.32
 
+# server/.env를 읽습니다(config.py).
+python-dotenv==1.2.2
+
+# Supabase에 토큰이 유효한지 물어볼 때 씁니다(auth.py).
+# anthropic이 이미 끌고 오지만, 직접 쓰는 의존성이라 적어 둡니다.
+httpx==0.28.1
+
 # 육아 질문 답변(Claude). 키는 ANTHROPIC_API_KEY 환경변수로만 넣습니다.
 anthropic==0.121.0
 

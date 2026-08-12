@@ -99,7 +99,9 @@ class _ChatPageState extends State<ChatPage> {
 
       if (!mounted) return;
       setState(() {
-        _messages.add(ChatMessage.assistant(advice.answer));
+        _messages.add(
+          ChatMessage.assistant(advice.answer, truncated: advice.truncated),
+        );
         _waiting = false;
       });
     } on AdviceException catch (e) {
@@ -253,13 +255,44 @@ class _ChatPageState extends State<ChatPage> {
             color: mine ? AppColors.primary.withValues(alpha: 0.3) : context.colors.border,
           ),
         ),
-        child: SelectableText(
-          message.text,
-          style: TextStyle(
-            fontSize: 14.5,
-            height: 1.55,
-            color: context.colors.textPrimary,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SelectableText(
+              message.text,
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.55,
+                color: context.colors.textPrimary,
+              ),
+            ),
+            // 끊긴 답을 완성된 답인 것처럼 두면 잘린 문장을 결론으로 읽습니다.
+            if (message.truncated) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.more_horiz,
+                    size: 15,
+                    color: context.colors.textSecondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      '답변이 길어 여기서 끊겼어요. 나눠서 다시 물어봐 주세요.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: context.colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

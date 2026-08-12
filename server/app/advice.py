@@ -9,6 +9,7 @@
 """
 
 import logging
+from typing import NamedTuple
 
 from anthropic import (
     Anthropic,
@@ -20,6 +21,17 @@ from anthropic import (
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class Answer(NamedTuple):
+    """모델이 쓴 답변.
+
+    [truncated]는 토큰 상한에 걸려 문장이 중간에 끊긴 경우입니다. 끊긴 답을
+    완성된 답인 것처럼 보여주면 보호자가 잘린 문장을 결론으로 읽습니다.
+    """
+
+    text: str
+    truncated: bool
 
 #: 답변에 항상 따라붙는 고지. 앱의 MedicalDisclaimer와 같은 취지입니다.
 #: 모델이 문구를 지어내면 화면마다 달라지므로, 서버가 고정 문자열로 붙입니다.
@@ -123,7 +135,14 @@ class _AdviceClient:
                 "ANTHROPIC_API_KEY가 없습니다. /api/advice는 503을 반환합니다."
             )
             return
-        self._client = Anthropic(api_key=settings.anthropic_api_key)
+        # SDK 기본값은 10분 타임아웃 × 재시도 2회라 최악의 경우 30분을
+        # 붙잡습니다. 앱은 60초에 포기하므로 그때는 아무도 안 기다리는
+        # 답변을 서버 혼자 만들고 있는 셈입니다.
+        self._client = Anthropic(
+            api_key=settings.anthropic_api_key,
+            timeout=60.0,
+            max_retries=1,
+        )
         logger.info("Claude 클라이언트를 준비했습니다. model=%s", settings.advice_model)
 
     @property
@@ -135,7 +154,7 @@ class _AdviceClient:
         messages: list[dict],
         domain: str,
         context: str | None = None,
-    ) -> str:
+    ) -> Answer:
         """대화를 이어 답합니다.
 
         [messages]는 앱이 보내는 전체 대화입니다. 이 서버는 대화를 저장하지
@@ -155,9 +174,15 @@ class _AdviceClient:
 
         # 길어질 수 있는 답변이라 스트리밍으로 받습니다. 논스트리밍은 큰
         # max_tokens에서 HTTP 타임아웃에 걸립니다.
+        #
+        # thinking을 넘기지 않았습니다. claude-opus-5는 이때 **적응형 추론이
+        # 켜집니다**(생략하면 추론이 꺼지던 Opus 4.8/4.7과 반대). 끄는 쪽은
+        # 일부러 피했습니다 — 이 모델은 추론을 끄면 <thinking> 태그가 답변에
+        # 새어 나오는 일이 있습니다. 비용은 effort로 낮춥니다.
         with self._client.messages.stream(
             model=settings.advice_model,
-            max_tokens=1024,
+            # 추론과 본문이 함께 쓰는 상한입니다.
+            max_tokens=settings.advice_max_tokens,
             system=system,
             # 육아 질문은 대개 짧고 즉답형이라 낮은 effort로 충분합니다.
             # 답이 얕으면 medium으로 올리세요.
@@ -174,9 +199,27 @@ class _AdviceClient:
                 "이 질문에는 답변할 수 없습니다. 소아과 진료를 받아 주세요."
             )
 
-        return "".join(
+        text = "".join(
             block.text for block in message.content if block.type == "text"
         ).strip()
+
+        truncated = message.stop_reason == "max_tokens"
+        if truncated:
+            # 상한을 추론이 다 써 버리면 본문이 한 글자도 없습니다.
+            # 빈 답변을 성공으로 돌려주면 화면에 빈 말풍선이 뜹니다.
+            logger.warning(
+                "답변이 토큰 상한에서 끊겼습니다. domain=%s chars=%d limit=%d",
+                domain,
+                len(text),
+                settings.advice_max_tokens,
+            )
+            if not text:
+                raise AdviceUnavailable(
+                    "답변을 끝까지 만들지 못했습니다. 질문을 조금 더 짧게 "
+                    "나눠서 물어봐 주세요."
+                )
+
+        return Answer(text=text, truncated=truncated)
 
 
 def _context_block(domain: str, context: str | None) -> str:

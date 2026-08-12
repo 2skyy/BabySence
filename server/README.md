@@ -1,8 +1,12 @@
 # BabySense AI 서버 (FastAPI)
 
-**추론과 답변 생성만** 담당합니다. 인증과 기록 저장은 앱이 Supabase와 직접
-처리하고, 분석 결과를 `skin_analyses`에 남기는 것도 앱이 합니다.
-그래서 이 서버는 DB에 붙지 않고 사용자 JWT도 다루지 않습니다.
+**추론과 답변 생성만** 담당합니다. 기록 저장은 앱이 Supabase와 직접 처리하고,
+분석 결과를 `skin_analyses`에 남기는 것도 앱이 합니다. 그래서 이 서버는 DB에
+붙지 않습니다.
+
+다만 `/api/advice`는 요청마다 Claude 크레딧을 쓰므로, **앱이 보낸 Supabase
+액세스 토큰이 유효한지만** 확인합니다(아래 참고). 그 밖의 인증·인가는 여전히
+Supabase가 앱과 직접 처리합니다.
 
 ```
 Flutter ──▶ Supabase   (인증, 기록 CRUD, Storage)
@@ -15,7 +19,7 @@ Flutter ──▶ Supabase   (인증, 기록 CRUD, Storage)
 | 엔드포인트 | 상태 |
 |---|---|
 | `GET /health` | 동작. 기능별 준비 여부를 반환합니다 |
-| `POST /api/advice` | **`ANTHROPIC_API_KEY`가 있으면 동작**, 없으면 503 |
+| `POST /api/advice` | **로그인 필요.** 키가 없거나 Supabase 설정이 없으면 503 |
 | `POST /api/skin/diagnose` | **모델 없음 → 503** |
 
 ### 피부 분석 — 모델 없음
@@ -35,12 +39,72 @@ Flutter ──▶ Supabase   (인증, 기록 CRUD, Storage)
 > Flutter 앱에 키를 넣으면 패키지를 뜯어 꺼낼 수 있습니다. 그래서 앱은
 > Claude를 직접 부르지 않고 항상 이 서버를 거칩니다.
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-uvicorn app.main:app --reload
+설정은 `server/.env`에 둡니다(`.gitignore`로 막혀 있습니다). `app/config.py`가
+읽으므로 따로 `export` 하지 않아도 됩니다.
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-...
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
 키가 없어도 서버는 정상 기동하고, `/api/advice`만 503을 반환합니다.
+
+#### 로그인한 사용자만 부를 수 있습니다
+
+요청 한 번마다 Claude 크레딧이 나갑니다. 인증이 없으면 서버 주소를 아는
+누구나 무제한으로 태울 수 있어, 앱이 보낸 Supabase 액세스 토큰을 확인합니다.
+
+```
+Authorization: Bearer <Supabase access token>
+```
+
+토큰 검증은 **Supabase에 물어봅니다**(`GET /auth/v1/user`). 이 프로젝트의
+토큰은 ES256(비대칭)이라 서명을 직접 확인하려면 JWKS를 받아 캐시하고 키
+회전까지 따라가야 합니다. 같은 토큰은 60초 캐시해 대화 중 매 턴 왕복하지
+않습니다.
+
+`SUPABASE_URL`이 없거나 Supabase에 닿지 못하면 **막습니다**(503). 설정을
+빠뜨렸을 때 조용히 인증 없는 서버가 되는 쪽이 훨씬 나쁩니다.
+
+`SUPABASE_PUBLISHABLE_KEY`는 앱에도 들어 있는 공개 값입니다.
+**`service_role` 키를 넣지 마세요** — 그 키는 RLS를 우회합니다.
+
+#### 횟수 상한
+
+로그인만으로는 총액이 막히지 않습니다. 계정은 얼마든지 새로 만들 수 있어
+사용자별 상한과 서버 전체 상한을 함께 둡니다. 상한은 모델을 부르기 **전에**
+봅니다 — 부른 뒤에 세면 이미 돈이 나갑니다.
+
+| 환경변수 | 기본값 | 뜻 |
+|---|---|---|
+| `ADVICE_RATE_LIMIT` | 30 | 사용자 한 명이 창 하나 안에 부를 수 있는 횟수 |
+| `ADVICE_GLOBAL_RATE_LIMIT` | 300 | 서버 전체 상한 |
+| `ADVICE_RATE_WINDOW_SECONDS` | 3600 | 창 길이(초) |
+
+**한 프로세스 안에서만 셉니다.** 워커를 여러 개 띄우면 각자 따로 세므로 실제
+상한은 그 배수가 됩니다. 늘릴 때는 Redis 같은 공용 저장소가 필요합니다.
+
+#### 답변이 끊기는 경우
+
+`ADVICE_MAX_TOKENS`(기본 4096)는 **추론과 본문이 함께 쓰는 상한**입니다.
+`claude-opus-5`는 `thinking`을 넘기지 않으면 적응형 추론이 켜지므로
+(생략하면 추론이 꺼지던 Opus 4.8/4.7과 반대) 여유를 둡니다. 추론을 끄는 쪽은
+일부러 피했습니다 — 이 모델은 추론을 끄면 `<thinking>` 태그가 답변에 새어
+나오는 일이 있습니다. 비용은 `effort: low`로 낮춥니다.
+
+상한에 걸리면 `stop_reason`이 `max_tokens`가 됩니다.
+
+- 본문이 남아 있으면 `truncated: true`로 내려보내고 앱이 "여기서 끊겼어요"를
+  덧붙입니다. 끊긴 답을 완성된 답처럼 두면 잘린 문장이 결론으로 읽힙니다.
+- 추론이 상한을 다 써 본문이 비면 503으로 막습니다. 빈 말풍선을 띄우지
+  않으려는 것입니다.
+
+#### CORS
+
+기본값은 **아무 출처도 허용하지 않음**입니다. 모바일 앱은 `Origin`을 보내지
+않아 영향이 없습니다. 브라우저에서 부를 일이 생기면 `CORS_ORIGINS`에 그
+주소만 적으세요(쉼표로 구분).
 
 **역할을 좁게 잡았습니다.** 진단하지 않고, 규칙 기반 판정을 대신하지도
 않습니다. 체온 임계값 같은 판정은 앱의 규칙 엔진이 이미 내놓았고, 여기서는

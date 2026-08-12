@@ -33,13 +33,22 @@ void main() {
     testWidgets('$name 화면은 지금 시각으로 열린다', (tester) async {
       // 예전에는 배변이 08:40으로 고정돼 있었고, 수유·체온은 시간을 아예
       // 고칠 수 없었습니다.
+      //
+      // 화면이 시각을 읽는 순간과 여기서 확인하는 순간 사이에 분이 바뀔 수
+      // 있습니다. 한쪽만 보면 몇 백 번에 한 번 애먼 실패가 납니다.
+      final before = TimeOfDay.now();
       await pump(tester, build());
+      final after = TimeOfDay.now();
 
-      expect(
-        find.text(TimePickerBox.format(TimeOfDay.now())),
-        findsOneWidget,
-        reason: name,
-      );
+      final shown = [
+        for (final t in {
+          TimePickerBox.format(before),
+          TimePickerBox.format(after),
+        })
+          if (find.text(t).evaluate().isNotEmpty) t,
+      ];
+
+      expect(shown, isNotEmpty, reason: '$name — ${TimePickerBox.format(after)}');
     });
 
     testWidgets('$name 화면에 시간 입력과 지금 버튼이 있다', (tester) async {
