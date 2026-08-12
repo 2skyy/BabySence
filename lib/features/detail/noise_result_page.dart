@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../advice/ask_button.dart';
+import '../advice/ask_action.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
@@ -38,7 +38,16 @@ class NoiseResultPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: const CommonAppBar(title: '수면 소음 결과'),
+      appBar: CommonAppBar(
+        title: '수면 소음 결과',
+        actions: [
+          AskAction(
+            domain: AssessmentDomain.noise,
+            assessment: assessment,
+            tooltip: '이 결과에 대해 물어보기',
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
@@ -95,12 +104,6 @@ class NoiseResultPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _buildBasis(context, average, max, samples),
-          const SizedBox(height: AppSpacing.lg),
-          AskButton(
-            domain: AssessmentDomain.noise,
-            assessment: assessment,
-            label: '이 결과에 대해 물어보기',
-          ),
           const SizedBox(height: AppSpacing.lg),
           const MedicalDisclaimer(),
         ],

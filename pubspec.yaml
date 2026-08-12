@@ -27,6 +27,9 @@ dependencies:
   flutter_local_notifications: ^22.0.0
   fl_chart: ^0.69.0
   shared_preferences: ^2.5.5
+  # 수유 알림 예약(zonedSchedule)에 직접 씁니다. flutter_local_notifications가
+  # 함께 끌어오지만, 직접 import하므로 명시합니다.
+  timezone: ^0.11.1
   dio: ^5.9.2
   image_picker: ^1.2.2
   file_selector: ^1.1.0

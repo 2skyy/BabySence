@@ -6,7 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/ask_button.dart';
+import '../advice/ask_action.dart';
 import '../detail/assessment/assessment.dart';
 import '../detail/assessment/assessment_service.dart';
 import '../detail/diaper_record_service.dart';
@@ -94,7 +94,15 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: CommonAppBar(title: '분석'),
+      appBar: CommonAppBar(
+        title: '분석',
+        actions: const [
+          AskAction(
+            domain: AssessmentDomain.overall,
+            tooltip: '기록을 바탕으로 물어보기',
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -152,13 +160,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
       _sectionTitle('성장'),
       const SizedBox(height: AppSpacing.md),
       _buildGrowthLink(),
-      const SizedBox(height: AppSpacing.xl),
-      _sectionTitle('궁금한 점이 있나요'),
-      const SizedBox(height: AppSpacing.md),
-      const AskButton(
-        domain: AssessmentDomain.overall,
-        label: '기록을 바탕으로 물어보기',
-      ),
       const SizedBox(height: AppSpacing.xl),
       // 이 화면은 판정 이력을 모아 보여주므로 고지가 필요합니다.
       const MedicalDisclaimer(),

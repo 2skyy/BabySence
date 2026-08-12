@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../advice/ask_button.dart';
+import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 
 import '../../core/widgets/common_app_bar.dart';
@@ -124,7 +124,15 @@ class _VaccinationPageState extends State<VaccinationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: const CommonAppBar(title: '예방접종'),
+      appBar: const CommonAppBar(
+        title: '예방접종',
+        actions: [
+          AskAction(
+            domain: AssessmentDomain.overall,
+            tooltip: '예방접종에 대해 물어보기',
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -164,11 +172,6 @@ class _VaccinationPageState extends State<VaccinationPage> {
           _buildNextVaccinationCard(upcoming.isEmpty ? null : upcoming.first),
           const SizedBox(height: 24),
           _buildReadinessCard(),
-          const SizedBox(height: 12),
-          const AskButton(
-            domain: AssessmentDomain.overall,
-            label: '예방접종에 대해 물어보기',
-          ),
           const SizedBox(height: 24),
           _buildProgressCard(done.length, _schedule.length),
           const SizedBox(height: 24),

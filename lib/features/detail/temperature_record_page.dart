@@ -6,7 +6,7 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/ask_button.dart';
+import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
@@ -270,7 +270,15 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
 
-      appBar: const CommonAppBar(title: '체온 기록'),
+      appBar: CommonAppBar(
+        title: '체온 기록',
+        actions: [
+          AskAction(
+            domain: AssessmentDomain.temperature,
+            assessment: _lastAssessment,
+          ),
+        ],
+      ),
 
       // 이력 목록이 아래에 붙어 화면을 넘기므로 스크롤 뷰로 감쌉니다.
       body: SafeArea(
@@ -342,12 +350,6 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
               if (_lastAssessment != null) ...[
                 const SizedBox(height: 24),
                 _buildAssessmentCard(_lastAssessment!),
-                const SizedBox(height: 12),
-                AskButton(
-                  domain: AssessmentDomain.temperature,
-                  assessment: _lastAssessment,
-                  label: '이 결과에 대해 물어보기',
-                ),
                 const SizedBox(height: 12),
                 // 판정을 보여주는 자리에는 반드시 함께 둡니다.
                 const MedicalDisclaimer(),

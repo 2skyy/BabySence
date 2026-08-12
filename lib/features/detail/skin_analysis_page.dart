@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
-import '../advice/ask_button.dart';
+import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 import '../../core/constants/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
@@ -160,7 +160,10 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: const CommonAppBar(title: '피부 AI 판단'),
+      appBar: const CommonAppBar(
+        title: '피부 AI 판단',
+        actions: [AskAction(domain: AssessmentDomain.skin)],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -194,8 +197,6 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             const SizedBox(height: 12),
             // AI가 낸 결과 옆에는 반드시 둡니다.
             const MedicalDisclaimer(),
-            const SizedBox(height: 12),
-            const AskButton(domain: AssessmentDomain.skin),
             const SizedBox(height: 18),
 
             // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!

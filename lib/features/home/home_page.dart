@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
 import '../../core/services/baby_service.dart';
+import '../detail/assessment/temperature_rules.dart' show ageInMonthsAt;
 import '../detail/diaper_record_service.dart';
+import '../feeding_reminder/next_feeding_card.dart';
 import '../detail/feeding_record_service.dart';
 import '../detail/sleep_record_service.dart';
 import '../detail/temperature_record_service.dart';
@@ -11,7 +13,6 @@ import '../detail/feeding_record_page.dart';
 import '../detail/temperature_record_page.dart';
 import '../detail/diaper_record_page.dart';
 import '../detail/sleep_record_page.dart';
-import '../detail/baby_food_page.dart';
 import '../detail/skin_analysis_page.dart';
 import '../detail/care/care_record_page.dart';
 import '../detail/vaccination_page.dart';
@@ -103,83 +104,47 @@ class _HomePageState extends State<HomePage> {
   Color get surfaceColor => context.colors.surface;
   Color get onSurfaceColor => context.colors.textPrimary;
   Color get secondaryTextColor => context.colors.textSecondary;
-  static const Color successColor = Color(0xFF31E193);
 
   // --- 이벤트 처리 / 네비게이션 함수 ---
 
-  void handleFeedingRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const FeedingRecordPage()),
-    );
+  /// 기록 화면에 다녀오면 홈을 다시 읽습니다.
+  ///
+  /// 예전에는 다녀와도 그대로여서 방금 남긴 기록이 홈에 없었습니다. 표시가
+  /// 낡는 것에 그치지 않고, 다음 수유 카드가 옛 기록으로 알림 시각을 잡습니다.
+  Future<void> _openAndRefresh(BuildContext context, Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    if (mounted) await _loadBaby();
   }
 
-  void handleTemperatureRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const TemperatureRecordPage()),
-    );
-  }
+  Future<void> handleFeedingRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const FeedingRecordPage());
 
-  void handleDiaperRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const DiaperRecordPage()),
-    );
-  }
+  Future<void> handleTemperatureRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const TemperatureRecordPage());
 
-  // ★ 수정: [수면] 버튼을 누를 때 띄우던 모드 선택창을 없애고 수면 기록 페이지로 즉시 이동시킵니다.
-  void handleSleepRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SleepRecordPage()),
-    );
-  }
+  Future<void> handleDiaperRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const DiaperRecordPage());
 
-  void handleBabyFoodTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const BabyFoodPage()),
-    );
-  }
+  Future<void> handleSleepRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const SleepRecordPage());
 
-  void handleVaccinationTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const VaccinationPage()),
-    );
-  }
+  Future<void> handleVaccinationTap(BuildContext context) =>
+      _openAndRefresh(context, const VaccinationPage());
 
-  void handleCareRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CareRecordPage()),
-    );
-  }
+  Future<void> handleCareRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const CareRecordPage());
 
-  // [소음] 버튼은 화면 이동만 합니다.
-  // 측정 시작은 소음 화면에서 밤잠/낮잠을 고른 뒤에 해야 하므로,
-  // 여기서 미리 시작하면 사용자가 고를 틈이 없습니다.
-  void handleNoiseTestTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const NoiseTestPage()),
-    );
-  }
+  // [소음] 버튼은 화면 이동만 합니다. 측정 시작은 소음 화면에서
+  // 밤잠/낮잠을 고른 뒤에 해야 하므로, 여기서 미리 시작하면
+  // 사용자가 고를 틈이 없습니다.
+  Future<void> handleNoiseTestTap(BuildContext context) =>
+      _openAndRefresh(context, const NoiseTestPage());
 
-  void handleSkinAnalysisTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SkinAnalysisPage()),
-    );
-  }
+  Future<void> handleSkinAnalysisTap(BuildContext context) =>
+      _openAndRefresh(context, const SkinAnalysisPage());
 
-  void handleGrowthRecordTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const GrowthRecordPage()),
-    );
-  }
+  Future<void> handleGrowthRecordTap(BuildContext context) =>
+      _openAndRefresh(context, const GrowthRecordPage());
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +159,13 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 24),
             _buildHeroSection(),
             const SizedBox(height: 32),
-            _buildAIInsightCard(),
+            NextFeedingCard(
+              lastFedAt: _today.feeding?.fedAt,
+              ageInMonths: _baby == null
+                  ? null
+                  : ageInMonthsAt(_baby!.birthDate, DateTime.now()),
+              loading: _loadingToday,
+            ),
             const SizedBox(height: 32),
             _buildSectionHeader('오늘의 기록'),
             const SizedBox(height: 16),
@@ -238,14 +209,6 @@ class _HomePageState extends State<HomePage> {
                   title: '수면',
                   subtitle: _tileSubtitle(_today.sleepLabel),
                   onTap: () => handleSleepRecordTap(context), // 깔끔하게 직통 연동
-                ),
-                _buildSquareRecordButton(
-                  context: context,
-                  icon: Icons.restaurant,
-                  iconColor: Colors.green,
-                  title: '이유식',
-                  subtitle: 'AI 성분 분석',
-                  onTap: () => handleBabyFoodTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -343,102 +306,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
-  }
-
-  Widget _buildAIInsightCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '오늘의 수유',
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (_today.feeding != null)
-                const Icon(Icons.circle, size: 8, color: successColor),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _feedingHeadline,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: onSurfaceColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  _feedingDetail,
-                  style: TextStyle(color: secondaryTextColor),
-                ),
-              ),
-              const Icon(Icons.schedule, color: primaryColor, size: 32),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 수유 카드의 큰 문구.
-  ///
-  /// '다음 수유까지 N시간' 같은 예측은 넣지 않습니다. 아이마다 수유 간격이
-  /// 다르고 그 기준을 정한 바가 없어, 숫자를 지어내는 것이 되기 때문입니다.
-  String get _feedingHeadline {
-    if (_loadingToday) return '기록을 불러오는 중이에요';
-    final f = _today.feeding;
-    if (f == null) return '오늘 수유 기록이 없어요';
-
-    final elapsed = DateTime.now().difference(f.fedAt);
-    if (elapsed.inMinutes < 60) return '${elapsed.inMinutes}분 전에 먹었어요';
-    return '${elapsed.inHours}시간 전에 먹었어요';
-  }
-
-  /// 카드 아래 보조 문구.
-  String get _feedingDetail {
-    if (_loadingToday) return '';
-    final f = _today.feeding;
-    if (f == null) return '수유 타일을 눌러 기록을 남겨보세요';
-
-    final at = f.fedAt;
-    final period = at.hour < 12 ? '오전' : '오후';
-    final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
-    final time = '$period $h:${at.minute.toString().padLeft(2, '0')}';
-    return '마지막 수유: $time · ${f.summary}';
   }
 
   Widget _buildSquareRecordButton({

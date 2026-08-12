@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../advice/ask_button.dart';
+import '../../advice/ask_action.dart';
 import '../assessment/assessment.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -176,7 +176,15 @@ class _CareRecordPageState extends State<CareRecordPage> {
 
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: const CommonAppBar(title: '약 · 병원 기록'),
+      appBar: const CommonAppBar(
+        title: '약 · 병원 기록',
+        actions: [
+          AskAction(
+            domain: AssessmentDomain.overall,
+            tooltip: '약 · 병원에 대해 물어보기',
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -197,9 +205,6 @@ class _CareRecordPageState extends State<CareRecordPage> {
               ),
               const SizedBox(height: 28),
               RecordSaveButton(onPressed: _save, saving: _saving),
-              const SizedBox(height: 12),
-              AskButton(domain: AssessmentDomain.overall,
-                label: '약 · 병원에 대해 물어보기'),
               if (repeats.isNotEmpty) ...[
                 const SizedBox(height: 28),
                 _buildRepeatCard(repeats),

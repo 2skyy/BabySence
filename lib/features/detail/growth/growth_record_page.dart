@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../advice/ask_button.dart';
+import '../../advice/ask_action.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -15,6 +15,7 @@ import '../assessment/assessment.dart';
 import '../assessment/assessment_service.dart';
 import '../assessment/growth_rules.dart';
 import '../assessment/temperature_rules.dart' show ageInMonthsAt;
+import 'growth_chart_axis.dart';
 import 'growth_record.dart';
 import 'growth_repository.dart';
 
@@ -77,7 +78,15 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CommonAppBar(title: '성장 기록'),
+      appBar: CommonAppBar(
+        title: '성장 기록',
+        actions: [
+          AskAction(
+            domain: AssessmentDomain.growth,
+            assessment: _lastAssessment,
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -211,12 +220,6 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           if (_lastAssessment != null) ...[
             const SizedBox(height: AppSpacing.lg),
             _buildAssessmentCard(_lastAssessment!),
-            const SizedBox(height: AppSpacing.md),
-            AskButton(
-              domain: AssessmentDomain.growth,
-              assessment: _lastAssessment,
-              label: '이 결과에 대해 물어보기',
-            ),
             const SizedBox(height: AppSpacing.md),
             // 판정을 보여주는 자리에는 반드시 함께 둡니다.
             const MedicalDisclaimer(),
@@ -373,12 +376,24 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
 
     Color bandColor(double z) => z == 0 ? context.colors.textSecondary : context.colors.border;
 
+    // 세로축. 몸무게는 kg, 키는 cm라 눈금 간격이 다릅니다.
+    final axis = ChartAxis.fit(
+      [
+        for (final z in GrowthPercentiles.standard)
+          ...percentileLine(z).map((s) => s.y),
+        ...childSpots.map((s) => s.y),
+      ],
+      step: isWeight ? 3.0 : 10.0,
+    );
+
     return SizedBox(
       height: 220,
       child: LineChart(
         LineChartData(
           minX: 0,
           maxX: 24,
+          minY: axis.min,
+          maxY: axis.max,
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -386,12 +401,40 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 6,
-                getTitlesWidget: (value, meta) => Text('${value.toInt()}개월', style: const TextStyle(fontSize: 10)),
+                reservedSize: 24,
+                getTitlesWidget: (value, meta) => SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  // 0개월과 24개월 라벨이 양 끝에서 잘리지 않게 띄웁니다.
+                  space: 6,
+                  child: Text(
+                    '${value.toInt()}개월',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
               ),
             ),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 34,
+                interval: axis.step,
+                // 소수점이 딸린 실수를 그대로 찍지 않습니다.
+                getTitlesWidget: (value, meta) => SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  space: 6,
+                  child: Text(
+                    axis.label(value),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
+              ),
+            ),
           ),
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: axis.step,
+          ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
             for (final z in GrowthPercentiles.standard)

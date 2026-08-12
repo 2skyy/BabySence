@@ -369,7 +369,7 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 Supabase Auth의 `auth.users.id`가 uuid이고, 클라이언트가 서버 왕복 없이 ID를 미리 만들 수 있어 오프라인 입력 후 동기화에 유리합니다. 단 `sleep_noise_logs`는 초당 수 건씩 쌓여 건수가 압도적으로 많으므로 저장 공간과 인덱스 효율을 위해 `bigint`를 씁니다.
 
 **ENUM 타입 대신 `text` + CHECK 제약을 쓴 이유**
-선택지가 아직 확정되지 않았습니다(이유식 분석 미구현 등). PostgreSQL의 `ALTER TYPE ... ADD VALUE`는 트랜잭션 안에서 실행되지 않아 마이그레이션이 까다로운 반면, CHECK 제약은 `ALTER TABLE`로 간단히 교체됩니다.
+선택지가 아직 확정되지 않았습니다. PostgreSQL의 `ALTER TYPE ... ADD VALUE`는 트랜잭션 안에서 실행되지 않아 마이그레이션이 까다로운 반면, CHECK 제약은 `ALTER TABLE`로 간단히 교체됩니다.
 
 **한글 대신 영문 코드값을 저장하는 이유**
 `'분유'`를 그대로 저장하면 화면 문구를 바꿀 때 DB 데이터를 함께 마이그레이션해야 합니다. `formula`로 저장하고 표시 문구는 앱이 결정합니다.
@@ -379,6 +379,5 @@ Supabase Auth의 `auth.users.id`가 uuid이고, 클라이언트가 서버 왕복
 
 ## 6. 이번 설계 범위 밖
 
-- **이유식 분석**(`baby_food_page.dart`) — 사진 선택까지는 동작하지만 성분 분석 모델이 없어 저장할 결과 자체가 없습니다. 모델 확정 후 `skin_analyses`와 같은 구조로 추가하면 됩니다.
 - **소음 분석 리포트**(`GET /api/sleep-records/{id}/analysis`) — 서버가 고정 문자열을 반환하는 더미입니다. `sleep_noise_logs`를 집계해 생성하는 방식이라 별도 테이블이 필요 없습니다.
 - **홈 화면 '활동량'·'수면 품질'** — 산출 기준을 정의할 수 없어(활동량은 측정 수단 자체가 없습니다) 하드코딩된 카드를 제거했습니다.
