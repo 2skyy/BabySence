@@ -16,7 +16,9 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 | 006 | 2026-08-12 | 약 복용 · 병원 방문 표 |
 | 007 | 2026-08-12 | 커뮤니티 글 갈래(`posts.category`) |
 | 008 | 2026-08-12 | `owns_sleep_record`·`owns_temp_record`를 `owns_baby` 경유로. 없으면 함께 키우는 보호자에게 체온 증상과 소음 로그가 막힙니다 |
-| 009 | 2026-08-12 | `sleep_noise_stats` 집계 함수. 없으면 소음 통계가 측정 시작 직후만 반영합니다 |
+| 009 | 2026-08-12 | `sleep_noise_stats` 집계 함수. 없으면 소음 통계가 측정 시작 직후만 반영합니다 (011에서 다시 제거) |
+| 010 | 2026-08-13 | `skin_analyses`에서 `disease_result`·`probability` 제거. 피부는 진단하지 않습니다 |
+| 011 | 2026-08-13 | `sleep_noise_logs`·`sleep_noise_stats()`·`owns_sleep_record()` 제거. 소음 수치는 판정에만 남깁니다 |
 
 006·007은 적용 뒤 운영 DB에 실제 계정 두 개로 왕복시켜 확인했습니다.
 
