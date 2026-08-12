@@ -45,7 +45,12 @@ class SleepRecord {
   }
 }
 
-/// 한 수면 구간의 소음 통계. WHO 기준과 비교하기 위한 값입니다.
+/// 한 번의 측정에서 나온 소음 집계. WHO 기준과 비교하기 위한 값입니다.
+///
+/// **어느 표에도 이 모양으로 저장되지 않습니다.** 측정하는 동안에는
+/// 백그라운드의 메모리에만 있고, 끝나면 판정 한 행의 근거로 들어갑니다
+/// (`assessments.inputs`의 average_db·max_db·sample_count). 분석 화면이 지난
+/// 밤을 보여줄 때 읽는 것도 그 판정입니다.
 class SleepNoiseStats {
   /// 구간 평균 데시벨. WHO의 LAeq에 대응합니다.
   final double averageDb;
@@ -63,13 +68,6 @@ class SleepNoiseStats {
 
   static const empty =
       SleepNoiseStats(averageDb: 0, maxDb: 0, sampleCount: 0);
-
-  /// sleep_records 한 행에서 만듭니다.
-  factory SleepNoiseStats.fromRow(Map<String, dynamic> row) => SleepNoiseStats(
-        averageDb: (row['average_db'] as num? ?? 0).toDouble(),
-        maxDb: (row['max_db'] as num? ?? 0).toDouble(),
-        sampleCount: (row['sample_count'] as num? ?? 0).toInt(),
-      );
 
   /// 백그라운드가 보낸 집계에서 만듭니다.
   ///
@@ -111,30 +109,6 @@ class SleepNoiseStats {
 
 class SleepRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
-
-  /// 한 수면 구간의 소음 집계를 읽습니다.
-  ///
-  /// **집계는 이제 행에 그대로 들어 있습니다.** 측정하는 쪽이 60초마다
-  /// 갱신하므로 여기서는 한 행만 읽으면 됩니다.
-  ///
-  /// 예전에는 1초마다 쌓은 로그를 DB 함수가 집계했고(009), 그 전에는 앱이
-  /// 로그를 전부 받아 와 셌습니다. 하룻밤이면 수만 행이라 PostgREST의 행
-  /// 상한에 잘렸고, 잘린 자리도 알 수 없어(order 없음) 밤새 잰 결과가 사실상
-  /// **측정 시작 직후 몇 분**의 통계가 됐습니다. 그 통계로 만든 판정이
-  /// 저장됐습니다. 로그를 없애면서 그 부류의 실패가 통째로 사라졌습니다.
-  ///
-  /// 방금 끝낸 측정이라면 이걸 부를 필요가 없습니다 — `NoiseTracker.finish()`가
-  /// 같은 값을 바로 돌려줍니다. 이 함수는 **지난 밤을 다시 볼 때** 씁니다.
-  static Future<SleepNoiseStats> loadNoiseStats(String sleepRecordId) async {
-    final row = await _client
-        .from('sleep_records')
-        .select('average_db, max_db, sample_count')
-        .eq('id', sleepRecordId)
-        .maybeSingle();
-
-    if (row == null) return SleepNoiseStats.empty;
-    return SleepNoiseStats.fromRow(row);
-  }
 
   static Future<List<SleepRecord>> loadRecent(String babyId,
       {int limit = 20}) async {

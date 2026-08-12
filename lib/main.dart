@@ -220,15 +220,16 @@ void onStart(ServiceInstance service) async {
   /// 기다리지 않고 `stopSelf()`를 부르면 마지막 저장이 끝나기 전에 isolate가
   /// 죽어 밤 전체가 사라집니다.
   Future<void> endNoiseSession() async {
-    // finish()가 id를 비우므로 그 전에 읽어 둡니다. UI가 '가장 최근 수면
-    // 기록'을 짐작하면, 그 사이에 손으로 적은 수면 기록이 있을 때 엉뚱한
-    // 통계를 보게 됩니다.
-    final recordId = noiseTracker.sleepRecordId;
+    // **id를 finish() 뒤에 읽습니다.** 앞에서 읽으면, 행이 마지막 순간에야
+    // 만들어진 밤(시작할 때 망이 없었거나 아주 짧게 잰 경우) id가 null인 채로
+    // 나갑니다. 그러면 저장은 멀쩡히 됐는데 화면은 "저장하지 못했습니다"를
+    // 띄우고 판정을 버립니다.
+    final result = await noiseTracker.finish();
 
-    final stats = await noiseTracker.finish();
     service.invoke('noise_session_ended', {
-      'sleepRecordId': recordId,
-      if (stats != null) ...stats.toMap(),
+      'sleepRecordId': result.recordId,
+      'saved': result.saved,
+      if (result.stats != null) ...result.stats!.toMap(),
     });
   }
 

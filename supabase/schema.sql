@@ -193,35 +193,19 @@ create table public.sleep_records (
   sleep_type  text        not null check (sleep_type in ('night', 'nap')),
   started_at  timestamptz not null,
   ended_at    timestamptz,
-
-  -- 이 구간의 소음 집계. 앱이 메모리에서 세고 60초마다 갱신합니다.
-  --
-  -- 예전에는 1초마다 sleep_noise_logs에 한 행씩 쌓고(하룻밤 28,800행) 조회할
-  -- 때 집계했습니다. 그 로그를 읽는 곳은 이 세 값을 구하는 함수 하나뿐이었고,
-  -- 인덱스 근거였던 그래프 화면은 만든 적이 없습니다. 로그를 없애면서 그것을
-  -- 나르던 배치·재시도·버퍼 상한이 함께 사라졌습니다(011).
-  --
-  -- **파생값이 아닙니다.** 로그가 없으므로 이 값들은 무엇으로도 다시 만들 수
-  -- 없습니다. 수면 시간(started_at/ended_at으로 계산)과는 경우가 다릅니다.
-  average_db   numeric(5,2) not null default 0,
-  max_db       numeric(5,2) not null default 0,
-  sample_count integer      not null default 0,
-
   created_at  timestamptz not null default now(),
 
-  constraint sleep_period_valid check (ended_at is null or ended_at > started_at),
-  constraint sleep_records_noise_range_check check (
-    average_db   between 0 and 200 and
-    max_db       between 0 and 200 and
-    sample_count >= 0
-  )
+  constraint sleep_period_valid check (ended_at is null or ended_at > started_at)
 );
 
+comment on table  public.sleep_records is
+  '수면 구간. 소음 수치는 여기에 저장하지 않는다 — 재는 동안 화면에 실시간으로
+   보여주고, 끝나면 앱이 메모리에서 집계해 판정(assessments.inputs)에만 남긴다.
+   한때 sleep_noise_logs에 1초마다 한 행씩 쌓았고(하룻밤 28,800행), 잠시
+   average_db/max_db/sample_count를 이 표에 두기도 했다. 판정이 이미 같은
+   숫자를 들고 있어 둘 다 걷어냈다(011).';
 comment on column public.sleep_records.sleep_type is 'night=밤잠, nap=낮잠';
 comment on column public.sleep_records.ended_at   is 'NULL이면 측정 진행 중. 수면 시간은 저장하지 않고 조회 시 계산';
-comment on column public.sleep_records.average_db is '구간 평균 데시벨(WHO LAeq 대응). 1초 창 최댓값들의 평균';
-comment on column public.sleep_records.max_db     is '구간 최대 데시벨(WHO LAmax 대응)';
-comment on column public.sleep_records.sample_count is '1초 창 표본 수. 판정 최소 표본 확인에 씁니다';
 
 
 -- 2.7 체온 기록 --------------------------------------------------------------

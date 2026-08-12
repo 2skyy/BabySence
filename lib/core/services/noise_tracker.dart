@@ -7,7 +7,29 @@ import '../../features/detail/sleep_record_service.dart';
 import 'baby_service.dart';
 import 'sleep_type.dart';
 
-/// 측정된 소음을 **메모리에서 집계**해 sleep_records 한 행에 적습니다.
+/// 측정이 끝났을 때 돌려주는 것.
+class NoiseSessionResult {
+  /// 이번 측정의 집계. 소리를 하나도 못 받았으면 null입니다.
+  final SleepNoiseStats? stats;
+
+  /// 이번 측정이 쓴 sleep_records 행의 id. 만들지 못했으면 null입니다.
+  final String? recordId;
+
+  /// 수면 기록을 제대로 닫았는지.
+  ///
+  /// **판정과는 별개입니다.** 집계는 메모리에서 나오므로 이 값이 false여도
+  /// 결과는 보여줄 수 있습니다. 다만 "저장까지 됐다"고 말하면 안 됩니다 —
+  /// 실패를 성공으로 보여주지 않는 것이 이 프로젝트의 원칙입니다.
+  final bool saved;
+
+  const NoiseSessionResult({
+    required this.stats,
+    required this.recordId,
+    required this.saved,
+  });
+}
+
+/// 측정된 소음을 **메모리에서만 집계**합니다.
 ///
 /// 예전에는 1초마다 한 행씩 `sleep_noise_logs`에 쌓았습니다. 하룻밤이면
 /// 28,800행이고, 그것을 서버까지 나르려고 배치·재시도·버퍼 상한·중복 전송
@@ -15,14 +37,15 @@ import 'sleep_type.dart';
 /// 하나뿐이었고, 그래프 화면은 만든 적이 없습니다. **원본을 붙들고 있던
 /// 이유가 없었고, 그 원본을 나르는 장치들이 이 기능의 결함을 만들었습니다.**
 ///
-/// 지금은 세 숫자(합·최대·개수)만 들고 있다가 [checkpointInterval]마다 한 행을
-/// 갱신합니다. 판정 경로에서 네트워크가 통째로 빠지고, 밤새 망이 끊겨도
-/// 결과는 나옵니다.
+/// **소음 수치는 이제 어디에도 따로 저장하지 않습니다.** 화면에는 실시간으로
+/// 보여주고(`main.dart`의 `update_db`), 측정이 끝나면 [finish]가 집계를
+/// 돌려줍니다. 그 숫자가 남는 곳은 판정 한 행뿐입니다 —
+/// `assessments.inputs`에 `average_db`·`max_db`·`sample_count`가 들어가고,
+/// 분석 화면이 그것을 읽습니다. 같은 숫자를 `sleep_records`에도 적어 두었다가
+/// 중복이라 걷어냈습니다(011).
 ///
-/// **왜 끝에 한 번만 쓰지 않는가**: 이 인스턴스는 백그라운드 isolate에
-/// 있습니다. 8시간치를 메모리에만 들고 있으면 OS가 서비스를 죽이는 순간
-/// 밤 전체가 없던 일이 됩니다. 주기적으로 찍으면 잃는 것이
-/// [checkpointInterval]로 줄어듭니다.
+/// 이 표가 여전히 만드는 것은 **수면 기록 자체**입니다 — 밤잠인지 낮잠인지,
+/// 언제 시작해 언제 끝났는지. 그건 기록 탭에 뜨는 별개 기능입니다.
 ///
 /// 백그라운드 서비스 isolate에서 동작하므로, 그 isolate에서도 Supabase가
 /// 초기화되어 있어야 합니다(main.dart의 onStart 참고).
@@ -31,15 +54,14 @@ class NoiseTracker {
   /// 만듭니다.
   final Duration sampleInterval;
 
-  /// 집계를 sleep_records에 적어 두는 주기.
+  /// 수면 기록 행 만들기에 실패했을 때 다시 해 보는 간격.
   ///
-  /// 이 값이 곧 **서비스가 죽었을 때 잃는 시간**입니다. 짧게 하면 쓰기가
-  /// 잦아지고, 길게 하면 잃는 것이 늘어납니다.
-  final Duration checkpointInterval;
+  /// 실패할 때마다 곧바로 다시 하면 망이 끊긴 밤에 초당 한 번씩 두드립니다.
+  final Duration retryInterval;
 
   NoiseTracker({
     this.sampleInterval = const Duration(seconds: 1),
-    this.checkpointInterval = const Duration(seconds: 60),
+    this.retryInterval = const Duration(seconds: 60),
   });
 
   /// 지금까지의 합·최대·개수. 표본은 1초 창의 최댓값입니다.
@@ -52,18 +74,18 @@ class NoiseTracker {
   /// 진행 중인 쓰기. 같은 순간에 두 번 쓰지 않기 위한 것입니다.
   Future<void>? _inFlight;
 
-  /// 마지막으로 쓰기를 **시도한** 시각. 성공 여부와 무관하게 갱신합니다.
-  /// 실패할 때마다 다시 시도하면 망이 끊긴 밤에 초당 한 번씩 두드립니다.
-  DateTime? _lastCheckpoint;
+  /// 마지막으로 행 만들기를 **시도한** 시각. 성공 여부와 무관하게 갱신합니다.
+  DateTime? _lastAttempt;
 
   SleepType _sleepType = SleepType.night;
 
-  /// 이번 측정이 쓰고 있는 sleep_records 행의 id. 아직 없으면 null입니다.
+  /// 측정을 시작한 시각.
   ///
-  /// 결과 화면이 **어느 기록을 봐야 하는지** 알려면 이 값이 필요합니다.
-  /// 예전에는 화면이 '가장 최근 수면 기록'을 짐작해서 골랐는데, 그 사이에
-  /// 손으로 적은 수면 기록이 들어오면 그쪽을 집었습니다.
-  String? get sleepRecordId => _sleepRecordId;
+  /// **행을 만든 시각이 아닙니다.** 시작할 때 망이 없으면 행은 몇 분 뒤에
+  /// 생기는데, 그때 `now()`를 쓰면 그 밤의 `started_at`이 실제보다 늦습니다.
+  /// 심하면 insert와 종료가 몇 ms 차이로 이어져 표본은 28,800개인데 수면
+  /// 길이는 0분인 행이 남습니다.
+  DateTime? _startedAt;
 
   /// 지금까지 모은 표본 수. 측정이 끝나면 0으로 돌아갑니다.
   @visibleForTesting
@@ -75,6 +97,7 @@ class NoiseTracker {
   void beginSession(SleepType sleepType) {
     _sleepType = sleepType;
     _reset();
+    _startedAt = DateTime.now();
   }
 
   void _reset() {
@@ -84,7 +107,8 @@ class NoiseTracker {
     _sum = 0;
     _max = 0;
     _count = 0;
-    _lastCheckpoint = null;
+    _lastAttempt = null;
+    _startedAt = null;
     _sleepRecordId = null;
   }
 
@@ -131,62 +155,46 @@ class NoiseTracker {
     _windowMax = bounded;
   }
 
-  /// 창 하나를 집계에 반영하고, 주기가 됐으면 저장을 시작합니다.
+  /// 창 하나를 집계에 반영합니다.
+  ///
+  /// **저장하지 않습니다.** 소음 수치는 메모리에만 있습니다. 다만 수면 기록
+  /// 행은 일찍 만들어 둡니다 — 재우는 동안 기록 탭에 '측정 중'으로 보이고,
+  /// 끝날 때 그 행에 종료 시각만 적으면 되기 때문입니다.
   void _record(double decibel) {
     _sum += decibel;
     if (decibel > _max) _max = decibel;
     _count++;
 
+    if (_sleepRecordId != null) return;
+
+    // 만들기에 실패했으면 잠시 뒤에 다시 해 봅니다. 실패할 때마다 곧바로
+    // 다시 하면 망이 끊긴 밤에 초당 한 번씩 두드립니다.
     final now = DateTime.now();
-    final last = _lastCheckpoint;
-    if (last == null || now.difference(last) >= checkpointInterval) {
-      _lastCheckpoint = now;
-      _checkpointInBackground();
+    final last = _lastAttempt;
+    if (last == null || now.difference(last) >= retryInterval) {
+      _lastAttempt = now;
+      _inFlight ??= _ensureSleepRecord()
+          .catchError((Object e) {
+            debugPrint('수면 기록 생성 실패(잠시 뒤 재시도): $e');
+            return '';
+          })
+          .whenComplete(() => _inFlight = null);
     }
   }
 
-  /// 쓰는 중이 아니면 저장을 시작합니다. 중이면 아무 일도 하지 않습니다.
-  void _checkpointInBackground() {
-    _inFlight ??= _writeCheckpoint().whenComplete(() => _inFlight = null);
-  }
-
-  /// 지금까지의 집계를 sleep_records 행에 적습니다.
+  /// 측정을 끝냅니다. 집계와 기록 id, 저장 성공 여부를 함께 돌려줍니다.
   ///
-  /// 행이 없으면 만듭니다. 만들기에 실패하면 다음 주기에 다시 해 봅니다 —
-  /// 재시도 대상이 로그 30건 배열이 아니라 **행 하나**라 단순합니다.
-  Future<void> _writeCheckpoint({DateTime? endedAt}) async {
-    if (_count == 0 && endedAt == null) return;
-
-    try {
-      final recordId = await _ensureSleepRecord();
-      await _client.from('sleep_records').update({
-        'average_db': _rounded(_count == 0 ? 0 : _sum / _count),
-        'max_db': _rounded(_max),
-        'sample_count': _count,
-        if (endedAt != null) 'ended_at': toDbTime(endedAt),
-      }).eq('id', recordId);
-    } catch (e) {
-      debugPrint('소음 집계 저장 실패(다음 주기에 재시도): $e');
-    }
-  }
-
-  /// numeric(5,2) 컬럼에 맞춥니다.
-  static double _rounded(double value) =>
-      double.parse(value.toStringAsFixed(2));
-
-  /// 측정을 끝냅니다. 이번 밤의 집계를 돌려주고 수면 기록을 닫습니다.
+  /// **집계는 메모리에서 나옵니다.** 그래서 망이 끊겨 있어도 결과가 나옵니다.
+  /// 예전에는 로그를 서버에 넣고 서버에서 다시 읽어야 판정이 나왔고, 밤새
+  /// 망이 끊기면 8시간을 재고도 결과가 없었습니다.
   ///
-  /// **돌려주는 값이 결과 화면이 쓰는 값입니다.** 예전에는 화면이 저장이
-  /// 끝나기를 고정 2초 기다렸다가 서버에서 다시 읽었는데, 느린 망에서는 그
-  /// 안에 안 끝나 "저장하지 못했습니다"가 떴습니다. 실제로는 조금만 더
-  /// 기다리면 됐을 때가 있었습니다.
-  ///
-  /// 표본이 하나도 없으면 null입니다.
-  Future<SleepNoiseStats?> finish() async {
+  /// [NoiseSessionResult.saved]는 **수면 기록을 닫았는지**입니다. 판정과는
+  /// 별개이며, false여도 결과는 보여줄 수 있습니다. 다만 저장까지 됐다고
+  /// 말하면 안 됩니다.
+  Future<NoiseSessionResult> finish() async {
     // 모으던 창을 마지막 표본으로 남깁니다. 안 그러면 짧은 측정이 통째로
     // 0건이 됩니다.
-    final start = _windowStart;
-    if (start != null) {
+    if (_windowStart != null) {
       _sum += _windowMax;
       if (_windowMax > _max) _max = _windowMax;
       _count++;
@@ -194,7 +202,8 @@ class NoiseTracker {
       _windowMax = 0;
     }
 
-    // 쓰는 중이면 끝날 때까지 기다립니다.
+    // 행을 만드는 중이면 끝날 때까지 기다립니다. 기다리지 않으면 방금 만든
+    // 행의 id를 놓칩니다.
     await _inFlight;
 
     final stats = _count == 0
@@ -205,9 +214,21 @@ class NoiseTracker {
             sampleCount: _count,
           );
 
-    // 마지막 집계와 종료 시각을 함께 적습니다.
-    if (_sleepRecordId != null || _count > 0) {
-      await _writeCheckpoint(endedAt: DateTime.now());
+    // 표본이 하나도 없으면 수면 기록도 남기지 않습니다.
+    var saved = false;
+    String? recordId = _sleepRecordId;
+    if (stats != null) {
+      try {
+        recordId = await _ensureSleepRecord();
+        await _client
+            .from('sleep_records')
+            .update({'ended_at': toDbTime(DateTime.now())})
+            .eq('id', recordId);
+        saved = true;
+      } catch (e) {
+        // 삼키지 않습니다. 화면이 "저장하지 못했다"고 말할 수 있어야 합니다.
+        debugPrint('수면 기록 종료 저장 실패: $e');
+      }
     }
 
     // 이 인스턴스는 백그라운드 서비스가 사는 동안 재사용됩니다
@@ -215,7 +236,7 @@ class NoiseTracker {
     // 낮잠에 딸려 들어갑니다.
     _reset();
 
-    return stats;
+    return NoiseSessionResult(stats: stats, recordId: recordId, saved: saved);
   }
 
   /// 이번 측정에 대응하는 sleep_records 행을 만들고 id를 돌려줍니다.
@@ -234,7 +255,8 @@ class NoiseTracker {
           'baby_id': baby.id,
           // enum 이름이 곧 DB가 받는 값입니다(night / nap).
           'sleep_type': _sleepType.name,
-          'started_at': toDbTime(DateTime.now()),
+          // 행을 만든 시각이 아니라 **측정을 시작한** 시각입니다.
+          'started_at': toDbTime(_startedAt ?? DateTime.now()),
         })
         .select()
         .single();

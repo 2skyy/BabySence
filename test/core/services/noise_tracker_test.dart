@@ -31,7 +31,7 @@ void main() {
     t.beginSession(SleepType.night);
     feed(t, [40, 50, 60]);
 
-    final stats = await t.finish();
+    final stats = (await t.finish()).stats;
 
     expect(stats, isNotNull);
     expect(stats!.sampleCount, 3);
@@ -46,7 +46,7 @@ void main() {
     t.beginSession(SleepType.night);
     feed(t, values);
 
-    final stats = await t.finish();
+    final stats = (await t.finish()).stats;
     final expected = SleepNoiseStats.fromDecibels(values);
 
     expect(stats!.averageDb, closeTo(expected.averageDb, 0.0001));
@@ -60,7 +60,7 @@ void main() {
     t.beginSession(SleepType.night);
     t.onNoiseLevelChanged(42.0);
 
-    final stats = await t.finish();
+    final stats = (await t.finish()).stats;
 
     expect(stats!.sampleCount, 1);
     expect(stats.maxDb, 42.0);
@@ -71,7 +71,7 @@ void main() {
     final t = tracker();
     t.beginSession(SleepType.night);
 
-    expect(await t.finish(), isNull);
+    expect((await t.finish()).stats, isNull);
   });
 
   test('지난 측정이 다음 측정으로 넘어오지 않는다', () async {
@@ -86,7 +86,7 @@ void main() {
     t.beginSession(SleepType.nap);
     feed(t, [30, 30]);
 
-    final stats = await t.finish();
+    final stats = (await t.finish()).stats;
 
     expect(stats!.sampleCount, 2);
     expect(stats.maxDb, 30.0, reason: '어젯밤 100dB가 남아 있으면 안 됩니다');
@@ -110,7 +110,7 @@ void main() {
       t.onNoiseLevelChanged(double.nan);
       t.onNoiseLevelChanged(double.infinity);
 
-      expect(await t.finish(), isNull);
+      expect((await t.finish()).stats, isNull);
     });
 
     test('NaN이 섞여도 나머지 평균이 살아남는다', () async {
@@ -118,7 +118,7 @@ void main() {
       t.beginSession(SleepType.night);
       feed(t, [40, double.nan, 60]);
 
-      final stats = await t.finish();
+      final stats = (await t.finish()).stats;
 
       expect(stats!.sampleCount, 2);
       expect(stats.averageDb, closeTo(50.0, 0.0001));
@@ -129,10 +129,35 @@ void main() {
       t.beginSession(SleepType.night);
       feed(t, [-10, 500]);
 
-      final stats = await t.finish();
+      final stats = (await t.finish()).stats;
 
       expect(stats!.maxDb, 200.0);
       expect(stats.averageDb, closeTo(100.0, 0.0001));
+    });
+  });
+
+  group('저장 실패를 성공으로 보여주지 않는다', () {
+    test('저장이 실패하면 saved가 false다', () async {
+      // 여기에는 Supabase가 없어 저장이 반드시 실패합니다. 그래도 집계는
+      // 나오지만, "저장까지 됐다"고 말하면 안 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50]);
+
+      final result = await t.finish();
+
+      expect(result.stats, isNotNull, reason: '결과는 보여줄 수 있어야 합니다');
+      expect(result.saved, isFalse);
+    });
+
+    test('소리를 못 받으면 수면 기록도 남기지 않는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+
+      final result = await t.finish();
+
+      expect(result.stats, isNull);
+      expect(result.recordId, isNull);
     });
   });
 

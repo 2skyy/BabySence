@@ -104,19 +104,28 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     // 메모리에서 집계하므로 숫자를 그대로 넘겨받습니다 — 기다릴 것도 다시
     // 읽을 것도 없고, 밤새 망이 끊겨 있었어도 결과는 나옵니다.
     _sessionSubscription = service.on('noise_session_ended').listen((event) {
-      _endedSleepRecordId = event?['sleepRecordId'] as String?;
+      // **끝맺은 세션에 신호가 한 번 더 올 수 있습니다.** 중지한 뒤 '완전히
+      // 끄기'를 누르면 그렇습니다. 두 번째 신호는 빈 값이라, 막지 않으면
+      // 방금 받은 결과를 null로 덮고 이미 완료된 Completer에 complete을
+      // 불러 StateError를 던집니다.
+      final pending = _sessionEnded;
+      if (pending == null || pending.isCompleted) return;
+
+      _endedSaved = event?['saved'] == true;
       _endedStats = event != null && event['sampleCount'] != null
           ? SleepNoiseStats.fromPayload(event)
           : null;
-      _sessionEnded?.complete();
+      pending.complete();
     });
   }
 
-  /// 방금 끝난 측정의 sleep_records id. 백그라운드가 알려줍니다.
-  String? _endedSleepRecordId;
-
   /// 방금 끝난 측정의 집계. 표본이 없으면 null입니다.
   SleepNoiseStats? _endedStats;
+
+  /// 수면 기록을 제대로 닫았는지. 판정과는 별개입니다 — 집계는 메모리에서
+  /// 나오므로 이 값이 false여도 결과는 보여줍니다. 다만 저장까지 됐다고
+  /// 말하지는 않습니다.
+  bool _endedSaved = false;
 
   /// 백그라운드가 끝났다고 알려 주기를 기다리는 자리.
   ///
@@ -191,40 +200,39 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         return;
       }
 
-      // 백그라운드가 알려준 기록만 씁니다.
-      //
-      // 예전에는 못 받았을 때 '가장 최근 수면 기록'으로 되돌아갔는데, 그
-      // 기록이 이번 측정인지 확인하지 않았습니다. 이번 측정이 한 건도 저장되지
-      // 않았어도(마이크 스트림이 죽거나 전송이 계속 실패) **어젯밤 통계로 만든
-      // 판정**이 오늘 날짜로 화면에 뜨고 assessments에 저장됐습니다.
-      // 다른 날 데이터로 만든 판정은 기록 자체를 오염시킵니다.
-      final recordId = _endedSleepRecordId;
-      if (recordId == null) {
-        _notify('이번 측정을 저장하지 못해 결과를 만들 수 없습니다. '
-            '연결을 확인하고 다시 측정해 주세요.');
+      // 신호가 왔는지 먼저 봅니다. 안 왔으면 집계가 없는 것과 구별해야
+      // 합니다 — 하나는 "못 받았다", 다른 하나는 "소리가 없었다"입니다.
+      if (!(_sessionEnded?.isCompleted ?? false)) {
+        _notify('측정을 끝맺지 못했습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
 
-      // 집계는 백그라운드가 실어 보낸 값을 씁니다. 못 받았으면(신호를
-      // 놓쳤거나 화면이 늦게 붙었으면) 행에서 읽습니다 — 60초마다 찍어 두므로
-      // 거기에도 들어 있습니다.
-      final stats =
-          _endedStats ?? await SleepRecordService.loadNoiseStats(recordId);
-      final assessment = NoiseRules.assess(
-        averageDb: stats.averageDb,
-        maxDb: stats.maxDb,
-        sampleCount: stats.sampleCount,
-      );
+      // 집계는 백그라운드가 실어 보낸 값입니다. **DB를 보지 않습니다** —
+      // 소음 수치는 어디에도 저장하지 않고, 남는 곳은 아래에서 만드는 판정
+      // 한 행뿐입니다(assessments.inputs).
+      final stats = _endedStats;
+      final assessment = stats == null
+          ? null
+          : NoiseRules.assess(
+              averageDb: stats.averageDb,
+              maxDb: stats.maxDb,
+              sampleCount: stats.sampleCount,
+            );
 
       if (assessment == null) {
-        // 표본이 없는 것과 적은 것은 원인이 다릅니다. 한 건도 없으면 측정이
-        // 짧았던 것이 아니라 저장이 안 된 것입니다.
-        // 이제 저장 실패로 0건이 되는 일은 없습니다. 집계가 메모리에서
-        // 나오므로 0건은 정말 소리를 못 받은 것입니다(마이크 권한·스트림).
-        _notify(stats.sampleCount == 0
+        // 집계가 메모리에서 나오므로 0건은 정말 소리를 못 받은 것입니다
+        // (마이크 권한, 스트림이 죽음). 저장 실패와는 무관합니다.
+        _notify(stats == null
             ? '소리를 하나도 받지 못했습니다. 마이크 권한을 확인하고 다시 측정해 주세요.'
             : '측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.');
         return;
+      }
+
+      // 수면 기록을 못 닫았으면 그 사실을 말합니다. 판정은 그대로 보여줍니다 —
+      // 실패를 숨기지도, 실패했다고 결과까지 버리지도 않습니다.
+      if (!_endedSaved) {
+        _notify('결과는 아래와 같지만 수면 기록을 저장하지 못했습니다. '
+            '연결을 확인해 주세요.');
       }
 
       // 저장을 mounted 검사보다 먼저 합니다. 예전에는 뒤에 있어서, 결과를
@@ -260,6 +268,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     final service = FlutterBackgroundService();
 
     if (_isNoiseMeasuring) {
+      _armSessionWait();
       service.invoke('stopNoiseOnly');
       setState(() {
         _isNoiseMeasuring = false;
@@ -269,10 +278,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       return;
     }
 
-    // 지난 측정의 값이 남아 있으면 이번 결과가 그쪽을 보게 됩니다.
-    _endedSleepRecordId = null;
-    _endedStats = null;
-    _sessionEnded = Completer<void>();
+    _armSessionWait();
 
     setState(() => _starting = true);
     final started = await _startMeasuring();
@@ -291,6 +297,21 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         ),
       );
     }
+  }
+
+  /// 종료 신호를 받을 자리를 만듭니다.
+  ///
+  /// **측정을 시작할 때만 만들면 안 됩니다.** 밤잠의 표준 흐름이 그렇습니다 —
+  /// 저녁에 시작하고, 화면을 나가거나 앱이 죽고, 아침에 다시 들어와 중지를
+  /// 누릅니다. 그때 이 화면은 측정 시작을 본 적이 없어 기다릴 자리가 없고,
+  /// 기다리지 않으면 8시간 잰 밤의 판정이 통째로 안 나옵니다.
+  ///
+  /// 지난 측정의 값도 함께 지웁니다. 남아 있으면 이번 결과가 그쪽을 봅니다.
+  void _armSessionWait() {
+    if (_sessionEnded != null && !_sessionEnded!.isCompleted) return;
+    _endedStats = null;
+    _endedSaved = false;
+    _sessionEnded = Completer<void>();
   }
 
   /// 서비스를 켜고, 측정이 실제로 시작될 때까지 기다립니다.
@@ -555,13 +576,23 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
             const SizedBox(height: 40),
 
             TextButton.icon(
-              onPressed: () {
+              onPressed: () async {
+                // 재던 중에 이 버튼을 누르면 그 밤도 결과를 봐야 합니다.
+                // 예전에는 그냥 껐고, 8시간을 재고도 판정이 만들어지지
+                // 않았습니다. 백그라운드는 이제 끝맺음을 알려주지만
+                // (main.dart의 stopService), 받아서 결과를 여는 것은
+                // 이쪽 몫입니다.
+                final wasMeasuring = _isNoiseMeasuring;
+                if (wasMeasuring) _armSessionWait();
+
                 FlutterBackgroundService().invoke('stopService');
                 _noiseService.stopAll(() {}); // 수면 시스템 꺼질 때 백색소음도 같이 정지
                 setState(() {
                   _isNoiseMeasuring = false;
                   _currentDecibel = 0.0;
                 });
+
+                if (wasMeasuring) await _showResult();
               },
               icon: const Icon(Icons.power_settings_new, color: Colors.red),
               label: const Text('수면 케어 전체 시스템 완전히 끄기', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
