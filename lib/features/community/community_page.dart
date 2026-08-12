@@ -19,6 +19,10 @@ class CommunityPage extends StatefulWidget {
 
 class _CommunityPageState extends State<CommunityPage> {
   List<Post> _posts = [];
+
+  /// 지금 보고 있는 갈래. null이면 전체입니다.
+  PostCategory? _category;
+
   bool _loading = true;
   String? _error;
 
@@ -35,7 +39,7 @@ class _CommunityPageState extends State<CommunityPage> {
     });
 
     try {
-      final posts = await CommunityService.loadPosts();
+      final posts = await CommunityService.loadPosts(category: _category);
       if (!mounted) return;
       setState(() {
         _posts = posts;
@@ -48,6 +52,12 @@ class _CommunityPageState extends State<CommunityPage> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _selectCategory(PostCategory? category) async {
+    if (category == _category) return;
+    setState(() => _category = category);
+    await _load();
   }
 
   Future<void> _openWrite() async {
@@ -79,7 +89,38 @@ class _CommunityPageState extends State<CommunityPage> {
         icon: const Icon(Icons.edit),
         label: const Text('글쓰기'),
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _buildCategoryBar(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  /// 갈래 고르기 줄.
+  ///
+  /// 가로로 넘기게 둡니다. 두 줄로 접으면 글 목록이 그만큼 밀려 내려갑니다.
+  Widget _buildCategoryBar() {
+    Widget chip(String label, PostCategory? value) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text(label),
+            selected: value == _category,
+            onSelected: (_) => _selectCategory(value),
+          ),
+        );
+
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        children: [
+          chip('전체', null),
+          for (final c in PostCategory.values) chip(c.label, c),
+        ],
+      ),
     );
   }
 
@@ -110,7 +151,9 @@ class _CommunityPageState extends State<CommunityPage> {
               Icon(Icons.forum_outlined, size: 48, color: context.colors.textSecondary),
               SizedBox(height: AppSpacing.lg),
               Text(
-                '아직 글이 없습니다.\n첫 글을 남겨보세요.',
+                _category == null
+                    ? '아직 글이 없습니다.\n첫 글을 남겨보세요.'
+                    : '${_category!.label} 이야기가 아직 없습니다.\n첫 글을 남겨보세요.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: context.colors.textSecondary, height: 1.5),
               ),
@@ -154,6 +197,24 @@ class _CommunityPageState extends State<CommunityPage> {
           children: [
             Row(
               children: [
+                // '전체'에서 보면 어느 갈래인지 알 수 없어 카드에도 붙입니다.
+                Container(
+                  margin: const EdgeInsets.only(right: AppSpacing.sm),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: context.colors.background,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: context.colors.border),
+                  ),
+                  child: Text(
+                    post.category.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.colors.textSecondary,
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: Text(
                     post.title,

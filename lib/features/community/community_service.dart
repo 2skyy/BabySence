@@ -20,21 +20,30 @@ class CommunityService {
     required String authorId,
     required String title,
     required String body,
+    required PostCategory category,
   }) {
     return {
       'author_id': authorId,
       'title': title.trim(),
       'body': body.trim(),
+      'category': category.dbValue,
     };
   }
 
   /// 최신순 목록. 댓글 수를 함께 세어 옵니다.
-  static Future<List<Post>> loadPosts({int limit = 50}) async {
-    final rows = await _client
-        .from('posts')
-        .select('*, comments(count)')
-        .order('created_at', ascending: false)
-        .limit(limit);
+  ///
+  /// [category]가 null이면 전체입니다. 거르기를 앱에서 하지 않고 질의에
+  /// 넣는 이유는, 한 갈래만 보려는데 50건을 받아 와 몇 건만 남기면 정작
+  /// 그 갈래의 옛 글이 잘려 나가기 때문입니다.
+  static Future<List<Post>> loadPosts({
+    PostCategory? category,
+    int limit = 50,
+  }) async {
+    var query = _client.from('posts').select('*, comments(count)');
+    if (category != null) query = query.eq('category', category.dbValue);
+
+    final rows =
+        await query.order('created_at', ascending: false).limit(limit);
 
     return rows.map(Post.fromMap).toList();
   }
@@ -42,13 +51,19 @@ class CommunityService {
   static Future<Post> createPost({
     required String title,
     required String body,
+    required PostCategory category,
   }) async {
     final userId = currentUserId;
     if (userId == null) throw StateError('로그인이 필요합니다.');
 
     final row = await _client
         .from('posts')
-        .insert(buildPostRow(authorId: userId, title: title, body: body))
+        .insert(buildPostRow(
+          authorId: userId,
+          title: title,
+          body: body,
+          category: category,
+        ))
         .select()
         .single();
 
@@ -60,8 +75,13 @@ class CommunityService {
   static Map<String, dynamic> buildPostUpdate({
     required String title,
     required String body,
+    required PostCategory category,
   }) {
-    return {'title': title.trim(), 'body': body.trim()};
+    return {
+      'title': title.trim(),
+      'body': body.trim(),
+      'category': category.dbValue,
+    };
   }
 
   /// 본인 글만 수정됩니다. 남의 글에 시도하면 RLS가 막아 0건이 바뀌고,
@@ -70,10 +90,11 @@ class CommunityService {
     required String id,
     required String title,
     required String body,
+    required PostCategory category,
   }) async {
     final row = await _client
         .from('posts')
-        .update(buildPostUpdate(title: title, body: body))
+        .update(buildPostUpdate(title: title, body: body, category: category))
         .eq('id', id)
         .select()
         .single();

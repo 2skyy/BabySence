@@ -25,6 +25,10 @@ class PostWritePage extends StatefulWidget {
 class _PostWritePageState extends State<PostWritePage> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
+
+  /// 새 글은 '그 밖에'에서 시작합니다. 아무거나 미리 골라 두면 고르지 않은
+  /// 글이 엉뚱한 갈래에 쌓입니다.
+  late PostCategory _category;
   bool _saving = false;
 
   bool get _isEditing => widget.post != null;
@@ -34,6 +38,7 @@ class _PostWritePageState extends State<PostWritePage> {
     super.initState();
     _titleController = TextEditingController(text: widget.post?.title ?? '');
     _bodyController = TextEditingController(text: widget.post?.body ?? '');
+    _category = widget.post?.category ?? PostCategory.etc;
   }
 
   // DB의 CHECK 제약과 같은 값입니다.
@@ -63,11 +68,16 @@ class _PostWritePageState extends State<PostWritePage> {
           id: widget.post!.id,
           title: title,
           body: body,
+          category: _category,
         );
         if (!mounted) return;
         Navigator.pop(context, updated);
       } else {
-        await CommunityService.createPost(title: title, body: body);
+        await CommunityService.createPost(
+          title: title,
+          body: body,
+          category: _category,
+        );
         if (!mounted) return;
         Navigator.pop(context, true);
       }
@@ -113,6 +123,31 @@ class _PostWritePageState extends State<PostWritePage> {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '어떤 이야기인가요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.colors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final c in PostCategory.values)
+                    ChoiceChip(
+                      label: Text(c.label),
+                      selected: c == _category,
+                      onSelected: (_) => setState(() => _category = c),
+                    ),
+                ],
               ),
               const SizedBox(height: AppSpacing.lg),
               TextField(

@@ -1,9 +1,39 @@
+/// 글의 갈래.
+///
+/// 앱의 기록 기능과 맞춥니다. 다만 기능은 아홉인데 그대로 옮기면 빈 방이
+/// 여럿 생겨, 함께 이야기되는 것끼리 묶었습니다.
+///
+/// 이름([dbValue])은 `posts.category`의 CHECK 목록과 같아야 합니다.
+enum PostCategory {
+  feeding('feeding', '수유'),
+  sleep('sleep', '수면'),
+  diaper('diaper', '배변'),
+
+  /// 체온 · 약/병원 · 예방접종 · 피부.
+  health('health', '건강'),
+  growth('growth', '성장'),
+  etc('etc', '그 밖에');
+
+  final String dbValue;
+  final String label;
+
+  const PostCategory(this.dbValue, this.label);
+
+  /// DB 값에서 되돌립니다. 모르는 값이면 [etc]로 둡니다 — 갈래를 나중에
+  /// 늘렸을 때 옛 앱이 목록을 통째로 못 그리는 일을 막습니다.
+  static PostCategory fromDb(Object? value) => PostCategory.values.firstWhere(
+        (c) => c.dbValue == value,
+        orElse: () => PostCategory.etc,
+      );
+}
+
 /// 커뮤니티 게시글.
 class Post {
   final String id;
   final String authorId;
   final String title;
   final String body;
+  final PostCategory category;
   final DateTime createdAt;
 
   /// 목록에서 보여줄 댓글 수. 상세에서는 쓰지 않아 0입니다.
@@ -14,6 +44,7 @@ class Post {
     required this.authorId,
     required this.title,
     required this.body,
+    required this.category,
     required this.createdAt,
     this.commentCount = 0,
   });
@@ -33,6 +64,7 @@ class Post {
       authorId: map['author_id'] as String,
       title: map['title'] as String,
       body: map['body'] as String,
+      category: PostCategory.fromDb(map['category']),
       createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
       commentCount: count,
     );

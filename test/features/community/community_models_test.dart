@@ -116,10 +116,21 @@ void main() {
         authorId: 'A',
         title: '  제목  ',
         body: '\n내용\n',
+        category: PostCategory.feeding,
       );
       expect(row['title'], '제목');
       expect(row['body'], '내용');
       expect(row['author_id'], 'A');
+    });
+
+    test('갈래를 DB 값으로 보낸다', () {
+      final row = CommunityService.buildPostRow(
+        authorId: 'A',
+        title: '제목',
+        body: '내용',
+        category: PostCategory.health,
+      );
+      expect(row['category'], 'health');
     });
 
     test('댓글 행에 글 id와 작성자가 들어간다', () {

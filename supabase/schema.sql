@@ -806,11 +806,16 @@ create table if not exists public.posts (
   author_id   uuid        not null references auth.users (id) on delete cascade,
   title       text        not null check (char_length(btrim(title)) between 1 and 100),
   body        text        not null check (char_length(btrim(body)) between 1 and 2000),
+  -- 갈래는 앱의 기록 기능과 맞춥니다. enum이 아니라 CHECK인 이유는 다른 표와
+  -- 같습니다 — 갈래를 늘릴 때 ALTER TABLE 하나면 됩니다.
+  category    text        not null default 'etc'
+    check (category in ('feeding', 'sleep', 'diaper', 'health', 'growth', 'etc')),
   created_at  timestamptz not null default now()
 );
 
 comment on table  public.posts           is '커뮤니티 게시글. 작성자는 화면에서 익명으로 표시된다';
 comment on column public.posts.author_id is '수정·삭제 권한 확인용. 화면에는 노출하지 않는다';
+comment on column public.posts.category  is 'feeding=수유, sleep=수면(소음 포함), diaper=배변, health=체온·약·병원·예방접종·피부, growth=성장, etc=그 밖에';
 
 -- 2. 댓글 --------------------------------------------------------------------
 create table if not exists public.comments (
@@ -824,6 +829,7 @@ create table if not exists public.comments (
 -- 3. 인덱스 ------------------------------------------------------------------
 -- 목록은 최신순, 댓글은 오래된 순으로 봅니다.
 create index if not exists idx_posts_created     on public.posts    (created_at desc);
+create index if not exists idx_posts_category    on public.posts    (category, created_at desc);
 create index if not exists idx_comments_post     on public.comments (post_id, created_at);
 create index if not exists idx_posts_author      on public.posts    (author_id);
 create index if not exists idx_comments_author   on public.comments (author_id);
