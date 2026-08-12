@@ -15,7 +15,7 @@
 있게 되었으며, 비밀번호 관리와 세션 처리를 검증된 인증 서비스에 위임함으로써
 보안 취약점의 발생 가능성을 낮추었다.
 
-전체 스키마는 20개 테이블로 구성된다. 사용자 계정 정보는 Supabase가 관리하는
+전체 스키마는 19개 테이블로 구성된다. 사용자 계정 정보는 Supabase가 관리하는
 `auth.users` 테이블에 저장되며, 본 시스템이 정의한 테이블들은 이를 최상위 부모로
 참조한다.
 
@@ -33,20 +33,17 @@
 | 육아 기록 | `growth_records` | 성장 기록 | id(PK), baby_id(FK), recorded_on, height_cm, weight_kg |
 | 육아 기록 | `feeding_records` | 수유 기록 | id(PK), baby_id(FK), feeding_type, amount_ml, fed_at |
 | 육아 기록 | `diaper_records` | 배변 기록 | id(PK), baby_id(FK), diaper_type, stool_state, recorded_at |
-| 육아 기록 | `sleep_records` | 수면 기록 | id(PK), baby_id(FK), sleep_type, started_at, ended_at |
-| 육아 기록 | `sleep_noise_logs` | 수면 중 소음 측정값 | id(PK), sleep_record_id(FK), measured_at, decibel |
+| 육아 기록 | `sleep_records` | 수면 기록 및 소음 집계 | id(PK), baby_id(FK), sleep_type, started_at, ended_at, average_db, max_db, sample_count |
 | 육아 기록 | `temperature_records` | 체온 기록 | id(PK), baby_id(FK), temperature_c, measured_at |
 | 육아 기록 | `temperature_symptoms` | 체온 기록의 동반 증상 | temperature_record_id + symptom(복합 PK) |
 | 예방접종 | `vaccines` | 표준 예방접종 일정 | id(PK), code, name, recommended_age_months, dose_number |
 | 예방접종 | `vaccination_records` | 아이별 접종 이력 | id(PK), baby_id(FK), vaccine_id(FK), scheduled_on, vaccinated_on |
-| AI 분석 | `skin_analyses` | 피부 분석 이력 | id(PK), baby_id(FK), image_path, disease_result, probability |
+| AI 분석 | `skin_analyses` | 피부 관찰 이력 | id(PK), baby_id(FK), image_path, level, urgent, observations, advice |
 | 판정 | `assessments` | 3단계 판정 및 행동 가이드 | id(PK), baby_id(FK), domain, level, guide_text, inputs, rule_version, assessed_at |
 
 기본키는 `uuid` 타입으로 통일하였다. 이는 Supabase 인증 사용자 식별자가 `uuid`
 형식이며, 클라이언트가 서버와의 통신 없이 식별자를 미리 생성할 수 있어 오프라인
-입력 후 동기화에 유리하기 때문이다. 다만 `sleep_noise_logs`는 측정 주기가 짧아
-데이터가 대량으로 축적되므로, 저장 공간과 인덱스 효율을 고려하여 `bigint` 타입의
-순차 증가 키를 사용하였다.
+입력 후 동기화에 유리하기 때문이다.
 
 선택형 입력값은 화면에 표시되는 한글 문구 대신 영문 코드값으로 저장하였다.
 표시 문구가 변경되더라도 저장된 데이터를 함께 수정할 필요가 없도록 하기 위함이며,
@@ -79,8 +76,7 @@
 형제자매를 등록하더라도 각 아이의 기록이 분리되어 관리되며, 아이 정보가 삭제되면
 관련 기록도 함께 삭제되도록 참조 무결성 옵션을 설정하였다.
 
-수면 중 소음 측정값(`sleep_noise_logs`)과 체온 기록의 동반 증상
-(`temperature_symptoms`)은 각각 수면 기록과 체온 기록에 종속되는 2단계 자식
+체온 기록의 동반 증상(`temperature_symptoms`)은 체온 기록에 종속되는 2단계 자식
 엔티티이다. 예방접종의 경우 표준 접종 일정(`vaccines`)이 모든 사용자가 공유하는
 참조 데이터이므로, 아이와 예방접종은 다대다(M:N) 관계를 이루며 이를
 `vaccination_records`가 연결한다.

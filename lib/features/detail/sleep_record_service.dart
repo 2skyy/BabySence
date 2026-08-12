@@ -64,15 +64,33 @@ class SleepNoiseStats {
   static const empty =
       SleepNoiseStats(averageDb: 0, maxDb: 0, sampleCount: 0);
 
-  /// 집계 결과 한 행에서 만듭니다(`sleep_noise_stats` RPC).
+  /// sleep_records 한 행에서 만듭니다.
   factory SleepNoiseStats.fromRow(Map<String, dynamic> row) => SleepNoiseStats(
         averageDb: (row['average_db'] as num? ?? 0).toDouble(),
         maxDb: (row['max_db'] as num? ?? 0).toDouble(),
         sampleCount: (row['sample_count'] as num? ?? 0).toInt(),
       );
 
-  /// 로그 값들에서 직접 계산합니다. 지금은 테스트에서만 씁니다 —
-  /// 실제 조회는 DB가 집계합니다([SleepRecordService.loadNoiseStats]).
+  /// 백그라운드가 보낸 집계에서 만듭니다.
+  ///
+  /// isolate 사이는 값만 오갈 수 있어 Map으로 주고받습니다([toMap]).
+  factory SleepNoiseStats.fromPayload(Map<dynamic, dynamic> payload) =>
+      SleepNoiseStats(
+        averageDb: (payload['averageDb'] as num? ?? 0).toDouble(),
+        maxDb: (payload['maxDb'] as num? ?? 0).toDouble(),
+        sampleCount: (payload['sampleCount'] as num? ?? 0).toInt(),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'averageDb': averageDb,
+        'maxDb': maxDb,
+        'sampleCount': sampleCount,
+      };
+
+  /// 표본 값들에서 직접 계산합니다.
+  ///
+  /// 측정 경로가 하는 계산과 **같은 식**이어야 합니다. 그것을 테스트가
+  /// 이 생성자로 확인합니다.
   factory SleepNoiseStats.fromDecibels(List<double> decibels) {
     if (decibels.isEmpty) return empty;
 
@@ -94,23 +112,28 @@ class SleepNoiseStats {
 class SleepRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
-  /// 한 수면 구간에 쌓인 소음 로그의 평균·최대를 구합니다.
+  /// 한 수면 구간의 소음 집계를 읽습니다.
   ///
-  /// **집계는 DB가 합니다**(009 마이그레이션의 `sleep_noise_stats`).
-  /// 예전에는 로그를 limit도 order도 없이 전부 받아 와 앱에서 셌는데,
-  /// 하룻밤이면 수만 행이라 PostgREST의 행 상한에 잘렸습니다. 잘린 자리가
-  /// 어디인지도 알 수 없어(order 없음) 밤새 잰 결과가 사실상 **측정 시작
-  /// 직후 몇 분**의 통계가 됐고, 그 통계로 만든 판정이 저장됐습니다.
+  /// **집계는 이제 행에 그대로 들어 있습니다.** 측정하는 쪽이 60초마다
+  /// 갱신하므로 여기서는 한 행만 읽으면 됩니다.
+  ///
+  /// 예전에는 1초마다 쌓은 로그를 DB 함수가 집계했고(009), 그 전에는 앱이
+  /// 로그를 전부 받아 와 셌습니다. 하룻밤이면 수만 행이라 PostgREST의 행
+  /// 상한에 잘렸고, 잘린 자리도 알 수 없어(order 없음) 밤새 잰 결과가 사실상
+  /// **측정 시작 직후 몇 분**의 통계가 됐습니다. 그 통계로 만든 판정이
+  /// 저장됐습니다. 로그를 없애면서 그 부류의 실패가 통째로 사라졌습니다.
+  ///
+  /// 방금 끝낸 측정이라면 이걸 부를 필요가 없습니다 — `NoiseTracker.finish()`가
+  /// 같은 값을 바로 돌려줍니다. 이 함수는 **지난 밤을 다시 볼 때** 씁니다.
   static Future<SleepNoiseStats> loadNoiseStats(String sleepRecordId) async {
-    final rows = await _client.rpc(
-      'sleep_noise_stats',
-      params: {'p_sleep_record_id': sleepRecordId},
-    );
+    final row = await _client
+        .from('sleep_records')
+        .select('average_db, max_db, sample_count')
+        .eq('id', sleepRecordId)
+        .maybeSingle();
 
-    if (rows is List && rows.isNotEmpty) {
-      return SleepNoiseStats.fromRow(rows.first as Map<String, dynamic>);
-    }
-    return SleepNoiseStats.empty;
+    if (row == null) return SleepNoiseStats.empty;
+    return SleepNoiseStats.fromRow(row);
   }
 
   static Future<List<SleepRecord>> loadRecent(String babyId,
@@ -126,7 +149,6 @@ class SleepRecordService {
   }
 
   static Future<void> delete(String id) async {
-    // sleep_noise_logs는 ON DELETE CASCADE라 함께 지워집니다.
     await _client.from('sleep_records').delete().eq('id', id);
   }
 

@@ -46,7 +46,7 @@ A: 초대 코드 발급 → B: 수락
 
 ## 현재 상태
 
-테이블 **20개** 중 앱이 실제로 읽고 쓰는 것은 **16개**입니다.
+테이블 **19개** 중 앱이 실제로 읽고 쓰는 것은 **16개**입니다.
 앱이 건드리지 않는 것은 `profiles`(트리거가 채움), `baby_invites`(RPC 경유),
 `skin_analyses`·`device_tokens`(각각 모델·FCM 미비) 4개입니다.
 
@@ -57,7 +57,6 @@ A: 초대 코드 발급 → B: 수락
 | `baby_invites` | 연동됨 | `lib/features/mypage/baby_member_service.dart` |
 | `growth_records` | 연동됨 | `lib/features/detail/growth/growth_record_service.dart` |
 | `sleep_records` | 연동됨 (소음 측정 시 생성 + 수동 입력) | `noise_tracker.dart`, `sleep_record_service.dart` |
-| `sleep_noise_logs` | 연동됨 (30건 배치) | `lib/core/services/noise_tracker.dart` |
 | `profiles` | 트리거가 자동 생성 (앱은 `list_baby_members`로 간접 조회) | — |
 | `feeding_records` | 연동됨 | `lib/features/detail/feeding_record_service.dart` |
 | `diaper_records` | 연동됨 | `lib/features/detail/diaper_record_service.dart` |
@@ -121,7 +120,7 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 
 - [x] `baby_members` / `baby_invites` 테이블과 RLS 정책
 - [x] 기존 아이를 소유자로 이관하는 backfill (없으면 만든 사람도 자기 아이를 못 봅니다)
-- [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 16개의 판정 근거입니다
+- [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 15개의 판정 근거입니다
 - [x] 초대 발급·입력 UI (`lib/features/mypage/co_parenting_page.dart`)
 - [x] 로컬 PostgreSQL에서 18개 시나리오 검증
 - [x] **운영 Supabase에 004 적용** (2026-08-11). 테이블 2개와 함수 3종이 모두
@@ -153,13 +152,13 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 - [x] 소유자가 자기 아이·기록을 계속 봄 / 초대 전 타인은 0건
 - [x] 소유자가 초대 코드 발급 / 구성원 아닌 사람은 차단
 - [x] 초대받는 쪽이 `baby_invites`를 훑을 수 없음 (0건)
-- [x] 코드 수락 후 아이와 **기록까지** 보임 (정책 16개가 함께 따라옴)
+- [x] 코드 수락 후 아이와 **기록까지** 보임 (정책 15개가 함께 따라옴)
 - [x] 코드 재사용·만료·존재하지 않는 코드 거부
 - [x] 구성원이 쓴 기록이 소유자에게 보임
 - [x] `baby_members`에 직접 insert 시도가 RLS로 차단됨
 - [x] 소유자는 탈퇴 불가(주인 없는 아이 방지) / 구성원은 탈퇴 가능
 - [x] 새 아이 생성 시 트리거가 소유자를 자동 등록
-- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 **20개**, 공유 함수 6/6)
+- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 **19개**, 공유 함수 6/6)
 
 검증 중 `SET LOCAL`을 트랜잭션 밖에서 써서 역할이 적용되지 않아 거짓 통과가 나온 적이
 있습니다. RLS를 확인할 때는 반드시 `BEGIN; SET LOCAL role ...; ... COMMIT;`으로 감싸야 합니다.
@@ -183,7 +182,7 @@ RPC를 인자 없이(`{}`) 부르면 함수가 있어도 404가 납니다. Postg
 - [x] 측정을 시작하면 `sleep_records`에 행이 하나 생기고 `sleep_type`이 고른 값(`night`/`nap`)과 맞는지
       → **확인됨.** 백그라운드 isolate에서 Supabase 초기화가 성공한다는 뜻이기도 합니다
       (실패하면 행 자체가 만들어지지 않습니다).
-- [ ] 30건마다 `sleep_noise_logs`에 배치가 쌓이는지
+- [ ] 측정 중 `sleep_records`의 `average_db`·`sample_count`가 60초마다 늘어나는지
 - [ ] 전송이 실패했을 때 버퍼를 유지하고 다음 배치에서 재시도하는지
 - [ ] 측정을 중지하면 `sleep_records.ended_at`이 채워지는지
 

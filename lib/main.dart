@@ -206,6 +206,32 @@ void onStart(ServiceInstance service) async {
     }
   }
 
+  /// 측정을 닫고 **집계를 UI에 실어 보냅니다.**
+  ///
+  /// 예전에는 id만 보내서, UI가 고정 2초를 기다렸다가 서버에서 통계를 다시
+  /// 읽었습니다. 느린 망에서는 그 안에 저장이 안 끝나 "저장하지 못했습니다"가
+  /// 떴습니다 — 조금만 더 기다리면 됐을 때가 있었습니다. 이제 숫자를 그대로
+  /// 넘기므로 UI는 기다릴 것도 다시 읽을 것도 없습니다.
+  ///
+  /// 함수로 뺀 이유는 **끄는 길이 둘이기 때문**입니다. 소음만 멈추는 길과
+  /// 서비스를 통째로 끄는 길. 예전에는 뒤쪽이 finish()만 부르고 이 알림을
+  /// 보내지 않아, '완전히 끄기'로 끝낸 밤은 결과 화면을 볼 수 없었습니다.
+  /// **Future를 돌려주는 이유**: 서비스를 끄는 길에서는 이걸 기다려야 합니다.
+  /// 기다리지 않고 `stopSelf()`를 부르면 마지막 저장이 끝나기 전에 isolate가
+  /// 죽어 밤 전체가 사라집니다.
+  Future<void> endNoiseSession() async {
+    // finish()가 id를 비우므로 그 전에 읽어 둡니다. UI가 '가장 최근 수면
+    // 기록'을 짐작하면, 그 사이에 손으로 적은 수면 기록이 있을 때 엉뚱한
+    // 통계를 보게 됩니다.
+    final recordId = noiseTracker.sleepRecordId;
+
+    final stats = await noiseTracker.finish();
+    service.invoke('noise_session_ended', {
+      'sleepRecordId': recordId,
+      if (stats != null) ...stats.toMap(),
+    });
+  }
+
   void stopNoiseMeasurement() {
     try {
       noiseSubscription?.cancel();
@@ -217,15 +243,7 @@ void onStart(ServiceInstance service) async {
     isNoiseMeasuring = false;
     updateNotification();
 
-    // 어느 기록에 저장했는지 UI에 알려줍니다. finish()가 id를 비우므로
-    // 그 전에 읽어 둡니다. UI가 '가장 최근 수면 기록'을 짐작하면, 그 사이에
-    // 손으로 적은 수면 기록이 있을 때 엉뚱한 통계를 보게 됩니다.
-    final recordId = noiseTracker.sleepRecordId;
-
-    // 버퍼에 남은 로그를 마저 저장하고 수면 기록의 종료 시각을 채웁니다.
-    noiseTracker.finish().whenComplete(() {
-      service.invoke('noise_session_ended', {'sleepRecordId': recordId});
-    });
+    endNoiseSession();
   }
 
   // --- UI 신호(이벤트) 리스너 설정 ---
@@ -300,7 +318,13 @@ void onStart(ServiceInstance service) async {
   service.on('stopService').listen((event) async {
     try {
       noiseSubscription?.cancel();
-      await noiseTracker.finish();
+
+      // **finish()만 부르면 안 됩니다.** 예전에는 그랬고, 그래서 '완전히
+      // 끄기'로 끝낸 밤은 UI가 끝난 줄 모른 채 결과 화면이 열리지 않았습니다.
+      // 집계가 메모리에 있는 지금은 더 나빠집니다 — 그 밤이 통째로
+      // 사라집니다.
+      await endNoiseSession();
+
       await audioPlayer.stop();
       await audioPlayer.dispose();
     } catch (e) {

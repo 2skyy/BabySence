@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// 두 표에 나눠 넣는 저장이 셋 있습니다. 어느 것이든 2단계가 실패했을 때
+/// 두 표에 나눠 넣는 저장이 둘 있습니다. 어느 것이든 2단계가 실패했을 때
 /// **통째로 실패했다고 말하면** 사용자가 다시 눌러 1단계가 중복됩니다.
 ///
 ///   체온   : temperature_records → temperature_symptoms
 ///   온보딩 : babies             → growth_records
-///   소음   : sleep_records      → sleep_noise_logs   (이미 처리됨)
+///
+/// 소음도 한때 2단계였습니다(sleep_records → sleep_noise_logs). 011에서 로그
+/// 표를 없애고 집계를 같은 행에 적으면서 **1단계가 됐습니다.**
 void main() {
   String read(String path) => File(path).readAsStringSync();
 

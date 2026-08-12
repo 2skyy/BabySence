@@ -32,7 +32,6 @@ erDiagram
     babies      ||--o{  skin_analyses       : "피부 분석"
     babies      ||--o{  assessments         : "판정 결과"
 
-    sleep_records       ||--o{ sleep_noise_logs      : "소음 로그"
     temperature_records ||--o{ temperature_symptoms  : "동반 증상"
     vaccines            ||--o{ vaccination_records   : "표준 일정"
 
@@ -90,14 +89,10 @@ erDiagram
         text sleep_type "night / nap"
         timestamptz started_at
         timestamptz ended_at "nullable, 측정 중이면 NULL"
+        numeric average_db "구간 평균 dB"
+        numeric max_db "구간 최대 dB"
+        int sample_count "1초 창 표본 수"
         timestamptz created_at
-    }
-
-    sleep_noise_logs {
-        bigint id PK
-        uuid sleep_record_id FK
-        timestamptz measured_at
-        numeric decibel
     }
 
     temperature_records {
@@ -242,19 +237,15 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 - CHECK: `ended_at IS NULL OR ended_at > started_at`
 - 수면 시간(`ended_at - started_at`)은 저장하지 않고 조회 시 계산합니다. 중복 저장 시 불일치 위험이 있기 때문입니다.
 
-### 3.7 `sleep_noise_logs` — 수면 중 소음 로그
+### 3.7 소음 집계 — `sleep_records`에 함께 둡니다
 
-`NoiseTracker`가 30건씩 모아 배치 전송하는 데이터입니다. 건수가 가장 많아 유일하게 `bigint` PK를 씁니다.
+한때 `sleep_noise_logs`라는 별도 표가 있었습니다. 1초마다 한 행씩 쌓아 하룻밤이면 28,800행이었고, 건수 때문에 유일하게 `bigint` PK를 쓰던 표입니다. **011에서 없앴습니다.**
 
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| `id` | bigint | PK, GENERATED ALWAYS AS IDENTITY | |
-| `sleep_record_id` | uuid | NOT NULL, FK → `sleep_records(id)` ON DELETE CASCADE | |
-| `measured_at` | timestamptz | NOT NULL | |
-| `decibel` | numeric(5,2) | NOT NULL, CHECK 0~200 | 보정·평활 처리된 최종 데시벨 |
+없앤 이유는 그 원본을 읽는 곳이 평균·최대를 구하는 집계 하나뿐이었기 때문입니다. 인덱스의 근거였던 "그래프 조회용" 화면은 만든 적이 없고, 그 원본을 서버까지 나르려고 붙은 장치들(30건 배치, 재시도, 600건 버퍼 상한, 중복 전송 방지, 2단계 RLS)이 이 기능의 결함 대부분을 만들었습니다.
 
-- INDEX `(sleep_record_id, measured_at)` — 그래프 조회용
-- **기존 `SleepNoiseLog` 엔티티의 `record_id`는 존재하지 않는 테이블을 가리키는 값이었고, 앱은 `_currentRecordId = 1`로 하드코딩되어 있었습니다.** 이제 실제 `sleep_records`를 참조하는 외래키가 됩니다.
+지금은 앱이 메모리에서 세고 60초마다 `sleep_records` 행의 세 컬럼을 갱신합니다. 판정 경로에서 네트워크가 통째로 빠지고, 밤새 망이 끊겨도 결과가 나옵니다.
+
+**파생 데이터 비저장 원칙과 충돌하지 않습니다.** 로그가 없으므로 이 세 값은 무엇으로도 다시 만들 수 없습니다 — 파생값이 아니라 원본입니다. 수면 시간(`ended_at - started_at`으로 계산 가능)과는 경우가 다릅니다.
 
 ### 3.8 `temperature_records` / `temperature_symptoms` — 체온 기록
 
@@ -358,7 +349,6 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 |---|---|
 | `profiles`, `babies`, `device_tokens` | `auth.uid()`가 본인 행만 |
 | 아이 기록 테이블 전체 | `babies`를 경유해 소유자 확인 |
-| `sleep_noise_logs` | `sleep_records` → `babies` 2단계 경유 |
 | `vaccines` | 로그인 사용자 전체 읽기 전용 |
 
 앱 코드에 `WHERE user_id = ?` 조건을 빠뜨려도 데이터가 새지 않습니다. **기존 Spring 서버는 로그인 시 토큰을 발급하지 않아 이런 격리가 아예 불가능했습니다.**
@@ -366,7 +356,7 @@ Supabase Auth의 `auth.users`는 이메일·비밀번호만 관리하므로, 회
 ## 5. 설계 결정과 근거
 
 **PK를 `uuid`로 통일한 이유**
-Supabase Auth의 `auth.users.id`가 uuid이고, 클라이언트가 서버 왕복 없이 ID를 미리 만들 수 있어 오프라인 입력 후 동기화에 유리합니다. 단 `sleep_noise_logs`는 초당 수 건씩 쌓여 건수가 압도적으로 많으므로 저장 공간과 인덱스 효율을 위해 `bigint`를 씁니다.
+Supabase Auth의 `auth.users.id`가 uuid이고, 클라이언트가 서버 왕복 없이 ID를 미리 만들 수 있어 오프라인 입력 후 동기화에 유리합니다. (011에서 `sleep_noise_logs`를 없애면서 `bigint` PK를 쓰던 표도 함께 사라져, 이제 모든 표가 uuid PK입니다.)
 
 **ENUM 타입 대신 `text` + CHECK 제약을 쓴 이유**
 선택지가 아직 확정되지 않았습니다. PostgreSQL의 `ALTER TYPE ... ADD VALUE`는 트랜잭션 안에서 실행되지 않아 마이그레이션이 까다로운 반면, CHECK 제약은 `ALTER TABLE`로 간단히 교체됩니다.
@@ -379,5 +369,5 @@ Supabase Auth의 `auth.users.id`가 uuid이고, 클라이언트가 서버 왕복
 
 ## 6. 이번 설계 범위 밖
 
-- **소음 분석 리포트**(`GET /api/sleep-records/{id}/analysis`) — 서버가 고정 문자열을 반환하는 더미입니다. `sleep_noise_logs`를 집계해 생성하는 방식이라 별도 테이블이 필요 없습니다.
+- **소음 분석 리포트**(`GET /api/sleep-records/{id}/analysis`) — 서버가 고정 문자열을 반환하는 더미였습니다. 집계가 `sleep_records` 행에 그대로 있어 별도 테이블도 서버 왕복도 필요 없습니다.
 - **홈 화면 '활동량'·'수면 품질'** — 산출 기준을 정의할 수 없어(활동량은 측정 수단 자체가 없습니다) 하드코딩된 카드를 제거했습니다.

@@ -14,7 +14,6 @@
 --
 -- drop table if exists public.temperature_symptoms  cascade;
 -- drop table if exists public.temperature_records   cascade;
--- drop table if exists public.sleep_noise_logs      cascade;
 -- drop table if exists public.sleep_records         cascade;
 -- drop table if exists public.diaper_records        cascade;
 -- drop table if exists public.feeding_records       cascade;
@@ -30,7 +29,6 @@
 -- drop table if exists public.profiles              cascade;
 -- drop function if exists public.handle_new_user()          cascade;
 -- drop function if exists public.owns_baby(uuid)            cascade;
--- drop function if exists public.owns_sleep_record(uuid)    cascade;
 -- drop function if exists public.owns_temp_record(uuid)     cascade;
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -195,29 +193,38 @@ create table public.sleep_records (
   sleep_type  text        not null check (sleep_type in ('night', 'nap')),
   started_at  timestamptz not null,
   ended_at    timestamptz,
+
+  -- 이 구간의 소음 집계. 앱이 메모리에서 세고 60초마다 갱신합니다.
+  --
+  -- 예전에는 1초마다 sleep_noise_logs에 한 행씩 쌓고(하룻밤 28,800행) 조회할
+  -- 때 집계했습니다. 그 로그를 읽는 곳은 이 세 값을 구하는 함수 하나뿐이었고,
+  -- 인덱스 근거였던 그래프 화면은 만든 적이 없습니다. 로그를 없애면서 그것을
+  -- 나르던 배치·재시도·버퍼 상한이 함께 사라졌습니다(011).
+  --
+  -- **파생값이 아닙니다.** 로그가 없으므로 이 값들은 무엇으로도 다시 만들 수
+  -- 없습니다. 수면 시간(started_at/ended_at으로 계산)과는 경우가 다릅니다.
+  average_db   numeric(5,2) not null default 0,
+  max_db       numeric(5,2) not null default 0,
+  sample_count integer      not null default 0,
+
   created_at  timestamptz not null default now(),
 
-  constraint sleep_period_valid check (ended_at is null or ended_at > started_at)
+  constraint sleep_period_valid check (ended_at is null or ended_at > started_at),
+  constraint sleep_records_noise_range_check check (
+    average_db   between 0 and 200 and
+    max_db       between 0 and 200 and
+    sample_count >= 0
+  )
 );
 
 comment on column public.sleep_records.sleep_type is 'night=밤잠, nap=낮잠';
 comment on column public.sleep_records.ended_at   is 'NULL이면 측정 진행 중. 수면 시간은 저장하지 않고 조회 시 계산';
+comment on column public.sleep_records.average_db is '구간 평균 데시벨(WHO LAeq 대응). 1초 창 최댓값들의 평균';
+comment on column public.sleep_records.max_db     is '구간 최대 데시벨(WHO LAmax 대응)';
+comment on column public.sleep_records.sample_count is '1초 창 표본 수. 판정 최소 표본 확인에 씁니다';
 
 
--- 2.7 수면 중 소음 로그 ------------------------------------------------------
--- 건수가 가장 많은 테이블입니다(NoiseTracker가 30건씩 배치 전송).
--- 저장 공간과 인덱스 효율을 위해 유일하게 bigint PK를 사용합니다.
-create table public.sleep_noise_logs (
-  id               bigint       primary key generated always as identity,
-  sleep_record_id  uuid         not null references public.sleep_records (id) on delete cascade,
-  measured_at      timestamptz  not null,
-  decibel          numeric(5,2) not null check (decibel between 0 and 200)
-);
-
-comment on column public.sleep_noise_logs.decibel is 'NoiseTracker에서 보정(-8dB) 및 이동평균 처리를 마친 최종 값';
-
-
--- 2.8 체온 기록 --------------------------------------------------------------
+-- 2.7 체온 기록 --------------------------------------------------------------
 create table public.temperature_records (
   id             uuid         primary key default gen_random_uuid(),
   baby_id        uuid         not null references public.babies (id) on delete cascade,
@@ -238,7 +245,7 @@ comment on table  public.temperature_symptoms         is 'UI의 ''없음''은 �
 comment on column public.temperature_symptoms.symptom is 'cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사';
 
 
--- 2.9 예방접종 ---------------------------------------------------------------
+-- 2.8 예방접종 ---------------------------------------------------------------
 -- 국가 표준 접종 일정. 모든 사용자가 공유하는 읽기 전용 참조 데이터입니다.
 create table public.vaccines (
   id                     smallint primary key generated always as identity,
@@ -269,7 +276,7 @@ comment on column public.vaccination_records.scheduled_on  is '예정일. FCM �
 comment on column public.vaccination_records.vaccinated_on is 'NULL이면 미접종(예정), 값이 있으면 완료';
 
 
--- 2.10 AI 분석 이력 ----------------------------------------------------------
+-- 2.9 AI 분석 이력 ----------------------------------------------------------
 -- 파이썬 AI 서버가 반환한 원본 라벨을 그대로 저장합니다.
 -- 한글 변환은 앱에서 처리해야 모델을 교체해도 과거 이력이 깨지지 않습니다.
 create table public.skin_analyses (
@@ -296,7 +303,7 @@ comment on column public.skin_analyses.unknown_note is
   '사진으로는 알 수 없는 것. 화면에서 접지 않고 늘 보여준다';
 
 
--- 2.11 판정 결과 -------------------------------------------------------------
+-- 2.10 판정 결과 -------------------------------------------------------------
 -- 규칙 엔진의 '정상 / 주의 / 상담 권장' 3단계 판정과 행동 가이드를 보관한다.
 --
 -- 일별 집계에 종속시키지 않고 아기를 직접 참조한다. 체온이나 소음처럼 입력
@@ -321,7 +328,7 @@ comment on column public.assessments.inputs       is '판정 시점의 입력값
 comment on column public.assessments.rule_version is '적용된 임계값 규칙의 버전. 판단 근거의 추적에 사용';
 
 
--- 2.12 FCM 토큰 --------------------------------------------------------------
+-- 2.11 FCM 토큰 --------------------------------------------------------------
 create table public.device_tokens (
   id          uuid        primary key default gen_random_uuid(),
   user_id     uuid        not null references auth.users (id) on delete cascade,
@@ -350,7 +357,6 @@ create index idx_assessments_baby_time    on public.assessments         (baby_id
 create index idx_device_tokens_user       on public.device_tokens       (user_id);
 
 -- 소음 그래프는 시간 오름차순으로 그리므로 desc를 붙이지 않습니다.
-create index idx_noise_record_time        on public.sleep_noise_logs    (sleep_record_id, measured_at);
 
 
 -- ============================================================================
@@ -401,21 +407,6 @@ as $$
   );
 $$;
 
-create or replace function public.owns_sleep_record(p_sleep_record_id uuid)
-returns boolean
-language sql
-security definer
-stable
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.sleep_records s
-    where s.id = p_sleep_record_id
-      and public.owns_baby(s.baby_id)
-  );
-$$;
-
 create or replace function public.owns_temp_record(p_temperature_record_id uuid)
 returns boolean
 language sql
@@ -440,7 +431,6 @@ alter table public.growth_records        enable row level security;
 alter table public.feeding_records       enable row level security;
 alter table public.diaper_records        enable row level security;
 alter table public.sleep_records         enable row level security;
-alter table public.sleep_noise_logs      enable row level security;
 alter table public.temperature_records   enable row level security;
 alter table public.temperature_symptoms  enable row level security;
 alter table public.vaccines              enable row level security;
@@ -529,11 +519,6 @@ create policy assessments_own on public.assessments
 
 
 -- 4.4 2단계 경유 -------------------------------------------------------------
-create policy noise_own on public.sleep_noise_logs
-  for all to authenticated
-  using (public.owns_sleep_record(sleep_record_id))
-  with check (public.owns_sleep_record(sleep_record_id));
-
 create policy temperature_symptoms_own on public.temperature_symptoms
   for all to authenticated
   using (public.owns_temp_record(temperature_record_id))

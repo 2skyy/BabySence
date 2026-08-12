@@ -96,14 +96,34 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       setState(() => _isNoiseMeasuring = measuring);
     });
 
-    // 방금 끝난 측정이 어느 수면 기록에 저장됐는지 받아 둡니다.
+    // 방금 끝난 측정의 **집계 자체**를 받습니다.
+    //
+    // 예전에는 id만 받고 화면이 고정 2초를 기다렸다가 서버에서 다시 읽었는데,
+    // 느린 망에서는 그 안에 저장이 안 끝나 "저장하지 못했습니다"가 떴습니다.
+    // 실제로는 조금만 더 기다리면 됐을 때가 있었습니다. 지금은 백그라운드가
+    // 메모리에서 집계하므로 숫자를 그대로 넘겨받습니다 — 기다릴 것도 다시
+    // 읽을 것도 없고, 밤새 망이 끊겨 있었어도 결과는 나옵니다.
     _sessionSubscription = service.on('noise_session_ended').listen((event) {
       _endedSleepRecordId = event?['sleepRecordId'] as String?;
+      _endedStats = event != null && event['sampleCount'] != null
+          ? SleepNoiseStats.fromPayload(event)
+          : null;
+      _sessionEnded?.complete();
     });
   }
 
   /// 방금 끝난 측정의 sleep_records id. 백그라운드가 알려줍니다.
   String? _endedSleepRecordId;
+
+  /// 방금 끝난 측정의 집계. 표본이 없으면 null입니다.
+  SleepNoiseStats? _endedStats;
+
+  /// 백그라운드가 끝났다고 알려 주기를 기다리는 자리.
+  ///
+  /// 중지 신호를 보낸 뒤 마지막 저장이 끝나기까지 잠깐 걸립니다. 고정 시간을
+  /// 자는 대신 **실제 신호**를 기다립니다. 신호가 영영 안 오는 경우를 대비해
+  /// 위쪽에서 시간 제한을 겁니다.
+  Completer<void>? _sessionEnded;
 
   // 🚨 [위험 단계 판단 로직]
   Map<String, dynamic> _getDangerLevel(double db) {
@@ -160,9 +180,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
   Future<void> _showResult() async {
     setState(() => _loadingResult = true);
     try {
-      // 중지 직후에는 남은 로그를 저장하는 중일 수 있습니다. 잠시 기다린 뒤
-      // 조회합니다. 그래도 부족하면 아래에서 표본 부족으로 안내합니다.
-      await Future.delayed(const Duration(seconds: 2));
+      // 백그라운드가 끝났다고 알려 줄 때까지 기다립니다. 고정 2초를 자던
+      // 자리입니다 — 느린 망에서는 모자랐고, 빠를 때는 그냥 2초를 버렸습니다.
+      await (_sessionEnded?.future ?? Future<void>.value())
+          .timeout(const Duration(seconds: 15), onTimeout: () {});
 
       final baby = await BabyService.loadCurrent();
       if (baby == null) {
@@ -184,7 +205,11 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         return;
       }
 
-      final stats = await SleepRecordService.loadNoiseStats(recordId);
+      // 집계는 백그라운드가 실어 보낸 값을 씁니다. 못 받았으면(신호를
+      // 놓쳤거나 화면이 늦게 붙었으면) 행에서 읽습니다 — 60초마다 찍어 두므로
+      // 거기에도 들어 있습니다.
+      final stats =
+          _endedStats ?? await SleepRecordService.loadNoiseStats(recordId);
       final assessment = NoiseRules.assess(
         averageDb: stats.averageDb,
         maxDb: stats.maxDb,
@@ -194,8 +219,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       if (assessment == null) {
         // 표본이 없는 것과 적은 것은 원인이 다릅니다. 한 건도 없으면 측정이
         // 짧았던 것이 아니라 저장이 안 된 것입니다.
+        // 이제 저장 실패로 0건이 되는 일은 없습니다. 집계가 메모리에서
+        // 나오므로 0건은 정말 소리를 못 받은 것입니다(마이크 권한·스트림).
         _notify(stats.sampleCount == 0
-            ? '측정값이 하나도 저장되지 않았습니다. 연결을 확인하고 다시 측정해 주세요.'
+            ? '소리를 하나도 받지 못했습니다. 마이크 권한을 확인하고 다시 측정해 주세요.'
             : '측정 시간이 짧아 판정하지 않았습니다. 조금 더 길게 측정해 주세요.');
         return;
       }
@@ -242,8 +269,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       return;
     }
 
-    // 지난 측정의 id가 남아 있으면 이번 결과가 그쪽 통계를 보게 됩니다.
+    // 지난 측정의 값이 남아 있으면 이번 결과가 그쪽을 보게 됩니다.
     _endedSleepRecordId = null;
+    _endedStats = null;
+    _sessionEnded = Completer<void>();
 
     setState(() => _starting = true);
     final started = await _startMeasuring();
