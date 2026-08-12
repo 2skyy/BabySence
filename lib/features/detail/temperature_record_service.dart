@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// 동반 증상. enum 이름이 temperature_symptoms.symptom의 CHECK 제약
 /// (`cough` / `runny_nose` / `rash` / `vomit` / `diarrhea`)과 일치해야 합니다.
 ///
@@ -115,7 +117,7 @@ class TemperatureRecordService {
     return {
       'baby_id': babyId,
       'temperature_c': temperatureC,
-      'measured_at': measuredAt.toIso8601String(),
+      'measured_at': toDbTime(measuredAt),
     };
   }
 

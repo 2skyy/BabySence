@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/services/db_time.dart';
+
 /// 약을 먹인 이유. enum 이름이 medication_records.reason의 CHECK 값과
 /// 그대로 일치해야 합니다.
 ///
@@ -203,7 +205,7 @@ class CareRecordService {
       'name': name.trim(),
       'dose': trimmedDose == null || trimmedDose.isEmpty ? null : trimmedDose,
       'reason': reason.dbValue,
-      'taken_at': takenAt.toIso8601String(),
+      'taken_at': toDbTime(takenAt),
     };
   }
 
@@ -258,7 +260,7 @@ class CareRecordService {
       'hospital_name': clean(hospitalName),
       'reason': reason.dbValue,
       'note': clean(note),
-      'visited_at': visitedAt.toIso8601String(),
+      'visited_at': toDbTime(visitedAt),
     };
   }
 

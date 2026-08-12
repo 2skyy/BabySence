@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// 수유 방식. enum 이름이 feeding_records.feeding_type의 CHECK 제약
 /// (`formula` / `breast` / `solid`)과 그대로 일치해야 합니다.
 enum FeedingType {
@@ -85,7 +87,7 @@ class FeedingRecordService {
       'feeding_type': type.name,
       // 모유(직수)는 수량을 받지 않으므로 값이 들어와도 무시합니다.
       'amount_ml': type.allowsAmount ? amountMl : null,
-      'fed_at': fedAt.toIso8601String(),
+      'fed_at': toDbTime(fedAt),
     };
   }
 

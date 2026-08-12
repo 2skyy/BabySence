@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 import 'baby_service.dart';
 import 'sleep_type.dart';
 
@@ -56,7 +58,7 @@ class NoiseTracker {
     final bounded = decibel.clamp(0.0, 200.0);
 
     _buffer.add({
-      'measured_at': DateTime.now().toIso8601String(),
+      'measured_at': toDbTime(DateTime.now()),
       'decibel': double.parse(bounded.toStringAsFixed(2)),
     });
 
@@ -98,7 +100,7 @@ class NoiseTracker {
     try {
       await _client
           .from('sleep_records')
-          .update({'ended_at': DateTime.now().toIso8601String()})
+          .update({'ended_at': toDbTime(DateTime.now())})
           .eq('id', recordId);
     } catch (e) {
       debugPrint('수면 기록 종료 시각 저장 실패: $e');
@@ -148,7 +150,7 @@ class NoiseTracker {
           'baby_id': baby.id,
           // enum 이름이 곧 DB가 받는 값입니다(night / nap).
           'sleep_type': _sleepType.name,
-          'started_at': DateTime.now().toIso8601String(),
+          'started_at': toDbTime(DateTime.now()),
         })
         .select()
         .single();

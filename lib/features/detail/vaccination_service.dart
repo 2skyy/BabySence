@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// vaccines 테이블의 한 행. 모든 사용자가 공유하는 읽기 전용 참조 데이터입니다.
 class Vaccine {
   final int id;
@@ -125,8 +127,8 @@ class VaccinationService {
       {
         'baby_id': babyId,
         'vaccine_id': vaccineId,
-        'scheduled_on': scheduledOn?.toIso8601String().split('T').first,
-        'vaccinated_on': vaccinatedOn.toIso8601String().split('T').first,
+        'scheduled_on': scheduledOn == null ? null : toDbDate(scheduledOn),
+        'vaccinated_on': toDbDate(vaccinatedOn),
       },
       onConflict: 'baby_id,vaccine_id',
     );

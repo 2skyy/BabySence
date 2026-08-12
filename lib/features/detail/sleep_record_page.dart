@@ -119,6 +119,13 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
   Future<void> handleAnalyze() async {
     final period = _sleepPeriod();
 
+    // 같은 시각이면 자정 넘김이 아니라 잘못 고른 것입니다. 그대로 두면
+    // 서비스가 하루를 더해 24시간짜리 수면으로 저장합니다.
+    if (SleepRecordService.isZeroLength(period.start, period.end)) {
+      _showMessage('취침과 기상 시각이 같습니다. 기상 시각을 확인해 주세요.');
+      return;
+    }
+
     setState(() => isSaving = true);
     try {
       // 이력을 불러올 때 이미 조회했으므로 재사용합니다.

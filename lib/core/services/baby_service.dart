@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 import 'growth_calculator.dart';
 
 /// babies 테이블의 한 행. 모든 기록 테이블이 이 id(baby_id)를 참조합니다.
@@ -60,7 +62,7 @@ class BabyService {
           'user_id': userId,
           'name': name,
           'sex': sex.name,
-          'birth_date': birthDate.toIso8601String().split('T').first,
+          'birth_date': toDbDate(birthDate),
         })
         .select()
         .single();

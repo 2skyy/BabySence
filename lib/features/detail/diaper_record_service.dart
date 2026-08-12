@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// 배변 종류. enum 이름이 diaper_records.diaper_type의 CHECK 제약
 /// (`urine` / `stool` / `mixed`)과 그대로 일치해야 합니다.
 enum DiaperType {
@@ -100,7 +102,7 @@ class DiaperRecordService {
       // 소변이면 반드시 NULL, 그 외에는 반드시 값이 있어야 합니다(CHECK 제약).
       'stool_state':
           type.needsStoolState ? (stoolState ?? StoolState.golden).name : null,
-      'recorded_at': recordedAt.toIso8601String(),
+      'recorded_at': toDbTime(recordedAt),
     };
   }
 

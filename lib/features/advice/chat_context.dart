@@ -34,7 +34,15 @@ class ChatContext {
     required AssessmentDomain domain,
     Assessment? assessment,
   }) async {
-    final baby = await BabyService.loadCurrent();
+    // 아이 조회가 실패해도 대화는 되어야 합니다. 세션이 만료됐거나 네트워크가
+    // 끊기면 여기서 예외가 납니다. 감싸지 않으면 그 예외가 화면 밖으로
+    // 터져 나가 대화 화면이 로딩 상태로 굳습니다.
+    final Baby? baby;
+    try {
+      baby = await BabyService.loadCurrent();
+    } catch (_) {
+      return '';
+    }
     if (baby == null) return '';
 
     final lines = <String>[];

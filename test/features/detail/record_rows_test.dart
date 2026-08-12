@@ -122,7 +122,8 @@ void main() {
 
       expect(row['sleep_type'], 'night');
 
-      final saved = DateTime.parse(row['ended_at'] as String);
+      // 저장은 UTC로 나가고 읽을 때 toLocal()로 되돌립니다(db_time.dart).
+      final saved = DateTime.parse(row['ended_at'] as String).toLocal();
       expect(saved, DateTime(2026, 7, 31, 6, 30));
       expect(saved.isAfter(start), isTrue);
     });
@@ -139,14 +140,17 @@ void main() {
       );
 
       expect(row['sleep_type'], 'nap');
-      expect(DateTime.parse(row['ended_at'] as String), end);
+      expect(DateTime.parse(row['ended_at'] as String).toLocal(), end);
     });
 
-    test('취침과 기상이 같은 시각이면 하루를 더한다', () {
-      // ended_at > started_at을 만족해야 하므로 같아도 밀어줍니다.
+    test('취침과 기상이 같으면 저장 전에 걸러낸다', () {
+      // 예전에는 여기서도 하루를 더해 24시간짜리 수면으로 저장했습니다.
+      // 같은 화면의 미리보기는 '0시간 0분'을 보여주고 있었으니, 사용자가
+      // 본 값과 저장된 값이 정반대였습니다.
       final at = DateTime(2026, 7, 30, 21, 0);
-      expect(SleepRecordService.resolveEnd(at, at),
-          DateTime(2026, 7, 31, 21, 0));
+      expect(SleepRecordService.isZeroLength(at, at), isTrue);
+      expect(SleepRecordService.isZeroLength(at, at.add(const Duration(minutes: 1))),
+          isFalse);
     });
   });
 }

@@ -57,10 +57,19 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _loadContext() async {
     // 기록을 못 읽어도 대화는 됩니다. 맥락 없이 일반적인 답이 올 뿐입니다.
-    final context = await ChatContext.build(
-      domain: widget.domain,
-      assessment: widget.assessment,
-    );
+    //
+    // ChatContext가 안에서 예외를 삼키지만, 여기서도 한 번 더 막습니다.
+    // 이 함수는 initState에서 await 없이 부르므로, 예외가 새어 나가면
+    // 잡아 줄 곳이 없고 화면은 로딩 상태로 굳습니다.
+    String context = '';
+    try {
+      context = await ChatContext.build(
+        domain: widget.domain,
+        assessment: widget.assessment,
+      );
+    } catch (e) {
+      debugPrint('상담 맥락을 만들지 못했습니다: $e');
+    }
 
     if (!mounted) return;
     setState(() {

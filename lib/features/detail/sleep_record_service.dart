@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 import '../../core/services/sleep_type.dart';
 
 /// sleep_records 테이블 접근 (수동 입력용).
@@ -121,6 +123,14 @@ class SleepRecordService {
   /// DB의 sleep_period_valid 제약이 `ended_at > started_at`을 요구합니다.
   /// 밤잠(오후 8시 취침 → 오전 6시 기상)은 자정을 넘기는 것이 정상이므로
   /// 기상이 취침보다 이르면 하루를 더합니다.
+  /// 취침과 기상이 같은 시각이면 자정 넘김이 아닙니다.
+  ///
+  /// 예전에는 여기서도 하루를 더해 **24시간짜리 수면**으로 저장했습니다.
+  /// 같은 화면의 미리보기는 '0시간 0분'을 보여주고 있었으니, 사용자가 본
+  /// 값과 저장된 값이 정반대였습니다.
+  static bool isZeroLength(DateTime startedAt, DateTime endedAt) =>
+      startedAt.isAtSameMomentAs(endedAt);
+
   static DateTime resolveEnd(DateTime startedAt, DateTime endedAt) {
     return endedAt.isAfter(startedAt)
         ? endedAt
@@ -137,8 +147,8 @@ class SleepRecordService {
     return {
       'baby_id': babyId,
       'sleep_type': type.name,
-      'started_at': startedAt.toIso8601String(),
-      'ended_at': resolveEnd(startedAt, endedAt).toIso8601String(),
+      'started_at': toDbTime(startedAt),
+      'ended_at': toDbTime(resolveEnd(startedAt, endedAt)),
     };
   }
 
