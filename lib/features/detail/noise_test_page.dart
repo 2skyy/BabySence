@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_colors.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 

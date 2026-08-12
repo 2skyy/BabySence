@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../advice/ask_button.dart';
+import 'assessment/assessment.dart';
+
 import '../../core/widgets/common_app_bar.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -161,6 +164,11 @@ class _VaccinationPageState extends State<VaccinationPage> {
           _buildNextVaccinationCard(upcoming.isEmpty ? null : upcoming.first),
           const SizedBox(height: 24),
           _buildReadinessCard(),
+          const SizedBox(height: 12),
+          const AskButton(
+            domain: AssessmentDomain.overall,
+            label: '예방접종에 대해 물어보기',
+          ),
           const SizedBox(height: 24),
           _buildProgressCard(done.length, _schedule.length),
           const SizedBox(height: 24),

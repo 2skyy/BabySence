@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../advice/ask_button.dart';
+import '../assessment/assessment.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/baby_service.dart';
 import '../../../core/widgets/common_app_bar.dart';
@@ -194,6 +197,9 @@ class _CareRecordPageState extends State<CareRecordPage> {
               ),
               const SizedBox(height: 28),
               RecordSaveButton(onPressed: _save, saving: _saving),
+              const SizedBox(height: 12),
+              AskButton(domain: AssessmentDomain.overall,
+                label: '약 · 병원에 대해 물어보기'),
               if (repeats.isNotEmpty) ...[
                 const SizedBox(height: 28),
                 _buildRepeatCard(repeats),

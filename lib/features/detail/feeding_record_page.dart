@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../advice/ask_button.dart';
+import 'assessment/assessment.dart';
+
 import 'widgets/record_save_button.dart';
 
 import '../../core/widgets/common_app_bar.dart';
@@ -259,6 +262,8 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 onPressed: handleAnalyzeButtonTap,
                 saving: isSaving,
               ),
+              const SizedBox(height: 12),
+              AskButton(domain: AssessmentDomain.feeding),
               const SizedBox(height: 36),
               RecordHistorySection(
                 title: '최근 수유 기록',

@@ -6,7 +6,7 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/chat_page.dart';
+import '../advice/ask_button.dart';
 import 'assessment/assessment.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
@@ -171,31 +171,6 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// 방금 저장한 체온의 판정과 행동 가이드.
-  /// 판정 결과에서 바로 이어 물을 수 있게 합니다.
-  ///
-  /// 판정과 개월 수를 맥락으로 함께 넘겨, 답변이 그 판정을 근거로 설명하도록
-  /// 합니다. 맥락 없이 물으면 일반론만 돌아옵니다.
-  Widget _buildAskButton(Assessment assessment) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            // 아이 정보와 최근 기록은 ChatContext가 직접 모읍니다.
-            builder: (_) => ChatPage(
-              domain: AssessmentDomain.temperature,
-              assessment: assessment,
-            ),
-          ),
-        ),
-        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-        label: const Text('이 결과에 대해 물어보기'),
-      ),
-    );
   }
 
   Widget _buildAssessmentCard(Assessment assessment) {
@@ -368,7 +343,11 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
                 const SizedBox(height: 24),
                 _buildAssessmentCard(_lastAssessment!),
                 const SizedBox(height: 12),
-                _buildAskButton(_lastAssessment!),
+                AskButton(
+                  domain: AssessmentDomain.temperature,
+                  assessment: _lastAssessment,
+                  label: '이 결과에 대해 물어보기',
+                ),
                 const SizedBox(height: 12),
                 // 판정을 보여주는 자리에는 반드시 함께 둡니다.
                 const MedicalDisclaimer(),

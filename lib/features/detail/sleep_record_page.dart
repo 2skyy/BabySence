@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../advice/ask_button.dart';
+import 'assessment/assessment.dart';
+
 import 'widgets/record_save_button.dart';
 
 import '../../core/widgets/common_app_bar.dart';
@@ -265,6 +268,8 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
                 onPressed: handleAnalyze,
                 saving: isSaving,
               ),
+              const SizedBox(height: 12),
+              AskButton(domain: AssessmentDomain.sleep),
               const SizedBox(height: 36),
               RecordHistorySection(
                 title: '최근 수면 기록',

@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+
+import '../advice/ask_button.dart';
+import 'assessment/assessment.dart';
 import '../../core/constants/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_selector/file_selector.dart' as fs;
@@ -191,6 +194,8 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             const SizedBox(height: 12),
             // AI가 낸 결과 옆에는 반드시 둡니다.
             const MedicalDisclaimer(),
+            const SizedBox(height: 12),
+            const AskButton(domain: AssessmentDomain.skin),
             const SizedBox(height: 18),
 
             // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!

@@ -2,6 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../advice/ask_button.dart';
+import 'assessment/assessment.dart';
+
 import '../../core/widgets/common_app_bar.dart';
 import 'widgets/record_save_button.dart';
 import 'package:image_picker/image_picker.dart';
@@ -166,6 +169,11 @@ class _BabyFoodPageState extends State<BabyFoodPage> {
                   // 이 화면은 저장이 아니라 분석 요청이라 표시가 다릅니다.
                   saving: false,
                   label: '분석하기',
+                ),
+                const SizedBox(height: 12),
+                const AskButton(
+                  domain: AssessmentDomain.feeding,
+                  label: '이유식에 대해 물어보기',
                 ),
               ],
             ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../advice/ask_button.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -209,6 +211,12 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           if (_lastAssessment != null) ...[
             const SizedBox(height: AppSpacing.lg),
             _buildAssessmentCard(_lastAssessment!),
+            const SizedBox(height: AppSpacing.md),
+            AskButton(
+              domain: AssessmentDomain.growth,
+              assessment: _lastAssessment,
+              label: '이 결과에 대해 물어보기',
+            ),
             const SizedBox(height: AppSpacing.md),
             // 판정을 보여주는 자리에는 반드시 함께 둡니다.
             const MedicalDisclaimer(),

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../advice/chat_home_page.dart';
 import '../analysis/analysis_page.dart';
 import '../community/community_page.dart';
 import '../home/home_page.dart';
 import '../records/records_page.dart';
 import 'more_page.dart';
 
-/// 하단 탭 6개를 담는 껍데기.
+/// 하단 탭 5개를 담는 껍데기.
 ///
 /// 각 탭은 자기 Scaffold(앱바·FAB)를 그대로 들고 있고, 이 화면은 하단 바만
 /// 소유합니다. [IndexedStack]을 쓰므로 탭을 오갈 때 화면 상태가 유지됩니다.
@@ -26,9 +25,6 @@ class _MainShellState extends State<MainShell> {
     _Tab(Icons.home_outlined, Icons.home, '홈'),
     _Tab(Icons.edit_note_outlined, Icons.edit_note, '기록'),
     _Tab(Icons.bar_chart_outlined, Icons.bar_chart, '분석'),
-    // 새벽에 아이가 아프면 기록할 겨를 없이 먼저 묻고 싶습니다.
-    // 기록 화면을 거치지 않고 바로 닿는 자리에 둡니다.
-    _Tab(Icons.chat_bubble_outline, Icons.chat_bubble, '상담'),
     _Tab(Icons.forum_outlined, Icons.forum, '커뮤니티'),
     _Tab(Icons.menu, Icons.menu, '전체'),
   ];
@@ -42,7 +38,6 @@ class _MainShellState extends State<MainShell> {
           HomePage(),
           RecordsPage(),
           AnalysisPage(),
-          ChatHomePage(),
           CommunityPage(),
           MorePage(),
         ],
