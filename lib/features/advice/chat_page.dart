@@ -39,6 +39,10 @@ class _ChatPageState extends State<ChatPage> {
   String? _context;
   bool _loadingContext = true;
 
+  /// 맥락을 **못 만들었는지**. 아이가 없는 것과 다릅니다 — 못 만든 것을
+  /// '미등록'으로 안내하면, 등록한 사람에게 등록하라고 말하게 됩니다.
+  bool _contextFailed = false;
+
   bool _waiting = false;
   String? _error;
 
@@ -62,18 +66,21 @@ class _ChatPageState extends State<ChatPage> {
     // 이 함수는 initState에서 await 없이 부르므로, 예외가 새어 나가면
     // 잡아 줄 곳이 없고 화면은 로딩 상태로 굳습니다.
     String context = '';
+    var failed = false;
     try {
       context = await ChatContext.build(
         domain: widget.domain,
         assessment: widget.assessment,
       );
     } catch (e) {
+      failed = true;
       debugPrint('상담 맥락을 만들지 못했습니다: $e');
     }
 
     if (!mounted) return;
     setState(() {
       _context = context;
+      _contextFailed = failed;
       _loadingContext = false;
     });
   }
@@ -180,9 +187,11 @@ class _ChatPageState extends State<ChatPage> {
         Text(
           _loadingContext
               ? '아이 기록을 불러오는 중이에요…'
-              : _context == null || _context!.isEmpty
-                  ? '아이 정보를 등록하면 기록을 함께 보고 답해 드려요.'
-                  : '아이의 개월 수와 최근 기록을 함께 보고 답해 드려요.',
+              : _contextFailed
+                  ? '기록을 불러오지 못해 일반적인 내용으로 답해 드려요.'
+                  : _context == null || _context!.isEmpty
+                      ? '아이 정보를 등록하면 기록을 함께 보고 답해 드려요.'
+                      : '아이의 개월 수와 최근 기록을 함께 보고 답해 드려요.',
           style: TextStyle(
             fontSize: 14,
             height: 1.5,
@@ -205,7 +214,9 @@ class _ChatPageState extends State<ChatPage> {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: _waiting ? null : () => _send(question),
+        // 맥락을 아직 모으는 중이면 잠급니다. 지금 보내면 첫 질문만 맥락
+        // 없이 나가는데, 대화의 출발점이라 그게 가장 아쉬운 자리입니다.
+        onTap: (_waiting || _loadingContext) ? null : () => _send(question),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

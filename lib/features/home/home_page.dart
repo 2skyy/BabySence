@@ -60,7 +60,18 @@ class _HomePageState extends State<HomePage> {
   /// 하필 이 기능이 필요한 시간대입니다.
   DateTime? _lastFedAt;
 
+  /// 오늘 기록을 **못 읽었는지**. 기록이 없는 것과 다릅니다.
+  ///
+  /// 예전에는 예외를 debugPrint만 하고 넘어가, 타일에 '기록 없음'이 떴습니다.
+  /// 기록이 정말 없을 때와 글자가 같아 구별할 수 없었습니다.
+  bool _todayFailed = false;
+
   Future<void> _loadBaby() async {
+    setState(() {
+      _loadingToday = true;
+      _todayFailed = false;
+    });
+
     try {
       final baby = await BabyService.loadCurrent();
       if (!mounted) return;
@@ -69,6 +80,7 @@ class _HomePageState extends State<HomePage> {
       if (baby != null) await _loadToday(baby.id);
     } catch (e) {
       // 이름을 못 불러와도 홈은 보여줍니다. 기록 기능은 각 화면에서 다시 조회합니다.
+      if (mounted) setState(() => _todayFailed = true);
       debugPrint('아이 정보 조회 실패: $e');
     } finally {
       if (mounted) setState(() => _loadingToday = false);
@@ -100,14 +112,17 @@ class _HomePageState extends State<HomePage> {
         );
       });
     } catch (e) {
-      // 요약을 못 읽어도 홈의 다른 기능은 그대로 씁니다.
+      // 요약을 못 읽어도 홈의 다른 기능은 그대로 씁니다. 다만 못 읽었다는
+      // 사실은 감추지 않습니다.
+      if (mounted) setState(() => _todayFailed = true);
       debugPrint('오늘 기록 조회 실패: $e');
     }
   }
 
-  /// 타일 부제목. 아직 불러오는 중이면 비우고, 기록이 없으면 그렇다고 적습니다.
+  /// 타일 부제목. 불러오는 중·못 읽음·기록 없음을 각각 다르게 적습니다.
   String _tileSubtitle(String? value) {
     if (_loadingToday) return '불러오는 중…';
+    if (_todayFailed) return '불러오지 못함';
     return value ?? '기록 없음';
   }
 
@@ -178,9 +193,35 @@ class _HomePageState extends State<HomePage> {
                   ? null
                   : ageInMonthsAt(_baby!.birthDate, DateTime.now()),
               loading: _loadingToday,
+              failed: _todayFailed,
             ),
             const SizedBox(height: 32),
             _buildSectionHeader('오늘의 기록'),
+            // 못 읽었을 때는 그렇다고 적고 다시 시도할 길을 둡니다. 아래
+            // 타일은 '불러오지 못함'을 달고 있어 눌러도 되지만, 여기서
+            // 한 번에 다시 읽는 편이 빠릅니다.
+            if (_todayFailed) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '오늘 기록을 불러오지 못했어요.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadBaby,
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
 
             GridView.count(

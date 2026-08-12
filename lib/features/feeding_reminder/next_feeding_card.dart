@@ -25,11 +25,20 @@ class NextFeedingCard extends StatefulWidget {
   /// 기록이 아직 오는 중인지.
   final bool loading;
 
+  /// 기록을 **못 읽었는지**. 값이 없는 것과 다릅니다.
+  ///
+  /// 예전에는 홈이 조회에 실패하면 [lastFedAt]이 그냥 null로 왔습니다. 그러면
+  /// 이 위젯이 "수유를 기록해 주세요"를 띄우고 **예약된 알림까지 취소**했습니다
+  /// (reschedule이 cancel부터 하고 nextAt이 null이라 그대로 끝납니다).
+  /// 통신 없는 곳에서 앱을 한 번 열면 그날 알림을 놓쳤습니다.
+  final bool failed;
+
   const NextFeedingCard({
     super.key,
     required this.lastFedAt,
     this.ageInMonths,
     this.loading = false,
+    this.failed = false,
   });
 
   @override
@@ -58,9 +67,10 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
     super.didUpdateWidget(old);
     // 수유를 기록하고 돌아오면 마지막 시각이 바뀝니다. 알림도 다시 잡습니다.
     // 설정은 그대로이므로 저장까지 하지는 않습니다.
-    if (old.lastFedAt != widget.lastFedAt) {
-      FeedingReminderService.reschedule(_schedule(_settings),
-          notify: _settings.notify);
+    if (old.lastFedAt != widget.lastFedAt ||
+        old.loading != widget.loading ||
+        old.failed != widget.failed) {
+      _rescheduleIfKnown(_settings);
     }
   }
 
@@ -77,7 +87,15 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
       _settings = settings;
       _loadingSettings = false;
     });
-    await FeedingReminderService.reschedule(_schedule(settings),
+    _rescheduleIfKnown(settings);
+  }
+
+  /// 기록을 제대로 읽었을 때만 알림을 다시 잡습니다.
+  ///
+  /// 모르는 상태(로딩·실패)에서 부르면 예약을 지우기만 합니다.
+  void _rescheduleIfKnown(FeedingReminderSettings settings) {
+    if (widget.loading || widget.failed) return;
+    FeedingReminderService.reschedule(_schedule(settings),
         notify: settings.notify);
   }
 
@@ -87,8 +105,7 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
   Future<void> _apply(FeedingReminderSettings settings) async {
     if (mounted) setState(() => _settings = settings);
     await settings.save();
-    await FeedingReminderService.reschedule(_schedule(settings),
-        notify: settings.notify);
+    _rescheduleIfKnown(settings);
   }
 
   @override
@@ -156,6 +173,17 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
   List<Widget> _buildBody() {
     if (widget.loading || _loadingSettings) {
       return [_headline('불러오는 중이에요'), const SizedBox(height: 8), _detail('')];
+    }
+
+    // 못 읽은 것을 "기록해 주세요"로 바꿔 말하지 않습니다. 예약도 건드리지
+    // 않았으므로 이미 잡힌 알림은 그대로 옵니다.
+    if (widget.failed) {
+      return [
+        _headline('불러오지 못했어요'),
+        const SizedBox(height: 8),
+        _detail('기록을 읽지 못해 다음 시각을 셀 수 없어요. '
+            '이미 예약된 알림은 그대로 옵니다.'),
+      ];
     }
 
     // 아직 간격을 정하지 않음 — 앱이 대신 정하지 않습니다.

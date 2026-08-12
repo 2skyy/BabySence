@@ -34,6 +34,20 @@ class ChatContext {
     required AssessmentDomain domain,
     Assessment? assessment,
   }) async {
+    // 판정은 **화면이 이미 들고 있는 값**이라 조회와 무관합니다. 먼저 담아
+    // 두면, 아이 조회가 실패해도 이것만은 살아남습니다. 예전에는 실패 시
+    // 곧바로 빈 문자열을 돌려주어 판정까지 함께 버렸습니다 — 판정에서
+    // 넘어온 대화인데 그 판정을 모른 채 답하게 됐습니다.
+    final lines = <String>[];
+    void addAssessment() {
+      if (assessment == null) return;
+      lines.add(
+        '- 앱 판정: ${assessment.domain.label} ${assessment.levelLabel}'
+        ' (기준 ${assessment.ruleVersion})',
+      );
+      lines.add('- 판정 안내: ${assessment.guideText}');
+    }
+
     // 아이 조회가 실패해도 대화는 되어야 합니다. 세션이 만료됐거나 네트워크가
     // 끊기면 여기서 예외가 납니다. 감싸지 않으면 그 예외가 화면 밖으로
     // 터져 나가 대화 화면이 로딩 상태로 굳습니다.
@@ -41,23 +55,19 @@ class ChatContext {
     try {
       baby = await BabyService.loadCurrent();
     } catch (_) {
-      return '';
+      addAssessment();
+      return lines.join('\n');
     }
-    if (baby == null) return '';
-
-    final lines = <String>[];
+    if (baby == null) {
+      addAssessment();
+      return lines.join('\n');
+    }
 
     final months = ageInMonthsAt(baby.birthDate, DateTime.now());
     lines.add('- 생후 $months개월 (${baby.sex == ChildSex.male ? '남아' : '여아'})');
 
-    // 판정이 있으면 먼저 놓습니다. 대화가 대개 그 판정에서 시작합니다.
-    if (assessment != null) {
-      lines.add(
-        '- 앱 판정: ${assessment.domain.label} ${assessment.levelLabel}'
-        ' (기준 ${assessment.ruleVersion})',
-      );
-      lines.add('- 판정 안내: ${assessment.guideText}');
-    }
+    // 판정이 있으면 개월 수 바로 뒤에 놓습니다. 대화가 대개 거기서 시작합니다.
+    addAssessment();
 
     final records = await _recentFor(domain, baby.id);
     if (records.isNotEmpty) {

@@ -36,8 +36,14 @@ class _MyPagePageState extends State<MyPagePage> {
     _load();
   }
 
+  /// 아이 정보를 못 읽었는지. 아이가 없는 것과 다릅니다.
+  bool _loadFailed = false;
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final baby = await BabyService.loadCurrent();
       final count = baby == null
@@ -49,6 +55,9 @@ class _MyPagePageState extends State<MyPagePage> {
         _memberCount = count;
       });
     } catch (e) {
+      // 못 읽은 것과 아이가 없는 것은 다릅니다. 삼키면 "아이 정보를
+      // 등록해 주세요"가 떠서, 등록한 사람에게 등록하라고 말하게 됩니다.
+      if (mounted) setState(() => _loadFailed = true);
       debugPrint('아이 정보 조회 실패: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -149,6 +158,24 @@ class _MyPagePageState extends State<MyPagePage> {
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
+        ),
+      );
+    }
+
+    if (_loadFailed) {
+      return _card(
+        onTap: _load,
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: AppColors.error),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                '아이 정보를 불러오지 못했어요. 눌러서 다시 시도',
+                style: TextStyle(color: context.colors.textPrimary),
+              ),
+            ),
+          ],
         ),
       );
     }

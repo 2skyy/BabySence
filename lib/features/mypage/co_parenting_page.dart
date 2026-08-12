@@ -32,8 +32,16 @@ class _CoParentingPageState extends State<CoParentingPage> {
     _load();
   }
 
+  /// 아이 정보를 못 읽었는지. 아이가 없는 것과 다릅니다 — 못 읽은 것을
+  /// '아이 없음'으로 단정하면, 아이가 있는 사람에게서 초대 코드를 만들 경로가
+  /// 통째로 사라집니다.
+  bool _loadFailed = false;
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final baby = await BabyService.loadCurrent();
       final members =
@@ -44,6 +52,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
         _members = members;
       });
     } catch (e) {
+      if (mounted) setState(() => _loadFailed = true);
       _showMessage(BabyMemberService.errorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -210,11 +219,31 @@ class _CoParentingPageState extends State<CoParentingPage> {
               onRefresh: _load,
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                children: _baby == null ? _noBabyBody() : _sharingBody(),
+                children: _loadFailed
+                    ? _failedBody()
+                    : _baby == null
+                        ? _noBabyBody()
+                        : _sharingBody(),
               ),
             ),
     );
   }
+
+  /// 조회에 실패했을 때. '아이 없음'과 같은 화면을 쓰지 않습니다.
+  List<Widget> _failedBody() => [
+        const SizedBox(height: AppSpacing.xxl),
+        Icon(Icons.error_outline, size: 44, color: AppColors.error),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          '아이 정보를 불러오지 못했어요.\n연결을 확인하고 다시 시도해 주세요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: context.colors.textSecondary, height: 1.6),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Center(
+          child: FilledButton(onPressed: _load, child: const Text('다시 시도')),
+        ),
+      ];
 
   /// 아직 아이가 없는 사람. 초대를 받아 참여하는 길만 열어 둡니다.
   List<Widget> _noBabyBody() => [
