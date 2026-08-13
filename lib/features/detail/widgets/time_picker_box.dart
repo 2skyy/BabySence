@@ -39,9 +39,16 @@ class TimePickerBox extends StatelessWidget {
       context: context,
       initialTime: value ?? TimeOfDay.now(),
       helpText: helpText,
-      // 손으로 적는 쪽이 기본입니다. 몇 시 몇 분인지 이미 알고 여는
-      // 화면이라, 다이얼을 돌리는 것보다 빠릅니다.
-      initialEntryMode: TimePickerEntryMode.inputOnly,
+      // 시계를 돌려 고르는 쪽이 기본입니다.
+      //
+      // 한때 손으로 적는 쪽(inputOnly)이 기본이었습니다. "몇 시 몇 분인지
+      // 이미 알고 여는 화면이라 빠르다"는 이유였는데, 실제로는 아기를 안은
+      // 채 한 손으로 쓰는 화면이라 키보드로 네 자리를 치는 것보다 돌리는
+      // 편이 낫습니다.
+      //
+      // dialOnly가 아니라 dial인 이유: 위쪽 키보드 아이콘으로 손입력으로
+      // 넘어갈 수 있습니다. 기본만 바꾸고 길은 남겨 둡니다.
+      initialEntryMode: TimePickerEntryMode.dial,
     );
     if (picked != null) onChanged(picked);
   }
