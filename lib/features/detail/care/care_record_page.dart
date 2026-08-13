@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/missing_baby.dart';
 
-import '../../advice/ask_action.dart';
-import '../assessment/assessment.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/baby_service.dart';
@@ -203,12 +201,6 @@ class _CareRecordPageState extends State<CareRecordPage> {
       backgroundColor: context.colors.background,
       appBar: const CommonAppBar(
         title: '약 · 병원 기록',
-        actions: [
-          AskAction(
-            domain: AssessmentDomain.overall,
-            tooltip: '약 · 병원에 대해 물어보기',
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

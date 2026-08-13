@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../advice/ask_fab.dart';
+
 import '../../core/services/refresh_signal.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -323,10 +325,14 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
 
-            const SizedBox(height: 120),
+            // 떠 있는 상담 단추가 마지막 카드를 덮지 않게 비워 둡니다.
+            const SizedBox(height: 120 + AskFab.reservedHeight),
           ],
         ),
       ),
+      // 오른쪽 아래에 동그랗게. 홈은 기록하러 들어가기 전에 머무는 곳이라,
+      // 여기서는 눈에 띄어도 하던 일을 가로막지 않습니다.
+      floatingActionButton: const AskFab(),
     );
   }
 

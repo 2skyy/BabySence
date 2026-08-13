@@ -8,7 +8,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/ask_action.dart';
 import '../detail/assessment/assessment.dart';
 import '../detail/assessment/assessment_service.dart';
 import '../detail/diaper_record_service.dart';
@@ -112,12 +111,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
       backgroundColor: context.colors.background,
       appBar: CommonAppBar(
         title: '분석',
-        actions: const [
-          AskAction(
-            domain: AssessmentDomain.overall,
-            tooltip: '기록을 바탕으로 물어보기',
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,

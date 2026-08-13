@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/missing_baby.dart';
 
-import '../advice/ask_action.dart';
-import 'assessment/assessment.dart';
 
 import 'widgets/record_save_button.dart';
 
@@ -165,7 +163,6 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
       backgroundColor: backgroundColor,
       appBar: const CommonAppBar(
         title: '수유 기록',
-        actions: [AskAction(domain: AssessmentDomain.feeding)],
       ),
       body: SafeArea(
         // ★ 수정: 키보드가 켜져도 화면이 터지지 않고 부드럽게 스크롤되도록 설정

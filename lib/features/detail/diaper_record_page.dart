@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/missing_baby.dart';
 
-import '../advice/ask_action.dart';
-import 'assessment/assessment.dart';
 
 import 'widgets/record_save_button.dart';
 
@@ -153,7 +151,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
       backgroundColor: backgroundColor,
       appBar: const CommonAppBar(
         title: '배변 기록',
-        actions: [AskAction(domain: AssessmentDomain.diaper)],
       ),
       // ★ 수정: 키보드가 올라올 때 화면이 부드럽게 스크롤되도록 전체를 감싸줍니다.
       body: SafeArea(
