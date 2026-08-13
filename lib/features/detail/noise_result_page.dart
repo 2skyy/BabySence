@@ -16,7 +16,18 @@ import 'assessment/assessment.dart';
 class NoiseResultPage extends StatelessWidget {
   final Assessment assessment;
 
-  const NoiseResultPage({super.key, required this.assessment});
+  /// 판정을 저장하지 못했다면 그 이유. 저장됐으면 null입니다.
+  ///
+  /// **화면에 적습니다.** 이 숫자가 남는 곳은 판정 한 행뿐이고(011 이후),
+  /// 백그라운드는 결과를 넘긴 뒤 메모리를 비웁니다. 저장이 실패했는데 결과만
+  /// 정상적으로 보여주면, 보호자는 기록에 남은 줄 알고 화면을 닫습니다.
+  final String? saveFailure;
+
+  const NoiseResultPage({
+    super.key,
+    required this.assessment,
+    this.saveFailure,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +62,38 @@ class NoiseResultPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
+          // 저장이 실패했으면 결과보다 **먼저** 말합니다. 이 숫자를 다시
+          // 만들 길이 없어서, 화면을 닫기 전에 알아야 합니다.
+          if (saveFailure != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 20, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$saveFailure\n이 화면을 닫으면 다시 볼 수 없습니다.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: context.colors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.xl),

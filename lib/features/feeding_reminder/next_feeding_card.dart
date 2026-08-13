@@ -105,6 +105,19 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
   Future<void> _apply(FeedingReminderSettings settings) async {
     if (mounted) setState(() => _settings = settings);
     await settings.save();
+
+    // **끄는 것은 모르는 상태에서도 해야 합니다.**
+    //
+    // 취소에는 마지막 수유 시각이 필요 없습니다. 그런데 예약과 취소를 한
+    // 함수에 묶어 두어, 홈 조회가 실패한 상태에서 스위치를 끄면
+    // `_rescheduleIfKnown`이 곧바로 돌아가고 이미 잡힌 알림이 그대로
+    // 남았습니다. 아이콘은 '끔'인데 몇 분 뒤 알림이 울렸고, 스스로 낫지도
+    // 않았습니다(홈에 새로고침도 lifecycle 감지도 없습니다).
+    if (!settings.notify) {
+      await FeedingReminderService.cancel();
+      return;
+    }
+
     _rescheduleIfKnown(settings);
   }
 

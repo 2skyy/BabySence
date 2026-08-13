@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/refresh_signal.dart';
+
 import '../../core/widgets/common_app_bar.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -24,7 +26,14 @@ import 'weekly_summary.dart';
 /// 여기 숫자는 전부 실제 기록을 센 값입니다. 기록이 적으면 적은 대로
 /// 보여줍니다 — 그럴듯한 값을 채우면 사용자가 자기 데이터로 오해합니다.
 class AnalysisPage extends StatefulWidget {
-  const AnalysisPage({super.key});
+  /// 이 탭이 다시 보일 때 울리는 신호. 없으면 처음 한 번만 읽습니다.
+  ///
+  /// [IndexedStack]이라 화면이 살아 있는 채로 숨겨져 initState가 한 번만
+  /// 돕니다. 이게 없으면 방금 남긴 기록이 '없음'으로 보이고, 자정을 넘겨
+  /// 돌아와도 어제 값이 그대로 있습니다.
+  final RefreshSignal? refresh;
+
+  const AnalysisPage({super.key, this.refresh});
 
   @override
   State<AnalysisPage> createState() => _AnalysisPageState();
@@ -41,6 +50,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
   void initState() {
     super.initState();
     _load();
+    widget.refresh?.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    widget.refresh?.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -199,7 +215,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
             color: AppColors.primary,
             label: '수유',
             value: '${s.feedingCount}회',
-            detail: '하루 평균 ${s.feedingPerDay.toStringAsFixed(1)}회',
+            detail: '하루 평균 ${s.feedingPerDay.toStringAsFixed(1)}회'
+                ' · ${WeeklySummary.basis(s.feedingDays)}',
           ),
           const Divider(height: AppSpacing.xl),
           _statRow(
@@ -207,7 +224,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
             color: Colors.amber.shade700,
             label: '배변',
             value: '${s.diaperCount}회',
-            detail: '하루 평균 ${(s.diaperCount / WeeklySummary.days).toStringAsFixed(1)}회',
+            detail: '하루 평균 ${s.diaperPerDay.toStringAsFixed(1)}회'
+                ' · ${WeeklySummary.basis(s.diaperDays)}',
           ),
           const Divider(height: AppSpacing.xl),
           _statRow(
@@ -221,7 +239,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
             // 실제보다 작을 수 있다는 걸 숨기지 않습니다.
             detail: s.completedSleepCount == 0
                 ? '끝난 수면 기록이 필요합니다'
-                : '하루 평균 ${formatDuration(s.sleepPerDay)} · 끝난 수면 ${s.completedSleepCount}건 기준',
+                : '하루 평균 ${formatDuration(s.sleepPerDay)}'
+                    ' · ${WeeklySummary.basis(s.sleepDays)}'
+                    ' · 끝난 수면 ${s.completedSleepCount}건',
           ),
           const Divider(height: AppSpacing.xl),
           _statRow(

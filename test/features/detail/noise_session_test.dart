@@ -82,16 +82,38 @@ void main() {
 
   group('저장 실패를 숨기지 않는다', () {
     test('화면이 저장 실패를 말한다', () {
-      expect(page.contains('수면 기록을 저장하지 못했습니다'), isTrue);
+      // 판정을 못 저장한 것과 수면 기록을 못 닫은 것은 다릅니다.
+      // 앞쪽이 더 무겁습니다 — 그 밤의 수치가 남는 곳은 판정 한 행뿐이고,
+      // 백그라운드는 이미 메모리를 비웠습니다.
+      expect(page.contains('판정을 저장하지 못했습니다'), isTrue);
+      expect(page.contains('수면 기록을 닫지 못했습니다'), isTrue);
       expect(page.contains('_endedSaved'), isTrue);
     });
 
-    test('그래도 결과는 보여준다', () {
-      // 판정은 앱이 계산합니다. 저장이 실패했다고 결과까지 버리면, 다시 만들
-      // 수 없는 밤을 잃습니다.
-      final notice = page.indexOf('수면 기록을 저장하지 못했습니다');
-      final save = page.indexOf('AssessmentService.save');
-      expect(notice < save, isTrue, reason: '안내 뒤에도 판정 저장이 이어져야 합니다');
+    test('저장 실패를 결과 화면에도 적는다', () {
+      // 스낵바는 몇 초 뒤 사라집니다. 화면을 닫으면 다시 볼 수 없는
+      // 결과라, 화면 자체에 남겨야 합니다.
+      final result =
+          read('lib/features/detail/noise_result_page.dart');
+      expect(result.contains('saveFailure'), isTrue);
+      expect(result.contains('이 화면을 닫으면 다시 볼 수 없습니다'), isTrue);
+    });
+
+    test('아이 조회가 판정 계산보다 뒤에 온다', () {
+      // 앞에 두면 망이 끊긴 밤에 여기서 걸려 결과를 통째로 버립니다.
+      // 집계는 메모리에 멀쩡히 있는데 '결과를 불러오지 못했습니다'만 떴습니다.
+      final result = page.substring(page.indexOf('Future<void> _showResult()'));
+      expect(result.indexOf('NoiseRules.assess') <
+              result.indexOf('BabyService.loadCurrent'),
+          isTrue,
+          reason: '판정을 만든 뒤에 저장할 곳을 찾으세요');
+    });
+
+    test('저장이 실패해도 결과 화면은 연다', () {
+      final result = page.substring(page.indexOf('Future<void> _showResult()'));
+      expect(result.indexOf('saveFailure =') < result.indexOf('Navigator.push'),
+          isTrue,
+          reason: '실패를 담아 두고 결과는 그대로 보여줘야 합니다');
     });
   });
 

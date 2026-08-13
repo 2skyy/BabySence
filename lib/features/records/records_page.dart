@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/refresh_signal.dart';
+
 import '../../core/widgets/common_app_bar.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -23,7 +25,14 @@ import 'recent_records.dart';
 /// 있었는데 홈의 9칸과 겹쳤고, 홈보다 적어서 여기서 기록한다고 배운 사람은
 /// 성장·약병원을 찾지 못했습니다. 입구는 홈 한 곳입니다.
 class RecordsPage extends StatefulWidget {
-  const RecordsPage({super.key});
+  /// 이 탭이 다시 보일 때 울리는 신호. 없으면 처음 한 번만 읽습니다.
+  ///
+  /// [IndexedStack]이라 화면이 살아 있는 채로 숨겨져 initState가 한 번만
+  /// 돕니다. 이게 없으면 방금 남긴 기록이 '없음'으로 보이고, 자정을 넘겨
+  /// 돌아와도 어제 값이 그대로 있습니다.
+  final RefreshSignal? refresh;
+
+  const RecordsPage({super.key, this.refresh});
 
   @override
   State<RecordsPage> createState() => _RecordsPageState();
@@ -41,6 +50,13 @@ class _RecordsPageState extends State<RecordsPage> {
   void initState() {
     super.initState();
     _load();
+    widget.refresh?.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    widget.refresh?.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

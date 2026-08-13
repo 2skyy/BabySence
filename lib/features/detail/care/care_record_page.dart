@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/missing_baby.dart';
+
 import '../../advice/ask_action.dart';
 import '../assessment/assessment.dart';
 
@@ -142,8 +144,9 @@ class _CareRecordPageState extends State<CareRecordPage> {
       // 화면을 열 때 조회가 실패했을 경우 다른 아이가 뽑힐 수 있습니다.
       final baby = _baby;
       if (baby == null) {
-        _showMessage('아이 정보를 불러오지 못해 저장하지 않았습니다. '
-            '화면을 다시 열어 주세요.');
+        // 조회가 실패한 것과 아이가 아직 없는 것을 구별합니다.
+        // 뒤쪽이라면 화면을 다시 열어도 소용없고, 등록으로 보내야 합니다.
+        notifyMissingBaby(context, loadFailed: _error != null, onRegistered: _load);
         return;
       }
 

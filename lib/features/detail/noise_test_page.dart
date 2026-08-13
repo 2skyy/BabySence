@@ -194,12 +194,6 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
       await (_sessionEnded?.future ?? Future<void>.value())
           .timeout(const Duration(seconds: 15), onTimeout: () {});
 
-      final baby = await BabyService.loadCurrent();
-      if (baby == null) {
-        _notify('아이 정보가 없어 결과를 만들지 못했습니다. 먼저 아이를 등록해 주세요.');
-        return;
-      }
-
       // 신호가 왔는지 먼저 봅니다. 안 왔으면 집계가 없는 것과 구별해야
       // 합니다 — 하나는 "못 받았다", 다른 하나는 "소리가 없었다"입니다.
       if (!(_sessionEnded?.isCompleted ?? false)) {
@@ -228,29 +222,50 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
         return;
       }
 
-      // 수면 기록을 못 닫았으면 그 사실을 말합니다. 판정은 그대로 보여줍니다 —
-      // 실패를 숨기지도, 실패했다고 결과까지 버리지도 않습니다.
-      if (!_endedSaved) {
-        _notify('결과는 아래와 같지만 수면 기록을 저장하지 못했습니다. '
-            '연결을 확인해 주세요.');
+      // **판정을 만든 뒤에 아이를 찾습니다.** 예전에는 이 조회가 맨 앞에
+      // 있어서, 망이 끊긴 밤이면 여기서 걸려 결과를 통째로 버렸습니다 —
+      // 집계는 메모리에 멀쩡히 있는데 화면에는 '결과를 불러오지 못했습니다'만
+      // 떴습니다. 아이를 못 찾는 것은 **저장을 못 하는 이유**이지 결과를
+      // 못 보여줄 이유가 아닙니다.
+      String? saveFailure;
+      try {
+        final baby = await BabyService.loadCurrent()
+            .timeout(const Duration(seconds: 8));
+        if (baby == null) {
+          saveFailure = '아이 정보가 없어 판정을 저장하지 못했습니다.';
+        } else {
+          // 저장을 mounted 검사보다 먼저 합니다. 결과를 기다리는 사이에
+          // 화면을 나가면 판정이 사라졌습니다. 한 시간을 잰 판정을 다시 만들
+          // 길은 없습니다.
+          await AssessmentService.save(babyId: baby.id, assessment: assessment);
+        }
+      } catch (e) {
+        // **삼키지 않습니다.** 011 이후 이 숫자가 남는 곳은 판정 한 행뿐이고,
+        // 백그라운드는 이미 메모리를 비웠습니다. 여기서 실패하면 그 밤의
+        // 수치는 영영 사라지는데, 예전에는 debugPrint만 하고 결과 화면을
+        // 정상적으로 띄워 저장된 줄 알게 했습니다.
+        debugPrint('소음 판정 저장 실패: $e');
+        saveFailure = '판정을 저장하지 못했습니다. 이 결과는 기록에 남지 않습니다.';
       }
 
-      // 저장을 mounted 검사보다 먼저 합니다. 예전에는 뒤에 있어서, 결과를
-      // 기다리는 2초 사이에 화면을 나가면 판정이 사라졌습니다. 한 시간을 잰
-      // 판정을 다시 만들 길은 없습니다.
-      //
-      // 판정은 앱에서 계산하므로 저장이 실패해도 결과는 보여줄 수 있습니다.
-      try {
-        await AssessmentService.save(babyId: baby.id, assessment: assessment);
-      } catch (e) {
-        debugPrint('소음 판정 저장 실패: $e');
+      // 수면 기록을 못 닫은 것과 판정을 못 저장한 것은 다릅니다. 둘 다
+      // 있으면 더 무거운 쪽(판정)을 말합니다 — 수면 기록은 다시 적을 수
+      // 있지만 판정은 이 밤에만 만들 수 있습니다.
+      if (saveFailure != null) {
+        _notify('$saveFailure 결과는 아래에서 확인하실 수 있어요.');
+      } else if (!_endedSaved) {
+        _notify('판정은 저장했지만 수면 기록을 닫지 못했습니다. '
+            '연결을 확인해 주세요.');
       }
 
       if (!mounted) return;
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => NoiseResultPage(assessment: assessment),
+          builder: (_) => NoiseResultPage(
+            assessment: assessment,
+            saveFailure: saveFailure,
+          ),
         ),
       );
     } catch (e) {

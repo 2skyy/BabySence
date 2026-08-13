@@ -4,6 +4,7 @@ import '../../advice/ask_action.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
@@ -355,6 +356,14 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       trailing: IconButton(
         icon: Icon(Icons.delete_outline, color: context.colors.textSecondary),
         onPressed: () async {
+          // 성장 기록은 하루 한 건이라 지우면 그날 측정이 통째로 사라집니다.
+          final ok = await confirmDestructive(
+            context,
+            title: '이 기록을 지울까요?',
+            body: '${_formatDate(record.date)}\n\n지운 기록은 되돌릴 수 없습니다.',
+          );
+          if (!ok) return;
+
           try {
             await widget.repository.deleteRecord(record.id);
             await _load();

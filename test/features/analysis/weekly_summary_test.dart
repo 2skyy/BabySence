@@ -127,7 +127,12 @@ void main() {
   });
 
   group('평균', () {
-    test('7일로 나눈다', () {
+    // **기록한 날 수로 나눕니다.** 7로 고정해 나누면 오늘 가입해 다섯 번
+    // 수유한 보호자에게 "하루 평균 0.7회"라고 말하게 됩니다. 기록이 없는
+    // 엿새를 0으로 세는 것은 이 클래스가 스스로 적어 둔 "평균을 지어내지
+    // 않는다"에 어긋납니다.
+
+    test('하루에 몰아 적으면 그 하루로 나눈다', () {
       final s = WeeklySummary.from(
         feedings: [
           for (var i = 0; i < 14; i++) feeding(DateTime(2026, 8, 4, 1)),
@@ -140,9 +145,47 @@ void main() {
         now: now,
       );
 
-      expect(s.feedingPerDay, 2.0);
-      // 8시간 / 7일 ≈ 68.6분
-      expect(s.sleepPerDay, const Duration(minutes: 69));
+      expect(s.feedingDays, 1);
+      expect(s.feedingPerDay, 14.0);
+      // 8시간을 하루에 잤습니다.
+      expect(s.sleepDays, 1);
+      expect(s.sleepPerDay, const Duration(hours: 8));
+    });
+
+    test('이틀에 나눠 적으면 이틀로 나눈다', () {
+      final s = WeeklySummary.from(
+        feedings: [
+          for (var i = 0; i < 6; i++) feeding(DateTime(2026, 8, 4, 1)),
+          for (var i = 0; i < 4; i++) feeding(DateTime(2026, 8, 5, 1)),
+        ],
+        diapers: const [],
+        sleeps: const [],
+        temperatures: const [],
+        now: now,
+      );
+
+      expect(s.feedingDays, 2);
+      expect(s.feedingPerDay, 5.0);
+    });
+
+    test('기록이 없으면 0으로 나누지 않는다', () {
+      final s = WeeklySummary.from(
+        feedings: const [],
+        diapers: const [],
+        sleeps: const [],
+        temperatures: const [],
+        now: now,
+      );
+
+      expect(s.feedingPerDay, 0);
+      expect(s.diaperPerDay, 0);
+      expect(s.sleepPerDay, Duration.zero);
+    });
+
+    test('근거를 밝힌다', () {
+      // 화면에 "하루 평균 5.0회 · 기록한 2일 기준"으로 나갑니다.
+      expect(WeeklySummary.basis(2), '기록한 2일 기준');
+      expect(WeeklySummary.basis(7), '7일 기준');
     });
   });
 

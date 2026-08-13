@@ -11,6 +11,16 @@ class WeeklySummary {
   final int feedingCount;
   final int diaperCount;
 
+  /// 각 항목을 **실제로 기록한 날 수**.
+  ///
+  /// 하루 평균을 낼 때 7로 나누지 않고 이 값으로 나눕니다. 오늘 가입해
+  /// 다섯 번 수유한 보호자에게 "하루 평균 0.7회"라고 말하던 자리입니다 —
+  /// 기록이 없는 엿새를 0으로 세는 것은 이 파일이 스스로 적어 둔
+  /// "평균을 지어내지 않는다"에 어긋납니다.
+  final int feedingDays;
+  final int diaperDays;
+  final int sleepDays;
+
   /// 끝난 수면만 더합니다. 측정 중인 수면은 길이를 알 수 없습니다.
   final Duration sleepTotal;
   final int completedSleepCount;
@@ -21,6 +31,9 @@ class WeeklySummary {
   const WeeklySummary({
     required this.feedingCount,
     required this.diaperCount,
+    required this.feedingDays,
+    required this.diaperDays,
+    required this.sleepDays,
     required this.sleepTotal,
     required this.completedSleepCount,
     required this.highestTemperature,
@@ -34,12 +47,21 @@ class WeeklySummary {
       completedSleepCount == 0 &&
       highestTemperature == null;
 
-  /// 하루 평균 수유 횟수. 7일로 나눕니다.
-  double get feedingPerDay => feedingCount / days;
+  /// 하루 평균 수유 횟수. **기록한 날 수**로 나눕니다.
+  double get feedingPerDay =>
+      feedingDays == 0 ? 0 : feedingCount / feedingDays;
+
+  /// 하루 평균 배변 횟수. **기록한 날 수**로 나눕니다.
+  double get diaperPerDay => diaperDays == 0 ? 0 : diaperCount / diaperDays;
 
   /// 하루 평균 수면 시간. 끝난 수면만 반영하므로 실제보다 짧을 수 있습니다.
-  Duration get sleepPerDay =>
-      Duration(minutes: (sleepTotal.inMinutes / days).round());
+  Duration get sleepPerDay => sleepDays == 0
+      ? Duration.zero
+      : Duration(minutes: (sleepTotal.inMinutes / sleepDays).round());
+
+  /// 평균 옆에 붙일 근거. "며칠을 근거로 낸 값인가"를 밝힙니다.
+  static String basis(int recordedDays) =>
+      recordedDays >= days ? '$days일 기준' : '기록한 $recordedDays일 기준';
 
   factory WeeklySummary.from({
     required List<FeedingRecord> feedings,
@@ -55,15 +77,24 @@ class WeeklySummary {
 
     bool inRange(DateTime at) => !at.isBefore(from);
 
+    // 날짜만 남겨 중복을 지웁니다. 같은 날 열 번 먹여도 하루입니다.
+    int dayKey(DateTime at) =>
+        DateTime(at.year, at.month, at.day).difference(from).inDays;
+
     var sleepTotal = Duration.zero;
     var completedSleeps = 0;
+    final sleepDates = <int>{};
     for (final s in sleeps) {
       if (!inRange(s.startedAt)) continue;
       final d = s.duration;
       if (d == null) continue;
       sleepTotal += d;
       completedSleeps++;
+      sleepDates.add(dayKey(s.startedAt));
     }
+
+    final feedingsInRange = feedings.where((r) => inRange(r.fedAt)).toList();
+    final diapersInRange = diapers.where((r) => inRange(r.recordedAt)).toList();
 
     double? highest;
     for (final t in temperatures) {
@@ -74,8 +105,12 @@ class WeeklySummary {
     }
 
     return WeeklySummary(
-      feedingCount: feedings.where((r) => inRange(r.fedAt)).length,
-      diaperCount: diapers.where((r) => inRange(r.recordedAt)).length,
+      feedingCount: feedingsInRange.length,
+      diaperCount: diapersInRange.length,
+      feedingDays: feedingsInRange.map((r) => dayKey(r.fedAt)).toSet().length,
+      diaperDays:
+          diapersInRange.map((r) => dayKey(r.recordedAt)).toSet().length,
+      sleepDays: sleepDates.length,
       sleepTotal: sleepTotal,
       completedSleepCount: completedSleeps,
       highestTemperature: highest,

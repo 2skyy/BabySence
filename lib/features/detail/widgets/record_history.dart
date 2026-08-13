@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/confirm_dialog.dart';
+
 import '../../../core/constants/app_colors.dart';
 
 /// 기록 이력 목록의 한 줄.
@@ -138,7 +140,18 @@ class RecordHistorySection extends StatelessWidget {
           if (onDelete != null)
             IconButton(
               icon: Icon(Icons.delete_outline, color: context.colors.textSecondary),
-              onPressed: () => onDelete!(entry.id),
+              // **한 번 묻고 지웁니다.** 이 목록의 기록은 다시 만들 수
+              // 없습니다. 예전에는 곧바로 지웠고, 실행 취소 수단이 앱
+              // 어디에도 없었습니다. 확인 창을 여기 한 곳에 두면 이 위젯을
+              // 쓰는 다섯 화면(체온·수유·수면·배변·약/병원)이 함께 덮입니다.
+              onPressed: () async {
+                final ok = await confirmDestructive(
+                  context,
+                  title: '이 기록을 지울까요?',
+                  body: '${entry.title}\n${entry.subtitle}\n\n지운 기록은 되돌릴 수 없습니다.',
+                );
+                if (ok) await onDelete!(entry.id);
+              },
             ),
         ],
       ),

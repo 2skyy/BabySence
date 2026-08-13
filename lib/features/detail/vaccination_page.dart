@@ -4,6 +4,7 @@ import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 
 import '../../core/widgets/common_app_bar.dart';
+import '../../core/widgets/confirm_dialog.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
@@ -111,26 +112,81 @@ class _VaccinationPageState extends State<VaccinationPage> {
     }
   }
 
-  /// 항목을 눌러 접종 완료 / 취소를 토글합니다.
-  Future<void> _toggle(VaccinationStatus status) async {
+  /// 항목을 눌렀을 때.
+  ///
+  /// **완료한 접종은 눌러도 사라지지 않습니다.** 예전에는 같은 탭이 곧바로
+  /// DELETE를 보내, 확인 창도 없이 '예정'으로 되돌아갔습니다. 다시 눌러
+  /// 되살리면 접종일이 **오늘**로 바뀌어, 실제로 맞은 날이 사라졌습니다.
+  /// 목록 전체가 InkWell이라 스크롤 중에도 눌렸습니다.
+  ///
+  /// 접종 기록은 "언제 맞았더라"를 확인하려고 남기는 것이라, 지우는 쪽보다
+  /// **날짜를 고치는 쪽**이 기본이어야 합니다.
+  Future<void> _onTap(VaccinationStatus status) async {
+    if (status.isDone) {
+      await _editVaccinatedOn(status);
+      return;
+    }
+    await _markDone(status, DateTime.now());
+  }
+
+  /// 완료한 접종의 날짜를 고칩니다. 되돌리기는 여기서만 할 수 있습니다.
+  Future<void> _editVaccinatedOn(VaccinationStatus status) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: status.vaccinatedOn!,
+      firstDate: _baby?.birthDate ?? DateTime(2000),
+      lastDate: DateTime.now(),
+      helpText: '${status.vaccine.name} 접종일',
+      confirmText: '저장',
+      cancelText: '닫기',
+    );
+    if (picked == null || !mounted) return;
+    await _markDone(status, picked);
+  }
+
+  /// 잘못 표시한 접종을 되돌립니다. **길게 눌러야** 닿습니다.
+  Future<void> _undo(VaccinationStatus status) async {
+    final baby = _baby;
+    if (baby == null) return;
+
+    final ok = await confirmDestructive(
+      context,
+      title: '접종 기록을 지울까요?',
+      body: '${status.vaccine.name}\n'
+          '${_formatDate(status.vaccinatedOn!)} 접종으로 기록돼 있습니다.\n\n'
+          '지우면 다시 \'예정\'으로 돌아가고, 맞은 날짜는 사라집니다.',
+    );
+    if (!ok) return;
+
+    setState(() => _updatingVaccineId = status.vaccine.id);
+    try {
+      await VaccinationService.unmarkVaccinated(
+        babyId: baby.id,
+        vaccineId: status.vaccine.id,
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('지우지 못했습니다. $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _updatingVaccineId = null);
+    }
+  }
+
+  Future<void> _markDone(VaccinationStatus status, DateTime on) async {
     final baby = _baby;
     if (baby == null) return;
 
     setState(() => _updatingVaccineId = status.vaccine.id);
     try {
-      if (status.isDone) {
-        await VaccinationService.unmarkVaccinated(
-          babyId: baby.id,
-          vaccineId: status.vaccine.id,
-        );
-      } else {
-        await VaccinationService.markVaccinated(
-          babyId: baby.id,
-          vaccineId: status.vaccine.id,
-          vaccinatedOn: DateTime.now(),
-          scheduledOn: status.scheduledOn,
-        );
-      }
+      await VaccinationService.markVaccinated(
+        babyId: baby.id,
+        vaccineId: status.vaccine.id,
+        vaccinatedOn: on,
+        scheduledOn: status.scheduledOn,
+      );
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -506,7 +562,11 @@ class _VaccinationPageState extends State<VaccinationPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         // 저장 중에는 다시 누를 수 없게 합니다.
-        onTap: isUpdating ? null : () => _toggle(status),
+        onTap: isUpdating ? null : () => _onTap(status),
+        // 잘못 표시한 접종을 되돌리는 길. 완료 항목에만 있습니다.
+        // 탭에 두지 않는 이유는 스크롤 중에 눌리기 때문입니다.
+        onLongPress:
+            isUpdating || !isCompleted ? null : () => _undo(status),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -540,7 +600,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
                     const SizedBox(height: 4),
                     Text(
                       isCompleted
-                          ? '${status.vaccine.recommendedAgeLabel} · ${_formatDate(status.vaccinatedOn!)} 접종'
+                          ? '${status.vaccine.recommendedAgeLabel} · ${_formatDate(status.vaccinatedOn!)} 접종 · 눌러서 날짜 수정'
                           : '${status.vaccine.recommendedAgeLabel} · 예정 ${_formatDate(status.scheduledOn)}',
                       style: TextStyle(
                         color: secondaryTextColor,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/services/refresh_signal.dart';
 import '../../core/constants/app_colors.dart';
 
 import '../../core/services/baby_service.dart';
@@ -24,7 +26,14 @@ import '../detail/growth/growth_record_page.dart';
 /// [HomePage]
 /// 역할: 아이의 현재 상태 요약, AI 분석 정보, 오늘 기록을 보여주는 메인 대시보드
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  /// 이 탭이 다시 보일 때 울리는 신호. 없으면 처음 한 번만 읽습니다.
+  ///
+  /// [IndexedStack]이라 화면이 살아 있는 채로 숨겨져 initState가 한 번만
+  /// 돕니다. 이게 없으면 방금 남긴 기록이 '없음'으로 보이고, 자정을 넘겨
+  /// 돌아와도 어제 값이 그대로 있습니다.
+  final RefreshSignal? refresh;
+
+  const HomePage({super.key, this.refresh});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -43,6 +52,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadBaby();
+    widget.refresh?.addListener(_loadBaby);
+  }
+
+  @override
+  void dispose() {
+    widget.refresh?.removeListener(_loadBaby);
+    super.dispose();
   }
 
   /// 오늘의 기록 요약. 아직 못 읽었으면 비어 있습니다.
