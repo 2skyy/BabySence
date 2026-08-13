@@ -284,11 +284,11 @@ class _HomePageState extends State<HomePage> {
                 ),
                 _buildSquareRecordButton(
                   context: context,
-                  icon: Icons.vaccines,
-                  iconColor: Colors.teal,
-                  title: '예방접종',
-                  subtitle: '접종 일정',
-                  onTap: () => handleVaccinationTap(context),
+                  icon: Icons.show_chart,
+                  iconColor: Colors.blue,
+                  title: '성장',
+                  subtitle: 'WHO 성장곡선',
+                  onTap: () => handleGrowthRecordTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -308,11 +308,11 @@ class _HomePageState extends State<HomePage> {
                 ),
                 _buildSquareRecordButton(
                   context: context,
-                  icon: Icons.show_chart,
-                  iconColor: Colors.blue,
-                  title: '성장',
-                  subtitle: 'WHO 성장곡선',
-                  onTap: () => handleGrowthRecordTap(context),
+                  icon: Icons.vaccines,
+                  iconColor: Colors.teal,
+                  title: '예방접종',
+                  subtitle: '접종 일정',
+                  onTap: () => handleVaccinationTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
