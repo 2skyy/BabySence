@@ -13,7 +13,10 @@ class GrowthRecordService {
         .from('growth_records')
         .select()
         .eq('baby_id', babyId)
-        .order('recorded_on');
+        // 오름차순입니다. 차트가 왼쪽부터 그리고, chat_context가 `rows.last`를
+        // 가장 최근으로 씁니다. 방향을 빼면 기본값이 내림차순이라 **출생 시
+        // 몸무게가 '최근 성장 기록'으로** 상담에 나갑니다.
+        .order('recorded_on', ascending: true);
 
     return rows.map(GrowthRecord.fromMap).toList();
   }

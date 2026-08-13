@@ -86,7 +86,9 @@ class VaccinationService {
     required DateTime birthDate,
   }) async {
     final vaccineRows =
-        await _client.from('vaccines').select().order('display_order');
+        // 표준 일정 순서대로. 방향을 빼면 기본값이 내림차순이라 접종 목록이
+        // 통째로 뒤집혀 BCG가 맨 아래로 갑니다.
+        await _client.from('vaccines').select().order('display_order', ascending: true);
 
     final recordRows = await _client
         .from('vaccination_records')

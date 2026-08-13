@@ -35,11 +35,16 @@ class BabyService {
   /// 테이블 설계상 한 보호자가 여러 아이를 가질 수 있지만, 지금 화면들은
   /// 아이 한 명을 전제로 만들어져 있어 가장 먼저 등록한 아이를 씁니다.
   /// RLS가 본인 소유 행만 돌려주므로 user_id 조건을 따로 걸지 않습니다.
+  ///
+  /// **`ascending: true`를 반드시 적습니다.** postgrest의 `order()` 기본값은
+  /// 내림차순이라, 빼먹으면 '가장 먼저'가 아니라 '가장 나중'이 됩니다. 그러면
+  /// 함께 키우기가 무효가 됩니다 — 자기 아이를 등록해 둔 사람이 초대를 받으면
+  /// 계속 자기 아이만 보입니다.
   static Future<Baby?> loadCurrent() async {
     final rows = await _client
         .from('babies')
         .select()
-        .order('created_at')
+        .order('created_at', ascending: true)
         .limit(1);
 
     if (rows.isEmpty) return null;

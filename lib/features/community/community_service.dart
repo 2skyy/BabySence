@@ -127,7 +127,8 @@ class CommunityService {
         .from('comments')
         .select()
         .eq('post_id', postId)
-        .order('created_at');
+        // 방향을 빼면 기본값이 내림차순이라 익명 번호가 거꾸로 매겨집니다.
+        .order('created_at', ascending: true);
 
     return rows.map(Comment.fromMap).toList();
   }
