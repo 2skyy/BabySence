@@ -84,7 +84,18 @@ class _HomePageState extends State<HomePage> {
   /// 기록이 정말 없을 때와 글자가 같아 구별할 수 없었습니다.
   bool _todayFailed = false;
 
+  /// 이 조회가 몇 번째인지.
+  ///
+  /// 탭을 다시 누르거나 앱이 앞으로 나오면 [RefreshSignal]이 울리는데, 앞
+  /// 조회가 끝났는지는 보지 않습니다. 그래서 두 조회가 겹칠 수 있고,
+  /// **늦게 온 실패가 방금 성공한 결과를 덮었습니다** — 아홉 타일이 전부
+  /// '불러오지 못함'이 되고 스스로 낫지도 않았습니다.
+  ///
+  /// 마지막 조회의 결과만 반영합니다.
+  int _loadGen = 0;
+
   Future<void> _loadBaby() async {
+    final gen = ++_loadGen;
     setState(() {
       _loadingToday = true;
       _todayFailed = false;
@@ -92,22 +103,22 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final baby = await BabyService.loadCurrent();
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() => _baby = baby);
 
-      if (baby != null) await _loadToday(baby.id);
+      if (baby != null) await _loadToday(baby.id, gen);
     } catch (e) {
       // 이름을 못 불러와도 홈은 보여줍니다. 기록 기능은 각 화면에서 다시 조회합니다.
-      if (mounted) setState(() => _todayFailed = true);
+      if (mounted && gen == _loadGen) setState(() => _todayFailed = true);
       debugPrint('아이 정보 조회 실패: $e');
     } finally {
-      if (mounted) setState(() => _loadingToday = false);
+      if (mounted && gen == _loadGen) setState(() => _loadingToday = false);
     }
   }
 
   /// 오늘의 마지막 기록 네 가지를 함께 읽습니다.
   /// 서로 독립이라 순서대로 기다릴 이유가 없어 동시에 요청합니다.
-  Future<void> _loadToday(String babyId) async {
+  Future<void> _loadToday(String babyId, int gen) async {
     try {
       final results = await Future.wait([
         FeedingRecordService.loadRecent(babyId, limit: 5),
@@ -118,8 +129,10 @@ class _HomePageState extends State<HomePage> {
 
       final feedings = results[0] as List<FeedingRecord>;
 
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() {
+        // 성공했으면 앞선 실패 표시를 지웁니다.
+        _todayFailed = false;
         // loadRecent가 최신순으로 주므로 첫 항목이 가장 최근입니다.
         _lastFedAt = feedings.isEmpty ? null : feedings.first.fedAt;
         _today = TodaySummary.from(
@@ -132,7 +145,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       // 요약을 못 읽어도 홈의 다른 기능은 그대로 씁니다. 다만 못 읽었다는
       // 사실은 감추지 않습니다.
-      if (mounted) setState(() => _todayFailed = true);
+      if (mounted && gen == _loadGen) setState(() => _todayFailed = true);
       debugPrint('오늘 기록 조회 실패: $e');
     }
   }
@@ -260,14 +273,6 @@ class _HomePageState extends State<HomePage> {
                 ),
                 _buildSquareRecordButton(
                   context: context,
-                  icon: Icons.thermostat,
-                  iconColor: Colors.red,
-                  title: '체온',
-                  subtitle: _tileSubtitle(_today.temperatureLabel),
-                  onTap: () => handleTemperatureRecordTap(context),
-                ),
-                _buildSquareRecordButton(
-                  context: context,
                   icon: Icons.opacity,
                   iconColor: Colors.amber,
                   title: '배변',
@@ -284,11 +289,11 @@ class _HomePageState extends State<HomePage> {
                 ),
                 _buildSquareRecordButton(
                   context: context,
-                  icon: Icons.show_chart,
-                  iconColor: Colors.blue,
-                  title: '성장',
-                  subtitle: 'WHO 성장곡선',
-                  onTap: () => handleGrowthRecordTap(context),
+                  icon: Icons.thermostat,
+                  iconColor: Colors.red,
+                  title: '체온',
+                  subtitle: _tileSubtitle(_today.temperatureLabel),
+                  onTap: () => handleTemperatureRecordTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -297,6 +302,14 @@ class _HomePageState extends State<HomePage> {
                   title: '소음',
                   subtitle: '측정하기',
                   onTap: () => handleNoiseTestTap(context),
+                ),
+                _buildSquareRecordButton(
+                  context: context,
+                  icon: Icons.show_chart,
+                  iconColor: Colors.blue,
+                  title: '성장',
+                  subtitle: 'WHO 성장곡선',
+                  onTap: () => handleGrowthRecordTap(context),
                 ),
                 _buildSquareRecordButton(
                   context: context,
@@ -326,7 +339,11 @@ class _HomePageState extends State<HomePage> {
             ),
 
             // 떠 있는 상담 단추가 마지막 카드를 덮지 않게 비워 둡니다.
-            const SizedBox(height: 120 + AskFab.reservedHeight),
+            //
+            // 예전에는 여기에 120이 더 있었습니다. 홈이 자기 하단 바를 직접
+            // 그리던 시절의 자리인데, 지금은 [MainShell]이 그립니다 — 홈
+            // 본문은 이미 그 위에서 끝나므로 그만큼이 통째로 빈 공간이었습니다.
+            const SizedBox(height: AskFab.reservedHeight),
           ],
         ),
       ),

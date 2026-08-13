@@ -60,8 +60,14 @@ class WeeklySummary {
       : Duration(minutes: (sleepTotal.inMinutes / sleepDays).round());
 
   /// 평균 옆에 붙일 근거. "며칠을 근거로 낸 값인가"를 밝힙니다.
-  static String basis(int recordedDays) =>
-      recordedDays >= days ? '$days일 기준' : '기록한 $recordedDays일 기준';
+  ///
+  /// 기록이 없으면 '기록한 0일 기준'이 아니라 아무 말도 하지 않습니다 —
+  /// 나눌 것이 없는데 '하루 평균 0.0회'라고 적는 것은 숫자를 지어내는 쪽에
+  /// 가깝습니다.
+  static String? basis(int recordedDays) {
+    if (recordedDays == 0) return null;
+    return recordedDays >= days ? '$days일 기준' : '기록한 $recordedDays일 기준';
+  }
 
   factory WeeklySummary.from({
     required List<FeedingRecord> feedings,
@@ -78,8 +84,14 @@ class WeeklySummary {
     bool inRange(DateTime at) => !at.isBefore(from);
 
     // 날짜만 남겨 중복을 지웁니다. 같은 날 열 번 먹여도 하루입니다.
-    int dayKey(DateTime at) =>
-        DateTime(at.year, at.month, at.day).difference(from).inDays;
+    //
+    // **시간 차가 아니라 달력 차로 셉니다.** difference().inDays는 절대
+    // 시간을 재므로, 서머타임이 낀 주에는 하루가 23시간이나 25시간이 되어
+    // 이웃한 두 날이 같은 값을 받습니다. 그러면 '기록한 6일'이 되고 하루
+    // 평균이 부풀어 오릅니다. (한국은 서머타임이 없어 드러나지 않습니다.)
+    // 달력 날짜 자체를 키로 씁니다(20260813). 어떤 뺄셈도 하지 않으므로
+    // 시간대·서머타임과 무관합니다.
+    int dayKey(DateTime at) => at.year * 10000 + at.month * 100 + at.day;
 
     var sleepTotal = Duration.zero;
     var completedSleeps = 0;

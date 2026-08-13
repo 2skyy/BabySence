@@ -183,6 +183,18 @@ async def get_advice(
         )
 
     # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
+    # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에
+    # 막혀 거절된 요청도 앞 통을 한 칸 씁니다 — 계정 하나로 전체 상한을
+    # 채워 다른 사람을 한 시간 막을 수 있습니다.
+    if not _per_user_limit.allows(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="질문을 너무 많이 하셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
     if not _global_limit.allow("*"):
         logger.warning("서버 전체 상한에 걸렸습니다.")
         raise HTTPException(
@@ -263,6 +275,18 @@ async def diagnose_skin(
         )
 
     # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
+    # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에
+    # 막혀 거절된 요청도 앞 통을 한 칸 씁니다 — 계정 하나로 전체 상한을
+    # 채워 다른 사람을 한 시간 막을 수 있습니다.
+    if not _skin_per_user_limit.allows(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="사진을 너무 많이 보내셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_skin_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
     if not _skin_global_limit.allow("*"):
         logger.warning("피부 분석 서버 전체 상한에 걸렸습니다.")
         raise HTTPException(

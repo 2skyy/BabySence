@@ -38,8 +38,7 @@ void main() {
     test('완전히 끄기도 결과를 연다', () {
       // 백그라운드는 끝맺음을 알려주지만, 받아서 결과를 여는 것은 화면 몫
       // 입니다. 예전에는 그냥 껐고, 그 밤의 판정이 만들어지지 않았습니다.
-      final button = page.substring(page.indexOf("invoke('stopService')") - 800);
-      expect(button.contains('if (wasMeasuring) {'), isTrue);
+      final button = page.substring(page.indexOf("invoke('stopService')") - 1200);
       expect(button.contains('_armSessionWait();'), isTrue);
       expect(button.contains('if (wasMeasuring) await _showResult();'), isTrue);
     });
@@ -54,6 +53,13 @@ void main() {
       );
       expect(page.contains('_sessionEnded?.complete()'), isFalse,
           reason: '가드 없이 complete하면 두 번째 신호에서 던집니다');
+    });
+
+    test('버튼을 먼저 잠근다', () {
+      // 토큰 갱신이 망에 따라 몇 초 걸립니다. 그동안 버튼 글씨가 그대로면
+      // 죽은 줄 알고 다시 누르고, 결과 화면과 판정이 두 번 생깁니다
+      // (AssessmentService.save는 중복을 안 거릅니다).
+      expect(page.contains('if (_loadingResult) return;'), isTrue);
     });
 
     test('고정 시간을 자지 않는다', () {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/stale_notice.dart';
+
 import '../../core/services/refresh_signal.dart';
 
 import '../../core/widgets/common_app_bar.dart';
@@ -59,7 +61,18 @@ class _RecordsPageState extends State<RecordsPage> {
     super.dispose();
   }
 
+  /// 이 조회가 몇 번째인지.
+  ///
+  /// 탭을 다시 누르거나 앱이 앞으로 나오면 [RefreshSignal]이 울리는데,
+  /// 앞 조회가 끝났는지는 보지 않습니다. 그래서 두 조회가 겹칠 수 있고,
+  /// **늦게 온 실패가 방금 성공한 결과를 덮었습니다** — 최신 목록을 손에
+  /// 쥔 채 '불러오지 못했습니다'만 남고, 스스로 낫지도 않았습니다.
+  ///
+  /// 마지막 조회의 결과만 반영합니다.
+  int _loadGen = 0;
+
   Future<void> _load() async {
+    final gen = ++_loadGen;
     setState(() {
       _loading = true;
       _error = null;
@@ -87,9 +100,11 @@ class _RecordsPageState extends State<RecordsPage> {
         CareRecordService.loadVisits(baby.id, limit: 30),
       ]);
 
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() {
         _hasBaby = true;
+        // 성공했으면 앞선 실패 표시를 지웁니다.
+        _error = null;
         _records = mergeRecentRecords(
           feedings: results[0] as List<FeedingRecord>,
           diapers: results[1] as List<DiaperRecord>,
@@ -101,11 +116,11 @@ class _RecordsPageState extends State<RecordsPage> {
         );
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() => _error = '기록을 불러오지 못했습니다.');
       debugPrint('기록 조회 실패: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && gen == _loadGen) setState(() => _loading = false);
     }
   }
 
@@ -128,7 +143,12 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   List<Widget> _buildTimeline() {
-    if (_loading) {
+    // 이미 목록이 있으면 스피너로 갈아끼우지 않습니다.
+    //
+    // 갈아끼우면 화면 높이가 0으로 줄고, 되돌아올 때 스크롤이 맨 위로
+    // 튑니다(RangeMaintainingScrollPhysics가 위치를 clamp합니다). 탭을
+    // 오갈 때마다 보던 자리를 잃었습니다.
+    if (_loading && _records.isEmpty) {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 40),
@@ -137,7 +157,9 @@ class _RecordsPageState extends State<RecordsPage> {
       ];
     }
 
-    if (_error != null) {
+    // 실패했더라도 손에 든 것이 있으면 그것부터 보여줍니다. 목록을
+    // 지우고 오류만 남기면, 방금까지 보던 기록이 사라집니다.
+    if (_error != null && _records.isEmpty) {
       return [
         Text(
           _error!,
@@ -146,6 +168,11 @@ class _RecordsPageState extends State<RecordsPage> {
         TextButton(onPressed: _load, child: const Text('다시 시도')),
       ];
     }
+
+    // 낡았을 수 있다는 사실은 감추지 않습니다.
+    final stale = _error == null
+        ? const <Widget>[]
+        : [StaleNotice(message: _error!, onRetry: _load)];
 
     if (!_hasBaby) {
       return [
@@ -173,6 +200,7 @@ class _RecordsPageState extends State<RecordsPage> {
     final days = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return [
+      ...stale,
       for (final day in days) ...[
         Padding(
           padding: const EdgeInsets.only(

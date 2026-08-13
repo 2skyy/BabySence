@@ -26,6 +26,13 @@ class ChatContext {
   /// 각 영역에서 가져올 최근 기록 수.
   static const int recentLimit = 5;
 
+  /// 종합 상담에서 **영역마다** 담는 건수.
+  ///
+  /// 영역이 다섯이라 5건씩 담으면 25줄이 되고, 서버의 맥락 길이 상한
+  /// (MAX_CONTEXT_CHARS, 기본 2000자)에 걸려 뒤쪽 영역이 통째로 잘립니다.
+  /// 잘리면 어느 영역이 빠졌는지 아무도 모릅니다.
+  static const int overallLimit = 3;
+
   /// 아이 정보와 최근 기록을 모델이 읽을 문단으로 만듭니다.
   ///
   /// 어느 한 조회가 실패해도 나머지는 보냅니다 — 맥락이 조금 빈 것이
@@ -69,10 +76,22 @@ class ChatContext {
     // 판정이 있으면 개월 수 바로 뒤에 놓습니다. 대화가 대개 거기서 시작합니다.
     addAssessment();
 
-    final records = await _recentFor(domain, baby.id);
-    if (records.isNotEmpty) {
-      lines.add('- 최근 ${domain.label} 기록:');
-      lines.addAll(records.map((r) => '  · $r'));
+    if (domain == AssessmentDomain.overall) {
+      // **종합은 전부 담습니다.** 홈의 상담 단추가 여기로 옵니다.
+      //
+      // 각 기록 화면에 있던 상담 아이콘을 없애면서, 이 대화 하나가 모든
+      // 질문을 받게 됐습니다. 예전처럼 약·병원만 담으면 "어젯밤 잘 잤나요"
+      // 같은 질문에 아무 근거 없이 답하게 됩니다.
+      for (final entry in await _everything(baby.id)) {
+        lines.add('- 최근 ${entry.key} 기록:');
+        lines.addAll(entry.value.map((r) => '  · $r'));
+      }
+    } else {
+      final records = await _recentFor(domain, baby.id);
+      if (records.isNotEmpty) {
+        lines.add('- 최근 ${domain.label} 기록:');
+        lines.addAll(records.map((r) => '  · $r'));
+      }
     }
 
     // 성장은 어느 영역에서든 배경이 됩니다. 수유·수면 질문에도 아이가
@@ -83,13 +102,50 @@ class ChatContext {
     return lines.join('\n');
   }
 
+  /// 종합 상담에 담을 **모든 영역**의 최근 기록.
+  ///
+  /// 홈의 상담 단추가 쓰는 길입니다. 각 기록 화면의 아이콘을 없앴으므로
+  /// 이 대화가 유일한 입구이고, 무엇을 물어도 답할 수 있어야 합니다.
+  ///
+  /// 영역마다 [overallLimit]건씩만 담습니다. 전부 넣으면 서버의 맥락 길이
+  /// 상한(MAX_CONTEXT_CHARS, 기본 2000자)에 걸려 뒤쪽이 잘립니다 —
+  /// 잘리면 어느 영역이 빠졌는지 아무도 모릅니다.
+  ///
+  /// 조회에 실패한 영역은 그냥 빠집니다. 하나가 실패했다고 대화 전체를
+  /// 막지 않습니다.
+  static Future<List<MapEntry<String, List<String>>>> _everything(
+    String babyId,
+  ) async {
+    const domains = [
+      AssessmentDomain.temperature,
+      AssessmentDomain.feeding,
+      AssessmentDomain.diaper,
+      AssessmentDomain.sleep,
+    ];
+
+    final result = <MapEntry<String, List<String>>>[];
+    for (final d in domains) {
+      final rows = await _recentFor(d, babyId, limit: overallLimit);
+      if (rows.isNotEmpty) result.add(MapEntry(d.label, rows));
+    }
+
+    // 약·병원은 영역 enum이 없어 따로 담습니다.
+    final care = await _recentFor(AssessmentDomain.overall, babyId,
+        limit: overallLimit);
+    if (care.isNotEmpty) result.add(MapEntry('약·병원', care));
+
+    return result;
+  }
+
   /// 영역에 맞는 최근 기록을 문장으로 만듭니다.
   ///
   /// 조회에 실패하면 빈 목록을 돌려줍니다. 대화는 계속되어야 합니다.
   static Future<List<String>> _recentFor(
     AssessmentDomain domain,
-    String babyId,
-  ) async {
+    String babyId, {
+    int? limit,
+  }) async {
+    final recentLimit = limit ?? ChatContext.recentLimit;
     try {
       switch (domain) {
         case AssessmentDomain.temperature:

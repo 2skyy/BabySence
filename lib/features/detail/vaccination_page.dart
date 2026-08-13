@@ -129,11 +129,27 @@ class _VaccinationPageState extends State<VaccinationPage> {
 
   /// 완료한 접종의 날짜를 고칩니다. 되돌리기는 여기서만 할 수 있습니다.
   Future<void> _editVaccinatedOn(VaccinationStatus status) async {
+    // **범위 안으로 밀어 넣습니다.**
+    //
+    // initialDate는 DB에 남은 접종일, firstDate는 지금의 생년월일입니다.
+    // 생년월일을 더 늦은 날로 고치면(마이페이지에서 오타를 바로잡는 흔한
+    // 일입니다) 접종일이 그보다 앞서게 되고, showDatePicker는 그 조합에서
+    // 단정에 걸립니다. 크래시는 아니지만 **아무 일도 일어나지 않습니다** —
+    // 눌러도 반응이 없고 콘솔에만 찍혀, 사용자는 화면이 고장 난 줄 압니다.
+    final first = _baby?.birthDate ?? DateTime(2000);
+    final last = DateTime.now();
+    final recorded = status.vaccinatedOn!;
+    final initial = recorded.isBefore(first)
+        ? first
+        : recorded.isAfter(last)
+            ? last
+            : recorded;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: status.vaccinatedOn!,
-      firstDate: _baby?.birthDate ?? DateTime(2000),
-      lastDate: DateTime.now(),
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
       helpText: '${status.vaccine.name} 접종일',
       confirmText: '저장',
       cancelText: '닫기',
@@ -592,7 +608,7 @@ class _VaccinationPageState extends State<VaccinationPage> {
                     const SizedBox(height: 4),
                     Text(
                       isCompleted
-                          ? '${status.vaccine.recommendedAgeLabel} · ${_formatDate(status.vaccinatedOn!)} 접종 · 눌러서 날짜 수정'
+                          ? '${status.vaccine.recommendedAgeLabel} · ${_formatDate(status.vaccinatedOn!)} 접종\n눌러서 날짜 수정 · 길게 눌러 되돌리기'
                           : '${status.vaccine.recommendedAgeLabel} · 예정 ${_formatDate(status.scheduledOn)}',
                       style: TextStyle(
                         color: secondaryTextColor,

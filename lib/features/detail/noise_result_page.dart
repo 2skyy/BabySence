@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../advice/ask_action.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
@@ -51,13 +50,6 @@ class NoiseResultPage extends StatelessWidget {
       backgroundColor: context.colors.background,
       appBar: CommonAppBar(
         title: '수면 소음 결과',
-        actions: [
-          AskAction(
-            domain: AssessmentDomain.noise,
-            assessment: assessment,
-            tooltip: '이 결과에 대해 물어보기',
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),

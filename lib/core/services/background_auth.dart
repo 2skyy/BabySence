@@ -36,9 +36,18 @@ const String backgroundAuthSignal = 'noise_auth';
 /// (`main.dart`의 `onStart`). 대신 화면이 DB에 쓸 일이 생기기 직전에 최신
 /// 토큰을 실어 보냅니다. 티켓 관리가 화면 한 곳으로 모입니다.
 ///
-/// 백그라운드가 DB에 쓰는 순간은 둘뿐이고, 둘 다 **화면이 살아 있는 때**
-/// 입니다 — 측정을 시작할 때 수면 기록 행을 만들고, 멈출 때 그 행을 닫습니다.
-/// 그래서 그 두 번만 보내면 됩니다.
+/// 백그라운드가 DB에 쓰는 순간은 셋입니다.
+///
+///   1. 측정 시작 직후 — 수면 기록 행을 만듭니다
+///   2. 행 만들기에 실패했을 때 60초마다 다시 시도 (밤중일 수 있습니다)
+///   3. 멈출 때 — 그 행에 종료 시각을 적습니다
+///
+/// 화면이 살아 있는 것은 1과 3뿐입니다. 2는 토큰이 만료돼 있으면 계속
+/// 실패하지만, 3에서 새 토큰으로 다시 만들므로 밤을 잃지는 않습니다.
+///
+/// **끄는 길에서는 재는 중이 아니어도 보냅니다.** 화면이 '측정 중이 아님'인
+/// 것과 백그라운드에 쓸 것이 남아 있는 것은 다릅니다 — 마이크 스트림이
+/// 죽으면 화면 상태만 내려가고 집계는 메모리에 남아 있습니다.
 Future<void> pushAuthToBackground() async {
   if (kIsWeb) return;
 
@@ -47,9 +56,15 @@ Future<void> pushAuthToBackground() async {
   if (session == null) return;
 
   // 만료됐으면 **화면 쪽에서** 갱신합니다. 티켓 사슬을 쥔 쪽이 여기입니다.
+  //
+  // 상한을 겁니다. gotrue에는 요청 타임아웃이 없어서, 응답이 오지 않는
+  // 망(캡티브 포털 등)에서는 여기서 몇 분을 멎습니다. 중지 버튼이 이걸
+  // 기다리는 자리라 화면이 죽은 것처럼 보이고, 다시 누르면 결과 화면과
+  // 판정이 두 번 만들어집니다.
   if (session.isExpired) {
     try {
-      session = (await auth.refreshSession()).session;
+      session = (await auth.refreshSession().timeout(const Duration(seconds: 8)))
+          .session;
     } catch (e) {
       debugPrint('백그라운드에 넘길 세션을 갱신하지 못했습니다: $e');
       return;

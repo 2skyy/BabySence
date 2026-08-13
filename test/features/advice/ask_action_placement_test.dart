@@ -8,22 +8,22 @@ import 'package:flutter_project/features/advice/ask_action.dart';
 import 'package:flutter_project/features/advice/ask_fab.dart';
 import 'package:flutter_project/features/detail/assessment/assessment.dart';
 
-/// 상담으로 가는 길을 어디에 둘지 두 번 틀렸습니다.
+/// 상담으로 가는 길을 어디에 둘지 세 번 옮겼습니다.
 ///
 /// 1. 각 기록 화면 한가운데 전면 버튼 — 기록하러 들어온 사람의 눈길을
 ///    계속 끌었습니다.
 /// 2. 각 기록 화면 앱바의 작은 말풍선 아이콘 — 이번에는 **아무도 못
 ///    찾았습니다.** 있는지조차 몰랐습니다.
+/// 3. 판정을 넘기는 셋만 남김 — 여전히 화면마다 있는 셈이었습니다.
 ///
-/// 두 실패의 공통점은 자리를 **기록 화면 안에서** 찾으려 한 것입니다.
-/// 기록하는 중에 눈에 띄면 방해가 되고, 방해가 안 되면 안 보입니다.
+/// 지금은 **홈 오른쪽 아래 단추 하나뿐**입니다. 홈은 기록하러 들어가기
+/// 전에 머무는 곳이라 눈에 띄어도 하던 일을 가로막지 않습니다.
 ///
-/// 지금은 홈 오른쪽 아래에 하나 둡니다. 홈은 기록하러 들어가기 전에 머무는
-/// 곳이라 눈에 띄어도 하던 일을 가로막지 않습니다.
+/// 입구가 하나이므로 그 대화는 **무엇을 물어도 답할 수 있어야** 합니다.
+/// 그래서 종합 맥락이 체온·수유·배변·수면·약병원을 전부 담습니다.
 ///
-/// 기록 화면의 아이콘은 **판정을 실어 보내는 셋만** 남겼습니다. 그건
-/// "체온에 대해 묻기"가 아니라 "방금 나온 이 판정을 설명해 줘"라서, 홈에서는
-/// 만들 수 없는 대화입니다.
+/// [AskAction] 자체는 남겨 둡니다 — 지금은 쓰이지 않지만 판정 결과에서
+/// 다시 열고 싶어질 수 있고, 그때 화면마다 새로 만들지 않게 하려는 것입니다.
 void main() {
   group('홈 단추', () {
     testWidgets('누르면 종합 상담이 열린다', (tester) async {
@@ -57,40 +57,69 @@ void main() {
     });
   });
 
-  group('판정을 실어 보내는 곳만 남긴다', () {
-    /// 이 셋은 "방금 나온 이 결과"를 대화의 출발점으로 넘깁니다.
-    /// 홈에서 여는 종합 상담은 그 판정을 알 수 없습니다.
-    const withAssessment = {
-      'lib/features/detail/temperature_record_page.dart': '체온',
-      'lib/features/detail/growth/growth_record_page.dart': '성장',
-      'lib/features/detail/noise_result_page.dart': '소음 결과',
-    };
-
-    withAssessment.forEach((path, label) {
-      test('$label 화면이 판정을 넘긴다', () {
-        final source = File(path).readAsStringSync();
-        expect(source.contains('AskAction('), isTrue);
-        expect(source.contains('assessment:'), isTrue,
-            reason: '판정을 안 넘길 거면 이 아이콘도 없애야 합니다');
-      });
-    });
-
-    /// 영역 이름만 있던 아이콘들. 홈 단추가 같은 일을 합니다.
-    const removed = [
+  group('기록 화면에는 두지 않는다', () {
+    // 자리를 세 번 옮겼습니다.
+    //
+    //   1. 기록 화면 한가운데 전면 버튼 — 기록하러 온 사람의 눈길을 끔
+    //   2. 기록 화면 앱바 아이콘 — 아무도 못 찾음
+    //   3. 판정을 넘기는 셋만 남김 — 여전히 화면마다 있는 셈
+    //
+    // 지금은 **홈 단추 하나뿐**입니다. 입구가 하나여야 그 대화가 모든
+    // 기록을 맥락으로 받는다는 약속이 성립합니다.
+    const screens = [
+      'lib/features/detail/temperature_record_page.dart',
       'lib/features/detail/feeding_record_page.dart',
       'lib/features/detail/diaper_record_page.dart',
       'lib/features/detail/sleep_record_page.dart',
+      'lib/features/detail/growth/growth_record_page.dart',
       'lib/features/detail/care/care_record_page.dart',
       'lib/features/detail/vaccination_page.dart',
+      'lib/features/detail/skin_analysis_page.dart',
+      'lib/features/detail/noise_result_page.dart',
       'lib/features/analysis/analysis_page.dart',
     ];
 
-    for (final path in removed) {
-      test('${path.split('/').last} 에는 없다', () {
+    for (final path in screens) {
+      test('${path.split('/').last} 에 없다', () {
         expect(File(path).readAsStringSync().contains('AskAction('), isFalse,
-            reason: '홈 단추와 겹칩니다');
+            reason: '상담 입구는 홈 단추 하나입니다');
       });
     }
+  });
+
+  group('홈 대화가 모든 기록을 받는다', () {
+    // 입구가 하나뿐이므로 무엇을 물어도 답할 수 있어야 합니다. 예전에는
+    // overall이 약·병원만 담아, "어젯밤 잘 잤나요"에 근거 없이 답했습니다.
+    final context =
+        File('lib/features/advice/chat_context.dart').readAsStringSync();
+
+    test('종합이면 영역 전부를 담는다', () {
+      expect(context.contains('_everything(baby.id)'), isTrue);
+      final everything = context.substring(
+        context.indexOf('_everything(\n    String babyId,\n  ) async {'),
+      );
+      for (final d in [
+        'AssessmentDomain.temperature',
+        'AssessmentDomain.feeding',
+        'AssessmentDomain.diaper',
+        'AssessmentDomain.sleep',
+      ]) {
+        expect(everything.contains(d), isTrue, reason: d);
+      }
+      expect(everything.contains("'약·병원'"), isTrue);
+    });
+
+    test('영역마다 건수를 줄여 맥락 상한을 넘기지 않는다', () {
+      // 서버의 MAX_CONTEXT_CHARS는 2000자입니다. 다섯 영역에 5건씩이면
+      // 뒤쪽 영역이 통째로 잘리는데, 잘린 것을 아무도 모릅니다.
+      expect(context.contains('static const int overallLimit = 3;'), isTrue);
+      expect(context.contains('limit: overallLimit'), isTrue);
+    });
+
+    test('한 영역이 실패해도 나머지는 담는다', () {
+      // _recentFor가 실패하면 빈 목록을 돌려주고, 빈 것은 건너뜁니다.
+      expect(context.contains('if (rows.isNotEmpty) result.add'), isTrue);
+    });
   });
 
   group('아이콘 자체', () {

@@ -110,14 +110,22 @@ class SleepNoiseStats {
 class SleepRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
-  static Future<List<SleepRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('sleep_records')
-        .select()
-        .eq('baby_id', babyId)
-        .order('started_at', ascending: false)
-        .limit(limit);
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 7일"이라 적어 두고
+  /// 실제로는 최신 N건만 세게 됩니다. 신생아기처럼 하루에 열 번 넘게
+  /// 기록하는 시기에는 그 창의 앞쪽이 통째로 빠지는데, 화면에는 잘렸다는
+  /// 표시가 없습니다.
+  static Future<List<SleepRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+  }) async {
+    var query = _client.from('sleep_records').select().eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('started_at', toDbTime(since));
+
+    final rows =
+        await query.order('started_at', ascending: false).limit(limit);
 
     return rows.map(SleepRecord.fromMap).toList();
   }

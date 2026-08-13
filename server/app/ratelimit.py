@@ -25,6 +25,24 @@ class SlidingWindow:
         self._window = window_seconds
         self._hits: dict[str, deque[float]] = {}
 
+    def allows(self, key: str) -> bool:
+        """세지 않고 확인만 합니다.
+
+        통이 둘일 때 필요합니다. 앞 통을 먼저 소비하면, 뒤 통에 막혀
+        거절된 요청도 앞 통을 한 칸 깎습니다. 사용자별 30 / 전체 300이면
+        **계정 하나로 300번 불러 전체를 채울 수 있습니다** — 200이 30개,
+        429가 270개인데 전체 통은 300/300입니다. 그 뒤 다른 사람은 첫
+        요청부터 막힙니다.
+        """
+        now = time.monotonic()
+        cutoff = now - self._window
+        hits = self._hits.get(key)
+        if hits is None:
+            return True
+        while hits and hits[0] <= cutoff:
+            hits.popleft()
+        return len(hits) < self._limit
+
     def allow(self, key: str) -> bool:
         """한 번 세고, 상한을 넘지 않았으면 True."""
         now = time.monotonic()

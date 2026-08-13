@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/stale_notice.dart';
+
 import '../../core/services/refresh_signal.dart';
 
 import '../../core/widgets/common_app_bar.dart';
@@ -58,7 +60,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
     super.dispose();
   }
 
+  /// 이 조회가 몇 번째인지.
+  ///
+  /// 탭을 다시 누르거나 앱이 앞으로 나오면 [RefreshSignal]이 울리는데,
+  /// 앞 조회가 끝났는지는 보지 않습니다. 그래서 두 조회가 겹칠 수 있고,
+  /// **늦게 온 실패가 방금 성공한 결과를 덮었습니다** — 최신 목록을 손에
+  /// 쥔 채 '불러오지 못했습니다'만 남고, 스스로 낫지도 않았습니다.
+  ///
+  /// 마지막 조회의 결과만 반영합니다.
+  int _loadGen = 0;
+
   Future<void> _load() async {
+    final gen = ++_loadGen;
     setState(() {
       _loading = true;
       _error = null;
@@ -76,18 +89,29 @@ class _AnalysisPageState extends State<AnalysisPage> {
         return;
       }
 
-      // 7일치를 넉넉히 덮도록 100건씩 봅니다.
+      // **창을 조회로 표현합니다.** 예전에는 "7일치를 넉넉히 덮도록
+      // 100건씩" 읽었는데, 신생아기처럼 하루 열 번 넘게 기록하면 7일이
+      // 100건을 넘습니다. 그러면 '수유 100회 · 하루 평균 14.3회'에서
+      // 포화되고, 화면에는 잘렸다는 표시가 없습니다.
+      //
+      // WeeklySummary가 세는 창과 같은 기간을 넘깁니다.
+      final today = DateTime.now();
+      final since = DateTime(today.year, today.month, today.day)
+          .subtract(const Duration(days: WeeklySummary.days - 1));
+
       final results = await Future.wait([
-        FeedingRecordService.loadRecent(baby.id, limit: 100),
-        DiaperRecordService.loadRecent(baby.id, limit: 100),
-        SleepRecordService.loadRecent(baby.id, limit: 100),
-        TemperatureRecordService.loadRecent(baby.id, limit: 100),
+        FeedingRecordService.loadRecent(baby.id, since: since, limit: 500),
+        DiaperRecordService.loadRecent(baby.id, since: since, limit: 500),
+        SleepRecordService.loadRecent(baby.id, since: since, limit: 500),
+        TemperatureRecordService.loadRecent(baby.id, since: since, limit: 500),
         AssessmentService.loadRecent(babyId: baby.id, limit: 10),
       ]);
 
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() {
         _hasBaby = true;
+        // 성공했으면 앞선 실패 표시를 지웁니다.
+        _error = null;
         _summary = WeeklySummary.from(
           feedings: results[0] as List<FeedingRecord>,
           diapers: results[1] as List<DiaperRecord>,
@@ -97,11 +121,11 @@ class _AnalysisPageState extends State<AnalysisPage> {
         _assessments = results[4] as List<Assessment>;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() => _error = '분석을 불러오지 못했습니다.');
       debugPrint('분석 조회 실패: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && gen == _loadGen) setState(() => _loading = false);
     }
   }
 
@@ -126,7 +150,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 
   List<Widget> _buildBody() {
-    if (_loading) {
+    // 이미 요약이 있으면 스피너로 갈아끼우지 않습니다.
+    //
+    // 갈아끼우면 화면 높이가 0으로 줄고, 되돌아올 때 스크롤이 맨 위로
+    // 튑니다(RangeMaintainingScrollPhysics가 위치를 clamp합니다). 탭을
+    // 오갈 때마다 보던 자리를 잃었습니다.
+    if (_loading && _summary == null) {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 60),
@@ -135,7 +164,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
       ];
     }
 
-    if (_error != null) {
+    // 실패했더라도 손에 든 것이 있으면 그것부터 보여줍니다. 목록을
+    // 지우고 오류만 남기면, 방금까지 보던 기록이 사라집니다.
+    if (_error != null && _summary == null) {
       return [
         Text(
           _error!,
@@ -144,6 +175,11 @@ class _AnalysisPageState extends State<AnalysisPage> {
         TextButton(onPressed: _load, child: const Text('다시 시도')),
       ];
     }
+
+    // 낡았을 수 있다는 사실은 감추지 않습니다.
+    final stale = _error == null
+        ? const <Widget>[]
+        : [StaleNotice(message: _error!, onRetry: _load)];
 
     if (!_hasBaby) {
       return [
@@ -158,6 +194,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     }
 
     return [
+      ...stale,
       _sectionTitle('최근 7일'),
       const SizedBox(height: AppSpacing.md),
       _buildWeeklyCard(),
@@ -208,8 +245,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
             color: AppColors.primary,
             label: '수유',
             value: '${s.feedingCount}회',
-            detail: '하루 평균 ${s.feedingPerDay.toStringAsFixed(1)}회'
-                ' · ${WeeklySummary.basis(s.feedingDays)}',
+            // 기록이 없으면 '하루 평균 0.0회 · 기록한 0일 기준' 대신
+            // 그냥 없다고 적습니다. 나눌 것이 없는데 평균을 적는 것은
+            // 숫자를 지어내는 쪽에 가깝습니다.
+            detail: s.feedingDays == 0
+                ? '아직 기록이 없습니다'
+                : '하루 평균 ${s.feedingPerDay.toStringAsFixed(1)}회'
+                    ' · ${WeeklySummary.basis(s.feedingDays)}',
           ),
           const Divider(height: AppSpacing.xl),
           _statRow(
@@ -217,8 +259,10 @@ class _AnalysisPageState extends State<AnalysisPage> {
             color: Colors.amber.shade700,
             label: '배변',
             value: '${s.diaperCount}회',
-            detail: '하루 평균 ${s.diaperPerDay.toStringAsFixed(1)}회'
-                ' · ${WeeklySummary.basis(s.diaperDays)}',
+            detail: s.diaperDays == 0
+                ? '아직 기록이 없습니다'
+                : '하루 평균 ${s.diaperPerDay.toStringAsFixed(1)}회'
+                    ' · ${WeeklySummary.basis(s.diaperDays)}',
           ),
           const Divider(height: AppSpacing.xl),
           _statRow(

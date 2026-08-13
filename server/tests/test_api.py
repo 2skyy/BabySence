@@ -175,6 +175,30 @@ class TestRateLimit:
         client.post("/api/advice", json=QUESTION, headers=AUTHED)
         assert len(calls) == 1
 
+    def test_blocked_user_does_not_burn_the_global_bucket(
+        self, logged_in, answers, monkeypatch
+    ):
+        """사용자 상한에 막힌 요청이 전체 통을 깎으면 안 됩니다.
+
+        예전에는 전체 통을 먼저 소비하고 사용자 통을 봤습니다. 사용자 30 /
+        전체 300이면 **계정 하나로 300번 불러 전체를 채울 수 있었습니다** —
+        200이 30개, 429가 270개인데 전체 통은 300/300. 그 뒤 다른 사람은
+        첫 요청부터 막힙니다.
+        """
+        monkeypatch.setattr(main._per_user_limit, "_limit", 2)
+        monkeypatch.setattr(main._global_limit, "_limit", 10)
+
+        for _ in range(5):
+            client.post("/api/advice", json=QUESTION, headers=AUTHED)
+
+        # 성공한 2번만 전체 통을 썼어야 합니다.
+        assert len(main._global_limit._hits.get("*", [])) == 2
+
+        # 그래서 다른 사람은 아직 들어올 수 있습니다.
+        main.app.dependency_overrides[auth.require_user] = lambda: "user-2"
+        other = client.post("/api/advice", json=QUESTION, headers=AUTHED)
+        assert other.status_code == 200
+
     def test_global_limit_catches_many_accounts(self, answers, monkeypatch):
         # 계정은 얼마든지 새로 만들 수 있어 사용자별 상한만으로는 총액이
         # 막히지 않습니다.

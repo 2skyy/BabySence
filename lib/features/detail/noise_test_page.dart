@@ -284,15 +284,22 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     final service = FlutterBackgroundService();
 
     if (_isNoiseMeasuring) {
+      // **버튼을 먼저 잠급니다.** 바로 아래 토큰 갱신이 망에 따라 몇 초
+      // 걸리는데, 그동안 버튼 글씨가 그대로라 죽은 줄 알고 다시 누릅니다.
+      // 그러면 이 갈래에 두 번 들어와 결과 화면도 판정도 두 번 생깁니다
+      // (AssessmentService.save는 중복을 걸러 내지 않습니다).
+      if (_loadingResult) return;
+      setState(() {
+        _loadingResult = true;
+        _isNoiseMeasuring = false;
+        _currentDecibel = 0.0;
+      });
+
       _armSessionWait();
       // 멈추는 순간 백그라운드가 수면 기록을 닫습니다. 밤새 재고 아침에
       // 누르는 경우가 흔해, 시작할 때 넘긴 토큰은 이미 만료됐을 수 있습니다.
       await pushAuthToBackground();
       service.invoke('stopNoiseOnly');
-      setState(() {
-        _isNoiseMeasuring = false;
-        _currentDecibel = 0.0;
-      });
       await _showResult();
       return;
     }
@@ -605,11 +612,22 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                 // 않았습니다. 백그라운드는 이제 끝맺음을 알려주지만
                 // (main.dart의 stopService), 받아서 결과를 여는 것은
                 // 이쪽 몫입니다.
+                if (_loadingResult) return;
                 final wasMeasuring = _isNoiseMeasuring;
                 if (wasMeasuring) {
+                  // 여기도 아래 토큰 갱신을 기다립니다. 잠그지 않으면
+                  // 같은 이유로 결과가 두 번 열립니다.
+                  setState(() => _loadingResult = true);
                   _armSessionWait();
-                  await pushAuthToBackground();
                 }
+
+                // **재는 중이 아니어도 보냅니다.** 화면이 '측정 중이 아님'인
+                // 것과 백그라운드에 쓸 것이 남아 있는 것은 다릅니다 —
+                // 마이크 스트림이 죽으면 main.dart의 onError가 화면 상태만
+                // 내리고 집계는 메모리에 그대로 남습니다. 그때 토큰을 안
+                // 보내면 백그라운드의 마지막 쓰기가 401로 실패해
+                // ended_at이 null로 남고, 기록 탭에 영영 '측정 중'입니다.
+                await pushAuthToBackground();
 
                 FlutterBackgroundService().invoke('stopService');
                 _noiseService.stopAll(() {}); // 수면 시스템 꺼질 때 백색소음도 같이 정지

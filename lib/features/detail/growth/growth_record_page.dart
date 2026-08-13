@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../advice/ask_action.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -80,12 +79,6 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     return Scaffold(
       appBar: CommonAppBar(
         title: '성장 기록',
-        actions: [
-          AskAction(
-            domain: AssessmentDomain.growth,
-            assessment: _lastAssessment,
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

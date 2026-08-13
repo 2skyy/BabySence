@@ -79,7 +79,22 @@ void main() {
     });
 
     test('완전히 끄기에서도 보낸다', () {
-      final button = page.substring(page.indexOf("invoke('stopService')") - 800);
+      final button = page.substring(page.indexOf("invoke('stopService')") - 1000);
+      expect(button.contains('await pushAuthToBackground();'), isTrue);
+    });
+
+    test('재는 중이 아니어도 끄는 길에서는 보낸다', () {
+      // 화면이 '측정 중이 아님'인 것과 백그라운드에 쓸 것이 남아 있는 것은
+      // 다릅니다. 마이크 스트림이 죽으면 main.dart의 onError가 화면 상태만
+      // 내리고 집계는 메모리에 남습니다. 그때 토큰을 안 보내면 마지막
+      // 쓰기가 401로 실패해 ended_at이 null로 남습니다.
+      final button = page.substring(
+        page.indexOf('final wasMeasuring = _isNoiseMeasuring;'),
+        page.indexOf("invoke('stopService')"),
+      );
+      expect(button.contains('if (wasMeasuring) await pushAuthToBackground();'),
+          isFalse,
+          reason: '재는 중일 때만 보내면 안 됩니다');
       expect(button.contains('await pushAuthToBackground();'), isTrue);
     });
   });

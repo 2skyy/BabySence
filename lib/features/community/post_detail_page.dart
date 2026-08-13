@@ -91,6 +91,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -116,6 +117,21 @@ class _PostDetailPageState extends State<PostDetailPage> {
     }
   }
 
+  /// 목록 스크롤. 새 댓글이 붙은 자리로 내려가는 데 씁니다.
+  final ScrollController _scroll = ScrollController();
+
+  void _scrollToEnd() {
+    // 새 댓글이 그려진 뒤에 내려야 끝까지 갑니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
   Future<void> _sendComment() async {
     final body = _commentController.text.trim();
     if (body.isEmpty) return;
@@ -125,6 +141,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
       await CommunityService.addComment(postId: _post.id, body: body);
       _commentController.clear();
       await _load();
+
+      // **방금 쓴 댓글로 내려갑니다.**
+      //
+      // 댓글은 오래된 순으로 붙습니다(익명 번호를 등장 순서대로 매기려면
+      // 그래야 합니다). 그래서 새 댓글은 맨 아래에 생기는데, 목록이 길면
+      // 화면 밖입니다. 입력칸만 비고 아무 일도 안 일어난 것처럼 보였습니다.
+      if (mounted) _scrollToEnd();
     } catch (e) {
       _showMessage('댓글을 남기지 못했습니다. $e');
     } finally {
@@ -211,6 +234,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
         children: [
           Expanded(
             child: ListView(
+              controller: _scroll,
               padding: const EdgeInsets.all(AppSpacing.lg),
               children: [
                 _buildPostBody(post),

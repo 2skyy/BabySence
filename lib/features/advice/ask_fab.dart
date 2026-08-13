@@ -45,24 +45,34 @@ class AskFab extends StatelessWidget {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              // 홈에서 여는 대화라 영역이 정해져 있지 않습니다. 아이의 최근
-              // 기록 전체를 맥락으로 받는 '종합'으로 엽니다.
+              // 앱 안에서 상담으로 가는 **유일한 입구**입니다. 각 기록
+              // 화면의 아이콘을 모두 없앴으므로, 이 대화가 체온·수유·배변·
+              // 수면·약병원 기록을 전부 맥락으로 받습니다
+              // (ChatContext의 _everything).
               builder: (_) => const ChatPage(domain: AssessmentDomain.overall),
             ),
           ),
-          child: SizedBox(
-            width: 60,
-            height: 60,
-            child: Padding(
-              // 아이콘 원본에 여백이 거의 없어 원 안에 꽉 찹니다.
-              padding: const EdgeInsets.all(11),
+          // **원으로 잘라 냅니다.**
+          //
+          // 앱 아이콘은 자체 배경을 가진 정사각형 이미지입니다. 원 안에
+          // 그냥 얹으면 네 모서리가 드러나 '원 안의 네모'로 보입니다.
+          // 여백을 두고 줄이면 60px 안에서 선이 1px 남짓이 되어 뭉갭니다.
+          //
+          // 잘라서 꽉 채우면 아이콘 자체가 곧 동그란 단추가 됩니다.
+          child: ClipOval(
+            child: SizedBox(
+              width: 60,
+              height: 60,
               child: Image.asset(
                 'assets/icon/app_icon.png',
+                fit: BoxFit.cover,
                 // 이미지를 못 읽어도 단추는 살아 있어야 합니다.
-                errorBuilder: (_, _, _) => const Icon(
-                  Icons.chat_bubble_outline,
-                  color: Colors.white,
-                  size: 26,
+                errorBuilder: (_, _, _) => const Center(
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
               ),
             ),

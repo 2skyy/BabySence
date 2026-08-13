@@ -32,7 +32,18 @@ void main() {
       final edit = page.substring(page.indexOf('Future<void> _editVaccinatedOn('));
       expect(edit.contains('showDatePicker'), isTrue);
       // 미래 날짜는 고를 수 없습니다. 아직 안 맞은 날을 접종일로 둘 수 없습니다.
-      expect(edit.contains('lastDate: DateTime.now()'), isTrue);
+      expect(edit.contains('final last = DateTime.now();'), isTrue);
+      expect(edit.contains('lastDate: last'), isTrue);
+    });
+
+    test('생년월일을 뒤로 고쳐도 열린다', () {
+      // initialDate는 DB의 접종일, firstDate는 지금의 생년월일입니다.
+      // 생년월일을 더 늦은 날로 고치면 initialDate < firstDate가 되고
+      // showDatePicker가 단정에 걸려 **아무 일도 일어나지 않습니다.**
+      final edit = page.substring(page.indexOf('Future<void> _editVaccinatedOn('));
+      expect(edit.contains('recorded.isBefore(first)'), isTrue);
+      expect(edit.contains('recorded.isAfter(last)'), isTrue);
+      expect(edit.contains('initialDate: initial'), isTrue);
     });
   });
 

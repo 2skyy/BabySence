@@ -8,7 +8,6 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
-import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/temperature_rules.dart';
@@ -287,12 +286,6 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
 
       appBar: CommonAppBar(
         title: '체온 기록',
-        actions: [
-          AskAction(
-            domain: AssessmentDomain.temperature,
-            assessment: _lastAssessment,
-          ),
-        ],
       ),
 
       // 이력 목록이 아래에 붙어 화면을 넘기므로 스크롤 뷰로 감쌉니다.

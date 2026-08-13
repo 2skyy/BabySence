@@ -182,6 +182,25 @@ void main() {
       expect(s.sleepPerDay, Duration.zero);
     });
 
+    test('날짜가 붙어 있어도 서로 다른 날로 센다', () {
+      // 날짜 차를 시간으로 재면 서머타임이 낀 주에 이웃한 두 날이 같은
+      // 값을 받아 '기록한 6일'이 되고 평균이 부풀어 오릅니다.
+      final s = WeeklySummary.from(
+        feedings: [
+          for (var d = 29; d <= 31; d++) feeding(DateTime(2026, 7, d, 12)),
+          for (var d = 1; d <= 4; d++) feeding(DateTime(2026, 8, d, 12)),
+        ],
+        diapers: const [],
+        sleeps: const [],
+        temperatures: const [],
+        now: now,
+      );
+
+      expect(s.feedingCount, 7);
+      expect(s.feedingDays, 7, reason: '달을 넘겨도 이레입니다');
+      expect(s.feedingPerDay, 1.0);
+    });
+
     test('근거를 밝힌다', () {
       // 화면에 "하루 평균 5.0회 · 기록한 2일 기준"으로 나갑니다.
       expect(WeeklySummary.basis(2), '기록한 2일 기준');

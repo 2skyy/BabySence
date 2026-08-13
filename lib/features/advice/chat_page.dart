@@ -109,7 +109,6 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(
           ChatMessage.assistant(advice.answer, truncated: advice.truncated),
         );
-        _waiting = false;
       });
     } on AdviceException catch (e) {
       if (!mounted) return;
@@ -119,8 +118,25 @@ class _ChatPageState extends State<ChatPage> {
         _messages.removeLast();
         _input.text = text;
         _error = e.message;
-        _waiting = false;
       });
+    } catch (e) {
+      // **AdviceException이 아닌 것도 받습니다.**
+      //
+      // 서버가 200에 JSON이 아닌 본문을 주면(캡티브 포털, 프록시 차단
+      // 페이지, ngrok 경고) 파싱에서 _TypeError가 납니다. Error라서
+      // on DioException도 on AdviceException도 지나칩니다. 그러면
+      // _waiting이 true로 굳어 스피너가 영영 돌고 오류 문구는 한 줄도
+      // 안 뜨며, 화면을 나가면 대화가 통째로 사라집니다.
+      debugPrint('답변 처리 중 예상치 못한 오류: $e');
+      if (!mounted) return;
+      setState(() {
+        _messages.removeLast();
+        _input.text = text;
+        _error = '답변을 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      });
+    } finally {
+      // 어느 길로 끝나든 기다림은 풉니다.
+      if (mounted) setState(() => _waiting = false);
     }
     _scrollToEnd();
   }

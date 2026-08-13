@@ -67,10 +67,17 @@ class AdviceService {
         },
       );
 
-      final data = response.data as Map;
+      // 방어적으로 읽습니다. 200인데 JSON이 아니거나 키가 빠진 본문이
+      // 오면(프록시 차단 페이지 등) 여기서 형 변환이 터지는데, 그 예외는
+      // Error라서 아래 on DioException을 지나쳐 화면까지 올라갑니다.
+      final data = response.data;
+      if (data is! Map || data['answer'] is! String) {
+        throw const AdviceException('답변을 알아볼 수 없습니다. 서버 주소를 확인해 주세요.');
+      }
+
       return Advice(
         answer: data['answer'] as String,
-        disclaimer: data['disclaimer'] as String,
+        disclaimer: data['disclaimer'] as String? ?? '',
         truncated: data['truncated'] as bool? ?? false,
       );
     } on DioException catch (e) {

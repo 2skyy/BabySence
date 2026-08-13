@@ -27,6 +27,7 @@ import 'features/settings/settings_page.dart';
 import 'routes/app_routes.dart';
 
 import 'core/services/background_auth.dart';
+import 'features/detail/white_noise_service.dart' show whiteNoiseStateSignal;
 import 'core/services/noise_tracker.dart';
 import 'core/services/sleep_type.dart';
 
@@ -351,6 +352,17 @@ void onStart(ServiceInstance service) async {
   // 앱이 죽은 뒤 서비스만 되살아나면 측정 중이 아닌 상태로 다시 시작합니다.
   // 화면이 묻기 전에 먼저 알려, '측정 중지'로 잘못 보이는 것을 막습니다.
   reportNoiseState();
+
+  // 백색소음은 **UI isolate가 냅니다.** 이 신호는 재생을 시키지 않고
+  // 전경 알림 문구만 맞춥니다 — 예전에는 소리가 울리는 동안에도 알림이
+  // '대기 중입니다'라고 적혀 있었습니다.
+  //
+  // 아래 startWhiteNoiseOnly/stopWhiteNoiseOnly는 백그라운드가 직접 재생하는
+  // 경로인데 지금 아무도 부르지 않습니다. 부르면 같은 소리가 두 번 납니다.
+  service.on(whiteNoiseStateSignal).listen((event) {
+    isWhiteNoisePlaying = event?['playing'] == true;
+    updateNotification();
+  });
 
   service.on('startWhiteNoiseOnly').listen((event) async {
     if (isWhiteNoisePlaying) return;

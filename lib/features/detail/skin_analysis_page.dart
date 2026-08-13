@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../advice/ask_action.dart';
 import 'assessment/assessment.dart';
 import 'assessment/temperature_rules.dart' show ageInMonthsAt;
 import 'skin/skin_service.dart';
@@ -169,7 +168,6 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       backgroundColor: colors.background,
       appBar: const CommonAppBar(
         title: '피부 살펴보기',
-        actions: [AskAction(domain: AssessmentDomain.skin)],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
