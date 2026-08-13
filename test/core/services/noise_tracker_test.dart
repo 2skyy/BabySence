@@ -163,6 +163,71 @@ void main() {
     });
   });
 
+  group('가장 컸던 소리는 평활 전 값에서 센다', () {
+    // 화면이 "측정 중 가장 컸던 소리는 …dB"라고 말하는 값입니다.
+    // 평활된 값에서 세면 배경 40dB에 90dB가 한 번 들어와도 45.25dB까지만
+    // 올라가, 아이를 깨운 그 소리를 놓칩니다.
+
+    test('순간 소리를 평활된 값이 아니라 원본에서 잡는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+
+      // 배경 40dB에 90dB가 한 번. 평활된 값은 45.25까지만 오릅니다.
+      t.onNoiseLevelChanged(40, peak: 40);
+      t.onNoiseLevelChanged(45.25, peak: 90);
+      t.onNoiseLevelChanged(40, peak: 40);
+
+      final stats = (await t.finish()).stats!;
+
+      expect(stats.maxDb, 90.0);
+      expect(stats.averageDb, lessThan(50),
+          reason: '평균은 그대로 평활된 값에서 나와야 합니다');
+    });
+
+    test('평균은 평활된 값으로 낸다', () async {
+      // 뜻이 다른 두 값을 섞으면 안 됩니다. 평균은 지속되는 배경 수준,
+      // 최댓값은 순간 사건입니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(30, peak: 100);
+      t.onNoiseLevelChanged(30, peak: 100);
+
+      final stats = (await t.finish()).stats!;
+
+      expect(stats.averageDb, closeTo(30.0, 0.0001));
+      expect(stats.maxDb, 100.0);
+    });
+
+    test('안 주면 같은 값으로 본다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 60, 40]);
+
+      expect((await t.finish()).stats!.maxDb, 60.0);
+    });
+
+    test('창 안에서 묻히지 않는다', () async {
+      // 순간 최댓값은 1초 창과 무관합니다. 창이 열려 있는 동안 들어온
+      // 큰 소리도 그대로 남아야 합니다.
+      final t = NoiseTracker(sampleInterval: const Duration(seconds: 30));
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(40, peak: 40);
+      t.onNoiseLevelChanged(41, peak: 95);
+
+      expect((await t.finish()).stats!.maxDb, 95.0);
+    });
+
+    test('이상한 순간값은 세지 않는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(40, peak: double.nan);
+      t.onNoiseLevelChanged(40, peak: double.infinity);
+      t.onNoiseLevelChanged(40, peak: 500);
+
+      expect((await t.finish()).stats!.maxDb, 200.0, reason: '잘라서 씁니다');
+    });
+  });
+
   group('끝맺기가 겹쳐도 한 번만 돈다', () {
     test('동시에 두 번 부르면 같은 결과를 돌려준다', () async {
       // 끝맺는 길이 둘입니다 — 중지, 그리고 '완전히 끄기'. 중지를 누른 직후

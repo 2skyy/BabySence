@@ -64,10 +64,19 @@ class NoiseTracker {
     this.retryInterval = const Duration(seconds: 60),
   });
 
-  /// 지금까지의 합·최대·개수. 표본은 1초 창의 최댓값입니다.
+  /// 지금까지의 합·개수. 표본은 1초 창의 최댓값입니다.
   double _sum = 0;
-  double _max = 0;
   int _count = 0;
+
+  /// 이번 측정에서 **가장 컸던 순간**.
+  ///
+  /// 평균과 달리 평활(이동평균)을 **거치지 않은** 값에서 셉니다. 화면이
+  /// "가장 컸던 소리는 …dB"라고 말하는 값이고, WHO의 LAmax에 대응합니다.
+  ///
+  /// 평활된 값에서 세면 순간 소리를 놓칩니다 — 이전 85% + 새 값 15%라,
+  /// 배경 40dB에서 90dB가 한 번 들어와도 45.25dB까지만 올라갑니다.
+  /// 아이를 깨우는 것은 평균이 아니라 그 순간의 큰 소리입니다.
+  double _peak = 0;
 
   String? _sleepRecordId;
 
@@ -127,7 +136,7 @@ class NoiseTracker {
     _windowStart = null;
     _windowMax = 0;
     _sum = 0;
-    _max = 0;
+    _peak = 0;
     _count = 0;
     _lastAttempt = null;
     _startedAt = null;
@@ -139,18 +148,32 @@ class NoiseTracker {
   /// 오디오 콜백은 초당 여러 번 오는데 그대로 다 더하면 콜백이 잦은 기기일수록
   /// 평균이 그쪽으로 쏠립니다. 창을 두면 기기와 무관하게 초당 한 표본입니다.
   ///
-  /// 평균이 아니라 **최댓값**을 남깁니다. 아이를 깨우는 것은 평균이 아니라
-  /// 순간의 큰 소리입니다. (넘어오는 값 자체가 이미 이동평균이라는 것은
-  /// 별개 문제입니다 — docs/remaining-work.md의 B.)
+  /// 창 안에서는 평균이 아니라 **최댓값**을 남깁니다. 콜백이 잦은 기기에서
+  /// 조용한 순간이 표본을 채워 평균을 끌어내리는 것을 막으려는 것입니다.
+  /// (가장 컸던 순간은 이 창과 무관하게 [_peak]이 따로 셉니다.)
   DateTime? _windowStart;
   double _windowMax = 0;
 
   /// 보정이 끝난 데시벨 값을 받습니다.
   ///
-  /// 값은 호출하는 쪽(main.dart의 소음 스트림)에서 이미 오프셋과 이동평균을
-  /// 적용해 넘겨줍니다. 여기서 다시 보정하면 이중으로 적용되므로 손대지 않습니다.
-  void onNoiseLevelChanged(double decibel) {
+  /// 값은 호출하는 쪽(main.dart의 소음 스트림)에서 이미 오프셋을 적용해
+  /// 넘겨줍니다. 여기서 다시 보정하면 이중으로 적용되므로 손대지 않습니다.
+  ///
+  /// [decibel]은 **평활을 거친** 값입니다(이전 85% + 새 값 15%). 평균은
+  /// 이 값으로 냅니다 — 지속되는 배경 소음 수준을 보려는 것이라 널뛰기를
+  /// 눌러 주는 편이 맞습니다.
+  ///
+  /// [peak]은 **평활 전** 값입니다. 가장 컸던 순간은 여기서 셉니다. 안 주면
+  /// [decibel]을 씁니다(테스트처럼 둘이 같은 경우).
+  void onNoiseLevelChanged(double decibel, {double? peak}) {
     if (!decibel.isFinite) return;
+
+    // 순간 최댓값은 창과 무관합니다 — 최댓값의 최댓값은 그냥 최댓값입니다.
+    final raw = peak ?? decibel;
+    if (raw.isFinite) {
+      final boundedRaw = raw.clamp(0.0, 200.0);
+      if (boundedRaw > _peak) _peak = boundedRaw;
+    }
 
     // 범위를 벗어난 값은 잘라서 씁니다.
     //
@@ -184,7 +207,6 @@ class NoiseTracker {
   /// 끝날 때 그 행에 종료 시각만 적으면 되기 때문입니다.
   void _record(double decibel) {
     _sum += decibel;
-    if (decibel > _max) _max = decibel;
     _count++;
 
     if (_sleepRecordId != null) return;
@@ -223,7 +245,6 @@ class NoiseTracker {
     // 0건이 됩니다.
     if (_windowStart != null) {
       _sum += _windowMax;
-      if (_windowMax > _max) _max = _windowMax;
       _count++;
       _windowStart = null;
       _windowMax = 0;
@@ -237,7 +258,7 @@ class NoiseTracker {
         ? null
         : SleepNoiseStats(
             averageDb: _sum / _count,
-            maxDb: _max,
+            maxDb: _peak,
             sampleCount: _count,
           );
 

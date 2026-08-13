@@ -191,8 +191,11 @@ void onStart(ServiceInstance service) async {
               : (smoothedDb * 0.85) + (adjustedDb * 0.15);
           isFirstReading = false;
 
-          // 3. 보정된 수치를 UI와 저장 버퍼에 같은 값으로 전달합니다.
-          noiseTracker.onNoiseLevelChanged(smoothedDb);
+          // 3. 평활된 값은 평균에, **평활 전 값은 순간 최댓값**에 씁니다.
+          //    화면이 "가장 컸던 소리는 …dB"라고 말하는 값은 뒤쪽입니다.
+          //    평활된 값에서 세면 배경 40dB에 90dB가 한 번 들어와도
+          //    45.25dB까지만 올라가, 아이를 깨운 그 소리를 놓칩니다.
+          noiseTracker.onNoiseLevelChanged(smoothedDb, peak: adjustedDb);
           service.invoke('update_db', {"db": smoothedDb.toStringAsFixed(1)});
 
           if (service is AndroidServiceInstance && !isWhiteNoisePlaying) {
