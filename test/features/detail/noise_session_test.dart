@@ -38,8 +38,9 @@ void main() {
     test('완전히 끄기도 결과를 연다', () {
       // 백그라운드는 끝맺음을 알려주지만, 받아서 결과를 여는 것은 화면 몫
       // 입니다. 예전에는 그냥 껐고, 그 밤의 판정이 만들어지지 않았습니다.
-      final button = page.substring(page.indexOf("invoke('stopService')") - 600);
-      expect(button.contains('if (wasMeasuring) _armSessionWait();'), isTrue);
+      final button = page.substring(page.indexOf("invoke('stopService')") - 800);
+      expect(button.contains('if (wasMeasuring) {'), isTrue);
+      expect(button.contains('_armSessionWait();'), isTrue);
       expect(button.contains('if (wasMeasuring) await _showResult();'), isTrue);
     });
 

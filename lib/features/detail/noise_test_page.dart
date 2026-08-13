@@ -8,6 +8,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import './white_noise_page.dart';
 import './white_noise_service.dart';
 import '../../core/services/baby_service.dart';
+import '../../core/services/background_auth.dart';
 import '../../core/services/sleep_type.dart';
 import 'assessment/assessment_service.dart';
 import 'assessment/noise_rules.dart';
@@ -284,6 +285,9 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
 
     if (_isNoiseMeasuring) {
       _armSessionWait();
+      // 멈추는 순간 백그라운드가 수면 기록을 닫습니다. 밤새 재고 아침에
+      // 누르는 경우가 흔해, 시작할 때 넘긴 토큰은 이미 만료됐을 수 있습니다.
+      await pushAuthToBackground();
       service.invoke('stopNoiseOnly');
       setState(() {
         _isNoiseMeasuring = false;
@@ -340,6 +344,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     if (!await service.isRunning()) {
       await service.startService();
     }
+
+    // 백그라운드는 스스로 로그인하지 않습니다. 수면 기록 행을 만들려면
+    // 지금 토큰이 있어야 하므로 시작 신호보다 **먼저** 보냅니다.
+    await pushAuthToBackground();
 
     final ack = _startAck = Completer<bool>();
     try {
@@ -598,7 +606,10 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
                 // (main.dart의 stopService), 받아서 결과를 여는 것은
                 // 이쪽 몫입니다.
                 final wasMeasuring = _isNoiseMeasuring;
-                if (wasMeasuring) _armSessionWait();
+                if (wasMeasuring) {
+                  _armSessionWait();
+                  await pushAuthToBackground();
+                }
 
                 FlutterBackgroundService().invoke('stopService');
                 _noiseService.stopAll(() {}); // 수면 시스템 꺼질 때 백색소음도 같이 정지

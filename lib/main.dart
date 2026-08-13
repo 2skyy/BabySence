@@ -26,6 +26,7 @@ import 'features/onboarding/child_info_page.dart';
 import 'features/settings/settings_page.dart';
 import 'routes/app_routes.dart';
 
+import 'core/services/background_auth.dart';
 import 'core/services/noise_tracker.dart';
 import 'core/services/sleep_type.dart';
 
@@ -100,8 +101,19 @@ void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
   // 백그라운드 서비스는 UI와 다른 isolate에서 돕니다. main()에서 한 초기화는
-  // 여기까지 오지 않으므로, 소음을 저장하려면 이 isolate에서 다시 초기화해야 합니다.
-  // 로그인 세션은 로컬 저장소에서 자동으로 복원됩니다.
+  // 여기까지 오지 않으므로, 소음을 저장하려면 이 isolate에서 다시 초기화해야
+  // 합니다.
+  //
+  // **로그인 저장소를 공유하지 않습니다.** 예전에는 그냥 초기화해서 화면 쪽과
+  // 같은 서랍을 썼는데, Supabase의 갱신 토큰은 한 번 쓰면 버려지는 티켓이라
+  // 두 쪽이 같은 서랍에서 꺼내 가면 사슬이 끊깁니다. 밤새 백그라운드만
+  // 갈아치우다가 아침에 화면이 옛 티켓을 내밀면 로그아웃되고, 그 뒤 조회는
+  // 오류가 아니라 **빈 목록**을 돌려줘 "아이 정보가 없습니다"가 떴습니다.
+  // 자세한 사정은 core/services/background_auth.dart.
+  //
+  // 그래서 이쪽은 스스로 갱신하지 않고(autoRefreshToken: false) 저장소도
+  // 비워 둡니다(EmptyLocalStorage). 토큰은 화면이 [backgroundAuthSignal]로
+  // 실어 보냅니다.
   //
   // 여기서 곧바로 기다리면 그동안 UI가 보낸 신호를 받을 리스너가 아직 없어
   // 신호가 사라집니다. 그래서 시작만 해 두고, 저장이 필요한 시점에 기다립니다.
@@ -110,6 +122,12 @@ void onStart(ServiceInstance service) async {
       await Supabase.initialize(
         url: SupabaseConfig.url,
         publishableKey: SupabaseConfig.publishableKey,
+        authOptions: const FlutterAuthClientOptions(
+          autoRefreshToken: false,
+          localStorage: EmptyLocalStorage(),
+          // 딥링크 감시는 화면 쪽만 합니다.
+          detectSessionInUri: false,
+        ),
       );
     } catch (e) {
       debugPrint('백그라운드 Supabase 초기화 실패(소음 저장 불가): $e');
@@ -302,6 +320,21 @@ void onStart(ServiceInstance service) async {
     // 마이크를 열지 못했으면 measuring이 false로 나갑니다. UI가 그걸 보고
     // 시작에 실패했음을 알립니다.
     reportNoiseState();
+  });
+
+  // 화면이 넘겨주는 로그인 정보. 저장소를 비워 뒀으므로 이게 없으면
+  // 백그라운드는 로그인하지 않은 상태입니다.
+  service.on(backgroundAuthSignal).listen((event) async {
+    final encoded = event?['session'] as String?;
+    if (encoded == null) return;
+    try {
+      await supabaseReady;
+      // recoverSession은 만료 전이라면 **갱신을 하지 않습니다.** 화면이 쥔
+      // 티켓 사슬을 건드리지 않고 메모리에만 세션을 놓습니다.
+      await Supabase.instance.client.auth.recoverSession(encoded);
+    } catch (e) {
+      debugPrint('백그라운드 로그인 정보를 적용하지 못했습니다: $e');
+    }
   });
 
   service.on('stopNoiseOnly').listen((event) {
