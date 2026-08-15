@@ -265,18 +265,44 @@ void main() {
     expect(source.contains('if (session == _session) _sleepRecordId = id;'), isTrue);
   });
 
-  test('저장에 시간 상한이 있다', () {
-    // 화면은 종료 신호를 15초까지 기다립니다. 여기에 상한이 없으면 TCP는
-    // 붙어 있는데 응답이 안 오는 망에서 몇 분을 멎고, 화면이 먼저 포기해
-    // "끝맺지 못했습니다"가 뜹니다 — 집계는 메모리에 멀쩡히 있는데.
-    final source = File('lib/core/services/noise_tracker.dart').readAsStringSync();
-    expect(source.contains('_saveTimeout'), isTrue);
-    expect(source.contains('.timeout(_saveTimeout)'), isTrue);
-
+  group('마무리 상한', () {
+    final source =
+        File('lib/core/services/noise_tracker.dart').readAsStringSync();
     final page =
         File('lib/features/detail/noise_test_page.dart').readAsStringSync();
-    expect(page.contains('Duration(seconds: 15)'), isTrue,
-        reason: '화면 대기가 저장 상한보다 길어야 합니다');
+
+    test('예산이 하나다', () {
+      // 단계마다 8초씩 걸었더니 합이 24초가 되어, 화면의 15초 대기를
+      // 넘겼습니다. 주석은 "화면보다 짧아야 한다"고 적어 두고 코드는
+      // 아니었습니다.
+      expect(source.contains('_finishBudget'), isTrue);
+      expect(source.contains('_saveTimeout'), isFalse,
+          reason: '단계별 상한을 다시 두지 마세요');
+      expect(source.contains('Duration remaining()'), isTrue);
+      expect(source.contains('.timeout(remaining())'), isTrue);
+    });
+
+    test('예산이 화면 대기보다 짧다', () {
+      final budget = RegExp(r'_finishBudget = Duration\(seconds: (\d+)\)')
+          .firstMatch(source);
+      final wait = RegExp(r'timeout\(const Duration\(seconds: (\d+)\)')
+          .firstMatch(page);
+      expect(budget, isNotNull);
+      expect(wait, isNotNull);
+      expect(
+        int.parse(budget!.group(1)!) < int.parse(wait!.group(1)!),
+        isTrue,
+        reason: '백그라운드가 먼저 포기해야 화면이 결과를 받습니다',
+      );
+    });
+
+    test('0행 갱신을 성공으로 세지 않는다', () {
+      // postgrest는 0행 UPDATE에 204를 주고 예외를 던지지 않습니다.
+      // 재는 도중에 그 수면 기록을 지웠으면 아무 일도 안 일어나는데
+      // 화면은 "저장됐다"고 말했습니다.
+      expect(source.contains('.select()'), isTrue);
+      expect(source.contains('if (updated.isEmpty)'), isTrue);
+    });
   });
 
   test('집계를 isolate 사이로 실어 보낼 수 있다', () {

@@ -161,7 +161,13 @@ class _CareRecordPageState extends State<CareRecordPage> {
       if (baby == null) {
         // 조회가 실패한 것과 아이가 아직 없는 것을 구별합니다.
         // 뒤쪽이라면 화면을 다시 열어도 소용없고, 등록으로 보내야 합니다.
-        notifyMissingBaby(context, loadFailed: _error != null, onRegistered: _load);
+        notifyMissingBaby(context,
+            state: _loading
+                ? BabyLookup.loading
+                : _error != null
+                    ? BabyLookup.failed
+                    : BabyLookup.none,
+            onRegistered: _load);
         return;
       }
 

@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/stale_notice.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
@@ -80,15 +81,24 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       appBar: CommonAppBar(
         title: '성장 기록',
       ),
-      body: _loading
+      // 저장은 됐는데 이어지는 재조회가 실패하면, 예전에는 화면 전체가
+      // 오류로 바뀌어 입력 폼도 방금 세운 판정 카드도 기록 이력도 전부
+      // 사라졌습니다. 손에 든 것이 있으면 그대로 두고 띠만 얹습니다
+      // (records_page·analysis_page와 같은 형태).
+      body: _loading && _baby == null
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _error != null && _baby == null
               ? _buildError(_error!)
               : _baby == null
                   ? _buildProfileSetup()
                   : _buildContent(_baby!),
     );
   }
+
+  /// 낡았을 수 있다는 띠. 손에 든 값은 그대로 둡니다.
+  Widget _buildStale() => _error == null
+      ? const SizedBox.shrink()
+      : StaleNotice(message: _error!, onRetry: _load);
 
   Widget _buildError(String message) {
     return Padding(
@@ -143,6 +153,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildStale(),
           _buildAddRecordCard(baby),
           const SizedBox(height: AppSpacing.xxl),
           Text('몸무게 (kg)', style: Theme.of(context).textTheme.titleMedium),
@@ -315,18 +326,40 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         heightCm: height,
       );
 
+      // ⑨ 판정 저장 실패를 삼키지 않습니다. 예전에는 debugPrint만 하고
+      // 판정 카드를 정상적으로 띄워, 분석 탭에 없는 것을 저장된 줄
+      // 알게 했습니다.
+      String? assessmentFailure;
       if (assessment != null) {
         try {
           await AssessmentService.save(babyId: baby.id, assessment: assessment);
         } catch (e) {
-          // 판정 저장 실패가 성장 기록 자체를 무효로 만들지는 않습니다.
           debugPrint('성장 판정 저장 실패: $e');
+          assessmentFailure = '판정을 기록에 남기지 못했습니다.';
         }
       }
 
       _heightController.clear();
       _weightController.clear();
-      if (mounted) setState(() => _lastAssessment = assessment);
+      if (mounted) {
+        setState(() {
+          _lastAssessment = assessment;
+          // ④ **측정일을 오늘로 되돌립니다.**
+          //
+          // 안 되돌리면 버튼에 지난 날짜가 남아 있고, 다음 저장이 같은
+          // 날짜로 갑니다. saveRecord는 (baby_id, recorded_on) upsert라
+          // **앞 측정값을 확인 없이 덮어씁니다.** 같은 화면의 삭제는
+          // '되돌릴 수 없습니다' 확인 창을 띄우는데 이쪽은 조용했습니다.
+          _recordDate = DateTime.now();
+        });
+
+        // 저장됐다는 신호가 화면에 하나도 없었습니다.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(assessmentFailure == null
+              ? '기록했습니다.'
+              : '기록했습니다. 다만 $assessmentFailure'),
+        ));
+      }
       await _load();
     } catch (e) {
       if (!mounted) return;

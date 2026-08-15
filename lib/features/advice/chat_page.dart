@@ -68,10 +68,16 @@ class _ChatPageState extends State<ChatPage> {
     String context = '';
     var failed = false;
     try {
-      context = await ChatContext.build(
+      final result = await ChatContext.build(
         domain: widget.domain,
         assessment: widget.assessment,
       );
+      context = result.text;
+      // **안에서 삼킨 실패도 받습니다.** 예전에는 build가 예외를 전부
+      // 안에서 처리해 여기 catch가 걸릴 일이 없었고, 그래서 조회가 실패한
+      // 대화도 "아이 정보를 등록하면…"이라고 안내했습니다 — 아이는
+      // 등록돼 있는데요.
+      failed = result.failed;
     } catch (e) {
       failed = true;
       debugPrint('상담 맥락을 만들지 못했습니다: $e');
@@ -116,7 +122,9 @@ class _ChatPageState extends State<ChatPage> {
         // 실패한 질문은 대화에서 빼 둡니다. 남겨 두면 다시 보낼 때
         // 같은 말이 두 번 들어갑니다.
         _messages.removeLast();
-        _input.text = text;
+        // **답을 기다리는 사이에 새로 적어 둔 것이 있으면 두 손 다 놓지
+        // 않습니다.** 덮어쓰면 방금 친 글이 사라집니다.
+        if (_input.text.trim().isEmpty) _input.text = text;
         _error = e.message;
       });
     } catch (e) {
@@ -131,7 +139,7 @@ class _ChatPageState extends State<ChatPage> {
       if (!mounted) return;
       setState(() {
         _messages.removeLast();
-        _input.text = text;
+        if (_input.text.trim().isEmpty) _input.text = text;
         _error = '답변을 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
       });
     } finally {
@@ -426,7 +434,10 @@ class _ChatPageState extends State<ChatPage> {
           ),
           const SizedBox(width: 8),
           IconButton.filled(
-            onPressed: _waiting ? null : _send,
+            // 맥락을 모으는 중에는 잠급니다. 열어 두면 첫 질문이 아이
+            // 정보도 기록도 없이 나가는데, 사용자는 그 사실을 모릅니다.
+            // 위쪽 추천 질문 칩은 이미 같은 조건으로 잠겨 있습니다.
+            onPressed: (_waiting || _loadingContext) ? null : _send,
             style: IconButton.styleFrom(backgroundColor: AppColors.primary),
             icon: const Icon(Icons.arrow_upward, size: 20),
             color: Colors.white,

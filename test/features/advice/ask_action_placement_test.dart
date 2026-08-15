@@ -95,9 +95,7 @@ void main() {
 
     test('종합이면 영역 전부를 담는다', () {
       expect(context.contains('_everything(baby.id)'), isTrue);
-      final everything = context.substring(
-        context.indexOf('_everything(\n    String babyId,\n  ) async {'),
-      );
+      final everything = context.substring(context.indexOf('_Everything> _everything('));
       for (final d in [
         'AssessmentDomain.temperature',
         'AssessmentDomain.feeding',
@@ -117,8 +115,53 @@ void main() {
     });
 
     test('한 영역이 실패해도 나머지는 담는다', () {
-      // _recentFor가 실패하면 빈 목록을 돌려주고, 빈 것은 건너뜁니다.
-      expect(context.contains('if (rows.isNotEmpty) result.add'), isTrue);
+      // 실패한 영역만 빠지고 나머지는 그대로 갑니다.
+      expect(context.contains('} else if (rows.isNotEmpty) {'), isTrue);
+    });
+
+    test('실패를 "기록 없음"과 구별해 화면에 전한다', () {
+      // _recentFor가 실패에 빈 목록을 돌려주면 "없다"와 같은 말이 되고,
+      // 모델이 없는 것을 없다고 확언합니다. 화면도 "아이 정보를 등록하면…"
+      // 이라고 말했습니다 — 아이는 등록돼 있는데요.
+      expect(context.contains('Future<List<String>?> _recentFor'), isTrue);
+      expect(context.contains('class ChatContextResult'), isTrue);
+      expect(context.contains('final bool failed;'), isTrue);
+
+      final page =
+          File('lib/features/advice/chat_page.dart').readAsStringSync();
+      expect(page.contains('failed = result.failed;'), isTrue);
+    });
+  });
+
+  group('맥락이 사실을 말한다', () {
+    final context =
+        File('lib/features/advice/chat_context.dart').readAsStringSync();
+    final page = File('lib/features/advice/chat_page.dart').readAsStringSync();
+
+    test('지금이 언제인지 밝힌다', () {
+      // 없으면 아래 기록이 얼마나 지난 것인지 모델이 알 수 없습니다.
+      expect(context.contains("lines.add('- 지금:"), isTrue);
+    });
+
+    test('기록 시각에 연도가 있다', () {
+      // 화면용 formatRecordTime은 "2/14 오후 3:20"처럼 연도가 없습니다.
+      // 사람이 훑을 때는 충분하지만, 모델에게는 반년 전 고열이 '최근
+      // 체온 기록'으로 읽힙니다.
+      expect(context.contains('formatRecordTime('), isFalse,
+          reason: '맥락에는 _contextTime을 쓰세요');
+      expect(context.contains('static String _contextTime('), isTrue);
+      expect(context.contains(r"'${at.year}-"), isTrue);
+    });
+
+    test('맥락을 모으는 중에는 보내지 않는다', () {
+      // 열어 두면 첫 질문이 아이 정보도 기록도 없이 나갑니다.
+      expect(page.contains('(_waiting || _loadingContext) ? null : _send'),
+          isTrue);
+    });
+
+    test('기다리는 사이 새로 적은 글을 덮지 않는다', () {
+      expect(page.contains('if (_input.text.trim().isEmpty) _input.text = text;'),
+          isTrue);
     });
   });
 

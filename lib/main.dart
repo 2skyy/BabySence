@@ -185,6 +185,33 @@ void onStart(ServiceInstance service) async {
     service.invoke('noise_state', {'measuring': isNoiseMeasuring});
   }
 
+  /// 측정을 닫고 **집계를 UI에 실어 보냅니다.**
+  ///
+  /// 예전에는 id만 보내서, UI가 고정 2초를 기다렸다가 서버에서 통계를 다시
+  /// 읽었습니다. 느린 망에서는 그 안에 저장이 안 끝나 "저장하지 못했습니다"가
+  /// 떴습니다 — 조금만 더 기다리면 됐을 때가 있었습니다. 이제 숫자를 그대로
+  /// 넘기므로 UI는 기다릴 것도 다시 읽을 것도 없습니다.
+  ///
+  /// 함수로 뺀 이유는 **끄는 길이 둘이기 때문**입니다. 소음만 멈추는 길과
+  /// 서비스를 통째로 끄는 길. 예전에는 뒤쪽이 finish()만 부르고 이 알림을
+  /// 보내지 않아, '완전히 끄기'로 끝낸 밤은 결과 화면을 볼 수 없었습니다.
+  /// **Future를 돌려주는 이유**: 서비스를 끄는 길에서는 이걸 기다려야 합니다.
+  /// 기다리지 않고 `stopSelf()`를 부르면 마지막 저장이 끝나기 전에 isolate가
+  /// 죽어 밤 전체가 사라집니다.
+  Future<void> endNoiseSession() async {
+    // **id를 finish() 뒤에 읽습니다.** 앞에서 읽으면, 행이 마지막 순간에야
+    // 만들어진 밤(시작할 때 망이 없었거나 아주 짧게 잰 경우) id가 null인 채로
+    // 나갑니다. 그러면 저장은 멀쩡히 됐는데 화면은 "저장하지 못했습니다"를
+    // 띄우고 판정을 버립니다.
+    final result = await noiseTracker.finish();
+
+    service.invoke('noise_session_ended', {
+      'sleepRecordId': result.recordId,
+      'saved': result.saved,
+      if (result.stats != null) ...result.stats!.toMap(),
+    });
+  }
+
   void startNoiseMeasurement() {
     if (isNoiseMeasuring) return;
 
@@ -226,13 +253,24 @@ void onStart(ServiceInstance service) async {
         },
         onError: (Object error) {
           debugPrint('★ 백그라운드 소음 스트림 내부 에러 발생: $error');
+          noiseSubscription?.cancel();
+          noiseSubscription = null;
+          noiseMeter = null;
           isNoiseMeasuring = false;
           updateNotification();
-          // 화면에도 알립니다. 안 알리면 '측정 중지하기' 버튼을 그대로 둔 채
-          // 숫자만 멈춰, 사용자는 몇 시간 뒤에야 알아챕니다.
-          // 여기서 끝맺지는 않습니다 — 화면이 없는 상태로 끝내면 그 집계를
-          // 받을 사람이 없습니다. 사용자가 중지를 누르면 그때까지의 집계가
-          // 그대로 나옵니다.
+
+          // **여기서 끝맺습니다.**
+          //
+          // 예전에는 상태만 내리고 "사용자가 중지를 누르면 집계가 나옵니다"
+          // 라고 적어 뒀는데, 그때 화면 버튼은 이미 '측정 시작'으로 돌아가
+          // 있습니다. 누를 수 있는 중지 버튼이 없습니다. 그 상태에서 시작을
+          // 누르면 beginSession()이 집계를 지워, 지금까지 잰 것이 통째로
+          // 사라지고 sleep_records 행은 ended_at 없이 남아 기록 탭에 영영
+          // '측정 중'으로 보입니다.
+          //
+          // 화면이 없더라도 닫는 편이 낫습니다 — 집계를 받을 사람이 없어도
+          // 수면 기록은 제대로 끝나고, 다음 측정이 깨끗한 상태에서 시작합니다.
+          endingSession = endNoiseSession();
           reportNoiseState();
         },
         cancelOnError: false,
@@ -245,33 +283,6 @@ void onStart(ServiceInstance service) async {
       isNoiseMeasuring = false;
       updateNotification();
     }
-  }
-
-  /// 측정을 닫고 **집계를 UI에 실어 보냅니다.**
-  ///
-  /// 예전에는 id만 보내서, UI가 고정 2초를 기다렸다가 서버에서 통계를 다시
-  /// 읽었습니다. 느린 망에서는 그 안에 저장이 안 끝나 "저장하지 못했습니다"가
-  /// 떴습니다 — 조금만 더 기다리면 됐을 때가 있었습니다. 이제 숫자를 그대로
-  /// 넘기므로 UI는 기다릴 것도 다시 읽을 것도 없습니다.
-  ///
-  /// 함수로 뺀 이유는 **끄는 길이 둘이기 때문**입니다. 소음만 멈추는 길과
-  /// 서비스를 통째로 끄는 길. 예전에는 뒤쪽이 finish()만 부르고 이 알림을
-  /// 보내지 않아, '완전히 끄기'로 끝낸 밤은 결과 화면을 볼 수 없었습니다.
-  /// **Future를 돌려주는 이유**: 서비스를 끄는 길에서는 이걸 기다려야 합니다.
-  /// 기다리지 않고 `stopSelf()`를 부르면 마지막 저장이 끝나기 전에 isolate가
-  /// 죽어 밤 전체가 사라집니다.
-  Future<void> endNoiseSession() async {
-    // **id를 finish() 뒤에 읽습니다.** 앞에서 읽으면, 행이 마지막 순간에야
-    // 만들어진 밤(시작할 때 망이 없었거나 아주 짧게 잰 경우) id가 null인 채로
-    // 나갑니다. 그러면 저장은 멀쩡히 됐는데 화면은 "저장하지 못했습니다"를
-    // 띄우고 판정을 버립니다.
-    final result = await noiseTracker.finish();
-
-    service.invoke('noise_session_ended', {
-      'sleepRecordId': result.recordId,
-      'saved': result.saved,
-      if (result.stats != null) ...result.stats!.toMap(),
-    });
   }
 
   void stopNoiseMeasurement() {

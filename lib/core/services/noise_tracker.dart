@@ -80,13 +80,17 @@ class NoiseTracker {
 
   String? _sleepRecordId;
 
-  /// 저장 한 번에 허용하는 시간.
+  /// 마무리 **전체**에 허용하는 시간.
   ///
   /// **화면이 기다리는 시간보다 짧아야 합니다.** 화면은 종료 신호를 15초까지
-  /// 기다립니다. 여기에 상한이 없으면 TCP는 붙어 있는데 응답이 안 오는 망
-  /// (지하, 캡티브 포털)에서 몇 분을 멎고, 그 사이 화면은 먼저 포기해
-  /// "끝맺지 못했습니다"로 돌아섭니다 — 집계는 메모리에 멀쩡히 있는데.
-  static const Duration _saveTimeout = Duration(seconds: 8);
+  /// 기다립니다. 상한이 없으면 TCP는 붙어 있는데 응답이 안 오는 망(지하,
+  /// 캡티브 포털)에서 몇 분을 멎고, 그 사이 화면은 먼저 포기해 "끝맺지
+  /// 못했습니다"로 돌아섭니다 — 집계는 메모리에 멀쩡히 있는데.
+  ///
+  /// **단계마다 8초씩 걸었더니 합이 24초가 되어** 이 불변식이 깨져 있었습니다
+  /// (`_inFlight` → `_ensureSleepRecord` → update). 주석은 지켜진다고
+  /// 적어 두고 코드는 아니었습니다. 이제 **하나의 예산**을 나눠 씁니다.
+  static const Duration _finishBudget = Duration(seconds: 12);
 
   /// 진행 중인 쓰기. 같은 순간에 두 번 쓰지 않기 위한 것입니다.
   Future<void>? _inFlight;
@@ -250,9 +254,16 @@ class NoiseTracker {
       _windowMax = 0;
     }
 
+    // 마감 시각을 한 번 정하고 아래 단계들이 **남은 시간만** 씁니다.
+    final deadline = DateTime.now().add(_finishBudget);
+    Duration remaining() {
+      final left = deadline.difference(DateTime.now());
+      return left.isNegative ? Duration.zero : left;
+    }
+
     // 행을 만드는 중이면 끝날 때까지 기다립니다. 기다리지 않으면 방금 만든
     // 행의 id를 놓칩니다. 다만 영영 기다리지는 않습니다.
-    await _inFlight?.timeout(_saveTimeout, onTimeout: () {});
+    await _inFlight?.timeout(remaining(), onTimeout: () {});
 
     final stats = _count == 0
         ? null
@@ -267,12 +278,21 @@ class NoiseTracker {
     String? recordId = _sleepRecordId;
     if (stats != null) {
       try {
-        recordId = await _ensureSleepRecord().timeout(_saveTimeout);
-        await _client
+        recordId = await _ensureSleepRecord().timeout(remaining());
+
+        // **.select()를 붙입니다.** 없으면 0행 UPDATE도 204로 조용히
+        // 성공합니다 — 재는 도중에 사용자가 그 수면 기록을 지웠으면 여기서
+        // 아무 일도 안 일어나는데 화면은 "저장됐다"고 말했습니다.
+        final updated = await _client
             .from('sleep_records')
             .update({'ended_at': toDbTime(DateTime.now())})
             .eq('id', recordId)
-            .timeout(_saveTimeout);
+            .select()
+            .timeout(remaining());
+
+        if (updated.isEmpty) {
+          throw StateError('수면 기록이 사라졌습니다(id=$recordId).');
+        }
         saved = true;
       } catch (e) {
         // 삼키지 않습니다. 화면이 "저장하지 못했다"고 말할 수 있어야 합니다.

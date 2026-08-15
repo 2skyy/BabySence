@@ -11,16 +11,40 @@ import '../../routes/app_routes.dart';
 /// 원인을 틀리게 짚었고, 시키는 대로 화면을 다시 열어도 달라지는 게
 /// 없었습니다.
 ///
-/// [loadFailed]는 화면을 열 때의 조회가 예외로 끝났는지입니다.
+/// 상태가 **셋**입니다. 둘로 묶으면 아직 모르는 것이 미등록으로 샙니다.
+enum BabyLookup {
+  /// 아직 조회가 안 끝났습니다. 첫 프레임에는 늘 이 상태입니다.
+  loading,
+
+  /// 조회가 예외로 끝났습니다.
+  failed,
+
+  /// 조회는 끝났고 아이가 없습니다.
+  none,
+}
+
 void notifyMissingBaby(
   BuildContext context, {
-  required bool loadFailed,
+  required BabyLookup state,
   VoidCallback? onRegistered,
 }) {
   final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
 
-  if (loadFailed) {
+  if (state == BabyLookup.loading) {
+    // **세 번째 상태.** 예전에는 이것이 미등록으로 새어, 아이가 있는
+    // 사람에게 "먼저 아이 정보를 등록해 주세요"라고 말했습니다. 안내를
+    // 따라 등록하면 아이가 하나 더 생기는데, loadCurrent()는 가장 먼저
+    // 만든 행을 쓰므로 그 아이는 어디에도 보이지 않고 지울 수도 없습니다.
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('아이 정보를 불러오는 중입니다. 잠시 후 다시 눌러 주세요.'),
+      ),
+    );
+    return;
+  }
+
+  if (state == BabyLookup.failed) {
     messenger.showSnackBar(
       const SnackBar(
         content: Text('아이 정보를 불러오지 못해 저장하지 않았습니다. '

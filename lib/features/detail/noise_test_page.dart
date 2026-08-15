@@ -104,7 +104,15 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
     // 실제로는 조금만 더 기다리면 됐을 때가 있었습니다. 지금은 백그라운드가
     // 메모리에서 집계하므로 숫자를 그대로 넘겨받습니다 — 기다릴 것도 다시
     // 읽을 것도 없고, 밤새 망이 끊겨 있었어도 결과는 나옵니다.
+    // 마이크가 죽어 백그라운드가 스스로 끝맺은 경우입니다. 화면은 중지를
+    // 누른 적이 없으므로 기다리는 자리(_sessionEnded)가 없습니다. 그때는
+    // 결과를 보여줄 수 없으니 무슨 일이 있었는지라도 말합니다.
     _sessionSubscription = service.on('noise_session_ended').listen((event) {
+      if (_sessionEnded == null && event?['sampleCount'] != null) {
+        _notify('측정이 끊겨 지금까지 잰 것을 저장했습니다. '
+            '마이크를 쓰는 다른 앱이 있었는지 확인해 주세요.');
+      }
+
       // **끝맺은 세션에 신호가 한 번 더 올 수 있습니다.** 중지한 뒤 '완전히
       // 끄기'를 누르면 그렇습니다. 두 번째 신호는 빈 값이라, 막지 않으면
       // 방금 받은 결과를 null로 덮고 이미 완료된 Completer에 complete을

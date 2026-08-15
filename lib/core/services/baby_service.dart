@@ -41,6 +41,19 @@ class BabyService {
   /// 함께 키우기가 무효가 됩니다 — 자기 아이를 등록해 둔 사람이 초대를 받으면
   /// 계속 자기 아이만 보입니다.
   static Future<Baby?> loadCurrent() async {
+    // **로그인이 풀렸으면 예외를 던집니다.**
+    //
+    // 세션이 없으면 supabase는 anon 키로 요청을 그대로 보내고, RLS가
+    // `to authenticated`라 오류가 아니라 **200 + 0행**을 돌려줍니다. 그러면
+    // 화면들이 "아이 정보를 먼저 등록해 주세요"라고 말합니다 — 아이는 멀쩡히
+    // 있고 로그인이 풀린 것뿐인데요. 예외도 없으니 `_todayFailed`도
+    // StaleNotice도 켜지지 않습니다.
+    //
+    // 이 프로젝트가 지키기로 한 첫 번째 원칙이라, 여기서 갈라 줍니다.
+    if (_client.auth.currentSession == null) {
+      throw StateError('로그인이 필요합니다.');
+    }
+
     final rows = await _client
         .from('babies')
         .select()

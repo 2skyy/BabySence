@@ -25,6 +25,14 @@ class WeeklySummary {
   final Duration sleepTotal;
   final int completedSleepCount;
 
+  /// 창 안의 수면 행 수. **끝나지 않은 것도 셉니다.**
+  ///
+  /// [isEmpty]가 [completedSleepCount]만 보면, 밤잠을 재는 중인 신규
+  /// 사용자에게 "최근 7일 동안 남긴 기록이 없습니다"가 뜹니다 — 기록 탭은
+  /// 같은 행을 '밤잠 · 측정 중'으로 보여주는데요. 두 탭이 같은 주에 대해
+  /// 반대말을 했습니다.
+  final int sleepEntryCount;
+
   /// 기간 중 가장 높았던 체온. 기록이 없으면 null입니다.
   final double? highestTemperature;
 
@@ -36,6 +44,7 @@ class WeeklySummary {
     required this.sleepDays,
     required this.sleepTotal,
     required this.completedSleepCount,
+    required this.sleepEntryCount,
     required this.highestTemperature,
   });
 
@@ -44,7 +53,7 @@ class WeeklySummary {
   bool get isEmpty =>
       feedingCount == 0 &&
       diaperCount == 0 &&
-      completedSleepCount == 0 &&
+      sleepEntryCount == 0 &&
       highestTemperature == null;
 
   /// 하루 평균 수유 횟수. **기록한 날 수**로 나눕니다.
@@ -95,9 +104,12 @@ class WeeklySummary {
 
     var sleepTotal = Duration.zero;
     var completedSleeps = 0;
+    var sleepEntries = 0;
     final sleepDates = <int>{};
     for (final s in sleeps) {
       if (!inRange(s.startedAt)) continue;
+      // 끝나지 않은 것도 '기록이 있다'로는 셉니다.
+      sleepEntries++;
       final d = s.duration;
       if (d == null) continue;
       sleepTotal += d;
@@ -124,6 +136,7 @@ class WeeklySummary {
           diapersInRange.map((r) => dayKey(r.recordedAt)).toSet().length,
       sleepDays: sleepDates.length,
       sleepTotal: sleepTotal,
+      sleepEntryCount: sleepEntries,
       completedSleepCount: completedSleeps,
       highestTemperature: highest,
     );

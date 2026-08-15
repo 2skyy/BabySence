@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../routes/app_routes.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/services/refresh_signal.dart';
@@ -30,16 +35,34 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final _records = RefreshSignal();
   final _analysis = RefreshSignal();
 
+  StreamSubscription<AuthState>? _authSub;
+
   @override
   void initState() {
     super.initState();
     // 앱이 다시 앞으로 나올 때를 알려면 필요합니다. 자정을 넘긴 뒤
     // 돌아오는 경우가 여기 걸립니다.
     WidgetsBinding.instance.addObserver(this);
+
+    // **로그인이 풀리면 로그인 화면으로 보냅니다.**
+    //
+    // gotrue는 갱신에 실패하면 세션을 지우고 signedOut을 흘리는데, 앱에
+    // 그걸 듣는 곳이 없었습니다. 세션이 없으면 supabase는 anon 키로
+    // 요청을 보내고 RLS가 오류가 아니라 **200 + 0행**을 돌려줍니다.
+    // 그래서 화면들이 "아이 정보를 먼저 등록해 주세요"라고 말했습니다 —
+    // 아이는 멀쩡히 있고 로그인이 풀린 것뿐인데요. 예약된 수유 알림까지
+    // 함께 지워졌습니다.
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      if (state.event != AuthChangeEvent.signedOut) return;
+      if (!mounted) return;
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+    });
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _home.dispose();
     _records.dispose();

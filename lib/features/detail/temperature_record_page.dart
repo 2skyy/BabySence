@@ -139,7 +139,12 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         // 조회가 실패한 것과 아이가 아직 없는 것을 구별합니다.
         // 뒤쪽이라면 화면을 다시 열어도 소용없고, 등록으로 보내야 합니다.
         notifyMissingBaby(context,
-            loadFailed: _historyError != null, onRegistered: _loadHistory);
+            state: _loadingHistory
+                ? BabyLookup.loading
+                : _historyError != null
+                    ? BabyLookup.failed
+                    : BabyLookup.none,
+            onRegistered: _loadHistory);
         return;
       }
 
@@ -164,11 +169,14 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
         symptoms: symptoms,
       );
 
+      // 판정 저장 실패가 체온 기록 자체를 무효로 만들지는 않습니다. 다만
+      // **숨기지도 않습니다** — 예전에는 debugPrint만 하고 판정 카드를
+      // 정상적으로 띄워, 분석 탭에 없는 것을 저장된 줄 알게 했습니다.
       try {
         await AssessmentService.save(babyId: baby.id, assessment: assessment);
       } catch (e) {
-        // 판정 저장 실패가 체온 기록 자체를 무효로 만들지는 않습니다.
         debugPrint('판정 저장 실패: $e');
+        _showMessage('체온은 기록했지만 판정을 남기지 못했습니다.');
       }
 
       if (!mounted) return;
