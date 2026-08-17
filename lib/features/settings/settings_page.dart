@@ -5,7 +5,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/common_app_bar.dart';
-import '../../routes/app_routes.dart';
 import '../shell/coming_soon_page.dart';
 import '../shell/more_page.dart';
 
@@ -18,9 +17,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   Future<void> _handleLogout() async {
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -39,12 +35,19 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (ok != true) return;
 
+    // **이동은 여기서 하지 않습니다.** main.dart의 MyApp이 MaterialApp 위에서
+    // signedOut을 듣고 한 곳에서 처리합니다. gotrue는 서버에 요청을 보내기
+    // **전에** 로컬 세션을 지우고 signedOut을 흘리므로 그쪽이 먼저 로그인
+    // 화면을 세우고, HTTP 왕복을 기다리던 이쪽이 뒤늦게 같은 호출을 한 번 더
+    // 해 방금 만든 화면을 지우고 다시 만들었습니다.
     try {
       await Supabase.instance.client.auth.signOut();
-      // 스택을 남겨두면 뒤로가기로 이전 사용자의 화면에 돌아갈 수 있습니다.
-      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('로그아웃하지 못했습니다. $e')));
+      // **실패라고 말하지 않습니다.** 세션은 이미 지워진 뒤라 사용자는 어차피
+      // 로그아웃된 상태입니다. 예전에는 여기서 실패 안내를 띄웠는데, 지하철처럼
+      // 망이 나쁜 곳에서는 이미 로그인 화면으로 넘어간 사람 위로 그 안내가
+      // 얹혔습니다 — 성공을 실패라고 말한 셈입니다.
+      debugPrint('로그아웃 서버 호출 실패(로컬 세션은 이미 지워짐): $e');
     }
   }
 

@@ -15,6 +15,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'core/constants/supabase_config.dart';
+import 'core/services/auth_redirect.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/auth/auth_gate.dart';
@@ -483,15 +484,26 @@ class _MyAppState extends State<MyApp> {
   /// 앱 전체가 하나를 공유합니다. 설정 화면은 [ThemeScope]로 찾습니다.
   final _theme = ThemeController();
 
+  /// 로그인이 풀리면 로그인 화면으로 보냅니다. 사정은 [AuthRedirect]에.
+  final _authRedirect = AuthRedirect();
+
+  /// **목록을 여기 붙들어 둡니다.** 빌드마다 새로 만들면 테마를 바꿀 때마다
+  /// Navigator가 관찰자를 떼었다 다시 답니다(`didUpdateWidget`이 목록을
+  /// 동일성으로 비교합니다). 동작은 같지만 할 이유가 없는 일입니다.
+  late final _navigatorObservers = [_authRedirect];
+
   @override
   void initState() {
     super.initState();
     // 저장된 설정을 읽습니다. 읽는 동안은 기본값(밝음)으로 보입니다.
     _theme.load();
+
+    _authRedirect.listenTo(Supabase.instance.client.auth.onAuthStateChange);
   }
 
   @override
   void dispose() {
+    _authRedirect.dispose();
     _theme.dispose();
     super.dispose();
   }
@@ -503,6 +515,7 @@ class _MyAppState extends State<MyApp> {
       child: ListenableBuilder(
         listenable: _theme,
         builder: (context, _) => MaterialApp(
+          navigatorObservers: _navigatorObservers,
           debugShowCheckedModeBanner: false,
           title: 'BabySence',
           theme: AppTheme.lightTheme,

@@ -25,16 +25,32 @@ void main() {
       expect(service.contains("throw StateError('로그인이 필요합니다.')"), isTrue);
     });
 
-    test('signedOut을 듣고 로그인 화면으로 보낸다', () {
-      final shell = read('lib/features/shell/main_shell.dart');
-      expect(shell.contains('onAuthStateChange'), isTrue);
-      expect(shell.contains('AuthChangeEvent.signedOut'), isTrue);
-      expect(shell.contains('pushNamedAndRemoveUntil(AppRoutes.login'), isTrue);
+    // 로그인이 풀렸을 때 실제로 로그인 화면으로 가는지, 두 번 가지 않는지,
+    // 흐름의 오류가 앱을 죽이지 않는지는 **돌려서** 확인합니다 —
+    // test/core/services/auth_redirect_test.dart. 아래 둘은 돌려서는 알 수 없는
+    // 것만 봅니다.
+
+    test('화면마다 따로 듣지 않는다', () {
+      // 예전에는 MainShell에 달았습니다. 그런데 AuthGate가 아이 없는 사용자를
+      // 온보딩으로 **직접** 보내므로 그 화면에서는 MainShell이 만들어지지
+      // 않고, 아이 정보를 적는 동안 세션이 풀리면 아무도 보내지 않았습니다.
+      // 화면마다 손으로 달면 이렇게 하나씩 빠집니다.
+      const screens = [
+        'lib/features/shell/main_shell.dart',
+        'lib/features/settings/settings_page.dart',
+        'lib/features/onboarding/child_info_page.dart',
+      ];
+      for (final path in screens) {
+        expect(read(path).contains('AuthChangeEvent.signedOut'), isFalse,
+            reason: '$path 가 따로 듣고 있습니다');
+      }
     });
 
-    test('구독을 정리한다', () {
-      expect(read('lib/features/shell/main_shell.dart').contains('_authSub?.cancel()'),
-          isTrue);
+    test('앱이 AuthRedirect를 연결하고 정리한다', () {
+      final app = read('lib/main.dart');
+      expect(app.contains('_authRedirect.listenTo('), isTrue);
+      expect(app.contains('_authRedirect.dispose()'), isTrue);
+      expect(app.contains('navigatorObservers: _navigatorObservers'), isTrue);
     });
   });
 
@@ -112,6 +128,44 @@ void main() {
     for (final path in screens) {
       test('${path.split('/').last} 가 낡은 값을 지킨다', () {
         expect(read(path).contains('StaleNotice'), isTrue);
+      });
+    }
+  });
+
+  group('로그아웃을 두 곳에서 처리하지 않는다', () {
+    // gotrue는 서버에 요청을 보내기 **전에** 로컬 세션을 지우고 signedOut을
+    // 흘립니다. 그래서 MainShell 리스너가 항상 먼저 돌고, HTTP 왕복을
+    // 기다리던 설정 화면이 뒤늦게 같은 이동을 한 번 더 했습니다 — 로그인
+    // 화면이 두 번 만들어지고 전환이 겹쳐 보입니다.
+
+    test('설정 화면은 이동하지 않는다', () {
+      final settings = read('lib/features/settings/settings_page.dart');
+      expect(settings.contains('signOut()'), isTrue);
+      expect(settings.contains('pushNamedAndRemoveUntil'), isFalse,
+          reason: '이동은 MyApp의 signedOut 리스너 한 곳이 맡습니다');
+    });
+
+    test('로그아웃 실패를 실패라고 말하지 않는다', () {
+      // 세션이 이미 지워진 뒤라 사용자는 어차피 로그아웃된 상태입니다.
+      // 망이 나쁜 곳에서 이미 로그인 화면으로 넘어간 사람에게 그 위로
+      // '로그아웃하지 못했습니다'가 얹혔습니다 — 성공을 실패라고 말한 셈.
+      final settings = read('lib/features/settings/settings_page.dart');
+      expect(settings.contains('로그아웃하지 못했습니다'), isFalse);
+      expect(settings.contains('showSnackBar'), isFalse);
+    });
+
+    // AuthRedirect 쪽은 auth_redirect_test.dart가 실제로 오류를 흘려 보며
+    // 확인합니다. 이쪽은 그 짝인 로그인 화면의 구독입니다.
+    const listeners = ['lib/features/auth/login_page.dart'];
+
+    for (final path in listeners) {
+      test('${path.split('/').last} 의 인증 구독에 onError가 있다', () {
+        // 이 흐름은 BehaviorSubject라 캐시한 에러를 새 구독자에게 즉시
+        // 다시 흘립니다. onError가 없으면 Zone의 잡히지 않은 비동기 오류가
+        // 되고, 화면이 새로 뜰 때마다 같은 것이 되풀이됩니다.
+        final source = read(path);
+        expect(source.contains('onAuthStateChange.listen'), isTrue);
+        expect(source.contains('onError:'), isTrue);
       });
     }
   });
