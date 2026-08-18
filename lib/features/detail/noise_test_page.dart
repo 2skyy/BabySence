@@ -362,6 +362,7 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
 
     // 백그라운드는 스스로 로그인하지 않습니다. 수면 기록 행을 만들려면
     // 지금 토큰이 있어야 하므로 시작 신호보다 **먼저** 보냅니다.
+    // (서비스가 이미 떠 있던 경우는 이 한 번으로 끝납니다.)
     await pushAuthToBackground();
 
     final ack = _startAck = Completer<bool>();
@@ -373,7 +374,14 @@ class _NoiseTestPageState extends State<NoiseTestPage> {
           ack.future,
           Future<bool>.delayed(const Duration(milliseconds: 500), () => false),
         ]);
-        if (ok) return true;
+        if (ok) {
+          // 답이 왔으니 이제 확실히 받을 수 있는 상태입니다. 위에서 보낸
+          // 로그인 정보는 서비스가 뜨는 중이었다면 시작 신호와 똑같이
+          // 사라졌을 수 있어, 여기서 한 번 더 보냅니다. 없으면 재는 내내
+          // 수면 기록 행을 만들지 못하고 60초마다 헛되이 다시 시도합니다.
+          await pushAuthToBackground();
+          return true;
+        }
       }
       return false;
     } finally {

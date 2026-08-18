@@ -490,7 +490,7 @@ class _MyAppState extends State<MyApp> {
   /// **목록을 여기 붙들어 둡니다.** 빌드마다 새로 만들면 테마를 바꿀 때마다
   /// Navigator가 관찰자를 떼었다 다시 답니다(`didUpdateWidget`이 목록을
   /// 동일성으로 비교합니다). 동작은 같지만 할 이유가 없는 일입니다.
-  late final _navigatorObservers = [_authRedirect];
+  late final List<NavigatorObserver> _navigatorObservers = [_authRedirect];
 
   @override
   void initState() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 
@@ -10,6 +11,8 @@ import 'care/care_record_service.dart';
 import 'temperature_record_service.dart';
 import 'vaccination_readiness.dart';
 import 'vaccination_service.dart';
+import '../vaccination_reminder/vaccination_reminder_service.dart';
+import '../vaccination_reminder/vaccination_reminder_settings.dart';
 
 class VaccinationPage extends StatefulWidget {
   const VaccinationPage({super.key});
@@ -44,6 +47,23 @@ class _VaccinationPageState extends State<VaccinationPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// 지금 걸려 있는 알림 설정. 일정을 읽을 때 함께 읽습니다.
+  VaccinationReminderSettings _reminder = const VaccinationReminderSettings();
+
+  /// 알림을 다시 겁니다. 실패는 서비스 안에서 삼키므로 화면은 그대로입니다.
+  Future<void> _rescheduleReminders(List<VaccinationStatus> schedule) async {
+    final settings = await VaccinationReminderSettings.load();
+    if (mounted) setState(() => _reminder = settings);
+    await VaccinationReminderService.reschedule(schedule, settings: settings);
+  }
+
+  /// 설정을 바꾸고 곧바로 다시 겁니다.
+  Future<void> _applyReminder(VaccinationReminderSettings settings) async {
+    setState(() => _reminder = settings);
+    await settings.save();
+    await VaccinationReminderService.reschedule(_schedule, settings: settings);
   }
 
   Future<void> _load() async {
@@ -101,6 +121,11 @@ class _VaccinationPageState extends State<VaccinationPage> {
         _readinessFailed = readinessFailed;
         _loading = false;
       });
+
+      // 일정을 읽은 김에 알림을 다시 겁니다. 접종을 마치거나 날짜가 바뀌면
+      // 예전 예약이 남으면 안 되고, 이 화면이 최신 일정을 아는 유일한 곳입니다.
+      // 기다리지 않습니다 -- 알림 예약 때문에 화면이 늦게 뜰 이유가 없습니다.
+      unawaited(_rescheduleReminders(schedule));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -257,6 +282,8 @@ class _VaccinationPageState extends State<VaccinationPage> {
         children: [
           _buildNextVaccinationCard(upcoming.isEmpty ? null : upcoming.first),
           const SizedBox(height: 24),
+          _buildReminderCard(),
+          const SizedBox(height: 24),
           _buildReadinessCard(),
           const SizedBox(height: 24),
           _buildProgressCard(done.length, _schedule.length),
@@ -284,6 +311,77 @@ class _VaccinationPageState extends State<VaccinationPage> {
     );
   }
 
+
+  /// 알림 설정 카드.
+  ///
+  /// **판정이 아니라 예약입니다.** 켜면 표준 일정의 예정일에서 고른 만큼
+  /// 당긴 날 오전 9시에 알립니다. 접종 가능 여부는 말하지 않습니다.
+  Widget _buildReminderCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.notifications_active_outlined,
+                  size: 20, color: primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '접종일 알림',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              Switch(
+                value: _reminder.notify,
+                activeThumbColor: primaryColor,
+                onChanged: (on) =>
+                    _applyReminder(_reminder.copyWith(notify: on)),
+              ),
+            ],
+          ),
+          if (_reminder.notify) ...[
+            const SizedBox(height: 4),
+            Text(
+              '예정일 기준 언제 알릴까요?',
+              style: TextStyle(fontSize: 13, color: secondaryTextColor),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final days
+                    in VaccinationReminderSettings.selectableDaysBefore)
+                  ChoiceChip(
+                    label: Text(formatDaysBefore(days)),
+                    selected: _reminder.daysBefore == days,
+                    onSelected: (_) =>
+                        _applyReminder(_reminder.copyWith(daysBefore: days)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              // 정확한 알람 권한을 요구하지 않는 대신 몇 분 늦을 수 있습니다.
+              // 미리 말해 두지 않으면 고장으로 읽힙니다.
+              '오전 9시에 알려드리며, 기기 상태에 따라 조금 늦을 수 있어요.',
+              style: TextStyle(fontSize: 12, color: secondaryTextColor),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
   Widget _buildNextVaccinationCard(VaccinationStatus? next) {
     final now = DateTime.now();
 

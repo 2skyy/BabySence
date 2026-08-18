@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
+import '../../core/services/notification_test.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../shell/coming_soon_page.dart';
@@ -51,6 +52,58 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// 알림이 실제로 뜨는지 확인합니다.
+  ///
+  /// 수유·예방접종 알림은 몇 시간 뒤에나 울려 확인이 어렵습니다. 같은 방식으로
+  /// 10초 뒤에 한 번 걸어 보고, **예약까지만 확인된 것**과 **알림이 켜져 있는지**를
+  /// 나눠 알려줍니다. 안 뜨면 어디를 봐야 하는지도 함께 말합니다.
+  Future<void> _testNotification() async {
+    final result = await NotificationTest.fire();
+    if (!mounted) return;
+
+    if (!result.scheduled) {
+      _showNotificationDialog(
+        '알림을 걸지 못했습니다',
+        '${result.error}',
+      );
+      return;
+    }
+
+    if (result.enabled == false) {
+      _showNotificationDialog(
+        '알림이 꺼져 있습니다',
+        '이 앱의 알림 권한이 꺼져 있어 예약을 걸어도 뜨지 않습니다.\n\n'
+            '설정 → 앱 → BabySense → 알림에서 켜 주세요.',
+      );
+      return;
+    }
+
+    _showNotificationDialog(
+      '10초 뒤에 알림이 갑니다',
+      '이 창을 닫고 기다려 주세요.\n\n'
+          '알림이 뜨면 수유·예방접종 알림도 같은 방식으로 뜹니다.\n\n'
+          '뜨지 않으면 설정 → 배터리 → 백그라운드 사용 제한에서 '
+          'BabySense를 "제한 안 함"으로 바꿔 주세요. '
+          '절전 상태에서는 몇 분 늦게 오기도 합니다.',
+    );
+  }
+
+  void _showNotificationDialog(String title, String body) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openComingSoon(String title, String description) {
     Navigator.push(
       context,
@@ -73,12 +126,18 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.notifications_outlined,
             title: '기록 알림',
             color: AppColors.primary,
-            // 스위치로 두면 켜고 끌 수 있어 보이지만 실제로는 아무것도 하지
-            // 않습니다. FCM 설정 파일이 없어 푸시 자체가 동작하지 않습니다.
+            // 알림은 기기가 스스로 울립니다(로컬 알림). 켜고 끄는 자리가
+            // 기능마다 달라, 여기서는 어디로 가면 되는지만 알려줍니다.
             onTap: () => _openComingSoon(
               '기록 알림',
-              '수유·예방접종 시간을 알려주는 기능입니다.\n푸시 설정이 끝나면 켤 수 있습니다.',
+              '수유 알림은 홈 화면의 수유 카드에서,\n예방접종 알림은 예방접종 화면에서 켤 수 있습니다.',
             ),
+          ),
+          _buildMenuItem(
+            icon: Icons.notifications_active_outlined,
+            title: '알림 테스트',
+            color: AppColors.primary,
+            onTap: _testNotification,
           ),
           const SizedBox(height: AppSpacing.lg),
 
