@@ -1,3 +1,5 @@
+import '../../core/services/baby_service.dart' show trimmedBabyName;
+
 /// 다음 수유 예정 시각.
 ///
 /// 마지막 수유 기록에 **보호자가 정한 간격**을 더한 값입니다. 앱이 간격을
@@ -85,3 +87,24 @@ String formatClock(DateTime at) {
   final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
   return '$period $hour:${at.minute.toString().padLeft(2, '0')}';
 }
+
+/// 수유 알림 제목. 이름을 알면 부릅니다.
+///
+/// 알림창에는 앱 이름이 이미 붙지만 아이 이름은 없습니다. 함께 키우는 두
+/// 사람이 각자 기기에서 받으므로, 누구 이야기인지가 제목에 있어야 합니다.
+String feedingNotificationTitle(String? babyName) {
+  final name = trimmedBabyName(babyName);
+  return name == null ? '수유 시간이 되었어요' : '$name 수유 시간이 되었어요';
+}
+
+/// 수유 알림 본문. **왜 지금 울리는지**를 적습니다.
+///
+/// 예전에는 '오후 2:10로 정하신 시간이 되었어요.'였습니다. 두 가지가
+/// 어긋났습니다 — 적힌 시각이 다음 예정 시각이라 마지막으로 먹인 때와
+/// 헷갈렸고, 조사가 앞 숫자를 읽는 방식에 따라 '로'와 '으로'로 갈리는데
+/// 늘 '로'였습니다('2:10로'). 조사가 필요 없는 문장으로 바꿉니다.
+String feedingNotificationBody({
+  required DateTime lastFedAt,
+  required Duration interval,
+}) =>
+    '마지막 수유 ${formatClock(lastFedAt)} · ${formatInterval(interval)} 간격';

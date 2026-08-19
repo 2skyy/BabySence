@@ -56,14 +56,16 @@ class _VaccinationPageState extends State<VaccinationPage> {
   Future<void> _rescheduleReminders(List<VaccinationStatus> schedule) async {
     final settings = await VaccinationReminderSettings.load();
     if (mounted) setState(() => _reminder = settings);
-    await VaccinationReminderService.reschedule(schedule, settings: settings);
+    await VaccinationReminderService.reschedule(schedule,
+        settings: settings, babyName: _baby?.name);
   }
 
   /// 설정을 바꾸고 곧바로 다시 겁니다.
   Future<void> _applyReminder(VaccinationReminderSettings settings) async {
     setState(() => _reminder = settings);
     await settings.save();
-    await VaccinationReminderService.reschedule(_schedule, settings: settings);
+    await VaccinationReminderService.reschedule(_schedule,
+        settings: settings, babyName: _baby?.name);
   }
 
   Future<void> _load() async {

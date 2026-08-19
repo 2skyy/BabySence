@@ -22,6 +22,9 @@ class NextFeedingCard extends StatefulWidget {
   /// 간격을 처음 정할 때 미리 넣어 둘 값을 고르는 데 씁니다.
   final int? ageInMonths;
 
+  /// 알림 제목에 부를 이름. 모르면 이름 없이 알립니다.
+  final String? babyName;
+
   /// 기록이 아직 오는 중인지.
   final bool loading;
 
@@ -37,6 +40,7 @@ class NextFeedingCard extends StatefulWidget {
     super.key,
     required this.lastFedAt,
     this.ageInMonths,
+    this.babyName,
     this.loading = false,
     this.failed = false,
   });
@@ -69,7 +73,10 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
     // 설정은 그대로이므로 저장까지 하지는 않습니다.
     if (old.lastFedAt != widget.lastFedAt ||
         old.loading != widget.loading ||
-        old.failed != widget.failed) {
+        old.failed != widget.failed ||
+        // 홈은 아이를 나중에 읽어 옵니다. 이름이 뒤늦게 와도 다시 걸지
+        // 않으면, 이미 잡힌 알림은 이름 없는 제목으로 울립니다.
+        old.babyName != widget.babyName) {
       _rescheduleIfKnown(_settings);
     }
   }
@@ -96,7 +103,7 @@ class _NextFeedingCardState extends State<NextFeedingCard> {
   void _rescheduleIfKnown(FeedingReminderSettings settings) {
     if (widget.loading || widget.failed) return;
     FeedingReminderService.reschedule(_schedule(settings),
-        notify: settings.notify);
+        notify: settings.notify, babyName: widget.babyName);
   }
 
   FeedingSchedule _schedule(FeedingReminderSettings settings) =>

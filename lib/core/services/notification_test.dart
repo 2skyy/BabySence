@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'notification_setup.dart';
 
 /// 알림 시험의 결과.
 ///
@@ -58,14 +59,7 @@ class NotificationTest {
       tz_data.initializeTimeZones();
 
       await _plugin.initialize(
-        settings: const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(
-            requestAlertPermission: false,
-            requestBadgePermission: false,
-            requestSoundPermission: false,
-          ),
-        ),
+        settings: notificationInitSettings(requestPermissions: true),
       );
 
       final android = _plugin.resolvePlatformSpecificImplementation<
@@ -101,7 +95,8 @@ class NotificationTest {
             importance: Importance.high,
             priority: Priority.high,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: darwinNotificationDetails,
+          macOS: darwinNotificationDetails,
         ),
       );
 

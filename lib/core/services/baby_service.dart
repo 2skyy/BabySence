@@ -128,3 +128,15 @@ class BabyService {
     return Baby.fromMap(row);
   }
 }
+
+/// 알림에 부를 이름. 비어 있거나 공백뿐이면 **없는 것**으로 봅니다.
+///
+/// 이름을 모를 때 '아이'처럼 지어내지 않습니다. 남의 이름이 뜨는 것보다야
+/// 낫지만, 앱이 모르는 것을 아는 척하는 것은 같습니다.
+///
+/// [Baby.name]이 나오는 곳이라 여기 둡니다. 수유 알림 쪽에 두었더니
+/// 예방접종 알림이 그것을 가져다 써서, 두 기능이 서로를 알게 됐습니다.
+String? trimmedBabyName(String? name) {
+  final trimmed = name?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}

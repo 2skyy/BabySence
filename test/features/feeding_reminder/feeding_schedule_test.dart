@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_project/features/feeding_reminder/feeding_schedule.dart';
@@ -92,6 +94,85 @@ void main() {
       for (final months in [0, 3, 4, 6, 7, 24]) {
         expect(selectableIntervals, contains(suggestedInterval(months)));
       }
+    });
+  });
+
+  group('알림 문구', () {
+    test('이름을 알면 제목에서 부른다', () {
+      // 함께 키우는 두 사람이 각자 기기에서 받으므로, 누구 이야기인지가
+      // 제목에 있어야 합니다.
+      expect(feedingNotificationTitle('지호'), '지호 수유 시간이 되었어요');
+    });
+
+    test('이름을 모르면 지어내지 않는다', () {
+      // '아이'처럼 채워 넣으면 앱이 모르는 것을 아는 척하게 됩니다.
+      for (final blank in [null, '', '   ']) {
+        expect(feedingNotificationTitle(blank), '수유 시간이 되었어요',
+            reason: '${blank == null ? 'null' : '"$blank"'}에서 이름을 지어냈습니다');
+      }
+    });
+
+    test('앞뒤 공백은 다듬는다', () {
+      // 다듬는 규칙 자체는 baby_service_test.dart가 봅니다.
+      expect(feedingNotificationTitle('  지호 '), '지호 수유 시간이 되었어요');
+    });
+
+    test('본문은 마지막 수유 시각과 간격을 적는다', () {
+      // 왜 지금 울리는지가 있어야 합니다.
+      final body = feedingNotificationBody(
+        lastFedAt: DateTime(2026, 8, 19, 14, 10),
+        interval: const Duration(hours: 3),
+      );
+      expect(body, '마지막 수유 오후 2:10 · 3시간 간격');
+    });
+
+    test('본문에 숫자 뒤 조사를 붙이지 않는다', () {
+      // 예전에는 '${formatClock(at)}로 정하신 시간이 되었어요.'였습니다.
+      // 조사는 앞 숫자를 읽는 방식을 따라 '로'와 '으로'로 갈리는데 늘
+      // '로'였습니다 — '2:10로'. 조사가 필요 없는 문장이라야 안 틀립니다.
+      for (final minute in [0, 5, 10, 30]) {
+        final body = feedingNotificationBody(
+          lastFedAt: DateTime(2026, 8, 19, 14, minute),
+          interval: const Duration(hours: 3),
+        );
+        expect(body.contains('로 '), isFalse, reason: body);
+        expect(body.endsWith('로'), isFalse, reason: body);
+      }
+    });
+
+    test('30분 단위 간격도 그대로 읽는다', () {
+      expect(
+        feedingNotificationBody(
+          lastFedAt: DateTime(2026, 8, 19, 9, 5),
+          interval: const Duration(hours: 3, minutes: 30),
+        ),
+        '마지막 수유 오전 9:05 · 3시간 30분 간격',
+      );
+    });
+  });
+
+  group('이름이 알림까지 흘러가는가', () {
+    // 문구 함수는 위에서 봤습니다. 비어 있던 것은 배선입니다.
+    String read(String path) => File(path).readAsStringSync();
+
+    test('예약이 받은 이름을 제목 함수에 넘긴다', () {
+      final source =
+          read('lib/features/feeding_reminder/feeding_reminder_service.dart');
+      expect(source.contains('title: feedingNotificationTitle(babyName),'),
+          isTrue);
+    });
+
+    test('카드와 홈이 아이 이름을 넘긴다', () {
+      expect(
+        read('lib/features/feeding_reminder/next_feeding_card.dart')
+            .contains('babyName: widget.babyName'),
+        isTrue,
+      );
+      expect(
+        read('lib/features/home/home_page.dart').contains('babyName: _baby?.name'),
+        isTrue,
+        reason: '홈이 이름 없이 예약하고 있습니다',
+      );
     });
   });
 }

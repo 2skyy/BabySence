@@ -220,6 +220,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 32),
             NextFeedingCard(
               lastFedAt: _lastFedAt,
+              babyName: _baby?.name,
               ageInMonths: _baby == null
                   ? null
                   : ageInMonthsAt(_baby!.birthDate, DateTime.now()),

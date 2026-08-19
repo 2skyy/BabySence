@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:noise_meter/noise_meter.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'core/services/notification_setup.dart';
 
 // ★ 백엔드 파이어베이스 및 수파베이스 임포트
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -50,16 +51,11 @@ Future<void> initializeService() async {
   FlutterLocalNotificationsPlugin();
 
   // 플러그인 초기화. 이걸 하지 않으면 iOS에서는 알림이 전혀 뜨지 않습니다.
+  // 권한은 _requestAppPermissions에서 따로 받으므로 여기서는 요청하지 않습니다.
+  // 설정을 직접 적지 않는 이유는 [notificationInitSettings]에 적어 뒀습니다 —
+  // 네 곳에 흩어져 있던 탓에 macOS 항목이 **전부** 빠져 있었습니다.
   await flutterLocalNotificationsPlugin.initialize(
-    settings: const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(
-        // 권한은 _requestAppPermissions에서 따로 받으므로 여기서는 요청하지 않습니다.
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      ),
-    ),
+    settings: notificationInitSettings(),
   );
 
   if (Platform.isAndroid) {

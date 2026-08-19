@@ -124,7 +124,8 @@ lib/
   core/
     constants/   # AppColors, AppRadius, AppSpacing, AppTextStyles, ApiConfig,
                  # SupabaseConfig, WhoGrowthStandards
-    services/    # BabyService, NoiseTracker, SleepType, GrowthCalculator
+    services/    # BabyService, NoiseTracker, SleepType, GrowthCalculator,
+                 # NotificationSetup(알림 초기화 한 곳), NotificationTest
     theme/       # AppTheme
     widgets/     # CommonButton, CommonTextField, CommonAppBar
   features/      # 화면 단위 폴더
@@ -138,6 +139,8 @@ lib/
     detail/         # 기록 화면 + 화면별 *_service.dart (Supabase 접근)
     detail/growth/  # 성장 기록 모델 · GrowthRepository · 페이지
     detail/assessment/ # 판정 규칙(체온·성장·소음)과 assessments 저장·조회
+    feeding_reminder/     # 다음 수유 시각·수유 알림 예약
+    vaccination_reminder/ # 예방접종 예정일 알림 예약
     community/      # 게시글 · 댓글 (작성 · 수정 · 삭제)
     mypage/         # 내 정보 · 아이 · 함께 키우기(초대 코드)
     settings/       # 알림 · 화면 · 앱 정보 · 로그아웃
@@ -169,6 +172,46 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 
 2026-08-18~19에 기록 탭을 다시 만들었고, 그 앞 2026-08-12~13에 크게 세 덩어리가
 바뀌었습니다. 각각 왜 그렇게 됐는지가 코드 주석에 남아 있습니다.
+
+### 알림 — macOS에서 통째로 죽어 있던 것 · 서머타임 · 문구
+
+예방접종 알림과 '알림 시험'은 팀원이 넣었습니다. 아래는 그것을 검증하면서
+드러난 것들입니다.
+
+**macOS에서 알림이 하나도 뜨지 않았습니다.** `flutter_local_notifications`는
+`InitializationSettings`에 `macOS` 항목이 없으면 **초기화 단계에서 예외를
+던집니다**(`macOS settings must be set when targeting macOS platform`).
+그 설정을 **네 곳**이 각자 적어 두었고, 네 곳 모두에서 빠져 있었습니다 —
+수유·예방접종·알림 시험·백그라운드 소음 서비스. 앱을 띄워 로그를 보고서야
+알았습니다.
+
+지금은 [`lib/core/services/notification_setup.dart`](lib/core/services/notification_setup.dart)
+한 곳에서 만듭니다. 다른 곳에서 직접 만들면 테스트가 막는데, **그 테스트를
+쓰자마자 네 번째 사본(`main.dart`)이 걸렸습니다.** 권한을 묻는 것은 사용자가
+직접 누르는 알림 시험뿐입니다 — 예약은 앱이 알아서 거는 일이라 그때 권한
+창이 뜨면 뜬금없고, 모바일은 앱 시작 때 `permission_handler`가 한 번에
+받지만 macOS에는 그 경로가 없습니다.
+
+**예방접종 알림이 서머타임 지역에서 하루 일찍 울렸습니다.** 예정일 자정에서
+`Duration(days:)`를 빼면 절대 시간이라 전환일에는 전날 23시가 되고, 거기서
+날짜를 꺼내 9시를 붙이면 하루가 통째로 밀립니다. `America/New_York`에서
+3월 9일의 하루 전이 **3월 7일**로 나왔습니다. 달력 날짜로 옮기게 고쳤습니다.
+
+한국은 서머타임이 없어 이 결함은 **동작 테스트로 잡히지 않습니다** — 두
+방식이 같은 답을 냅니다. 그래서 그 함수가 `Duration`을 쓰지 않는지 글자로
+확인하는 단언을 함께 뒀고, 되돌려 놓고 그 단언이 깨지는 것을 확인했습니다.
+
+**알림 문구에 아이 이름을 넣었습니다.** 함께 키우는 두 사람이 각자 기기에서
+받으므로 누구 이야기인지가 제목에 있어야 합니다.
+
+    수유할 시간이에요                  →  지호 수유 시간이 되었어요
+    오후 2:10로 정하신 시간이 되었어요.  →  마지막 수유 오후 2:10 · 3시간 간격
+
+이름을 모르면 '아이'처럼 **지어내지 않고** 이름 없이 알립니다. 본문은 다음
+예정 시각이 아니라 마지막으로 먹인 때와 정한 간격을 적습니다 — 왜 지금
+울리는지가 그것이고, 이 앱이 "먹여야 한다"가 아니라 "정한 간격이 지났다"만
+말하는 것과도 맞습니다. 조사도 함께 사라졌습니다: `'2:10로'`는 앞 숫자를
+읽는 방식에 따라 `'로'`와 `'으로'`로 갈리는데 늘 `'로'`로 박혀 있었습니다.
 
 ### 기록 탭 — 24시간 원과 월·주·일 눈금
 
@@ -339,7 +382,9 @@ false` + `EmptyLocalStorage`). 화면이 쓰기 직전에 토큰을 실어 보�
 
 1. **밤새 소음 측정** — 저녁에 시작 → 앱 나감 → **아침에 들어와 중지**.
    여기서 판정이 안 나오던 적이 있습니다. 로그아웃도 확인하세요
-2. **수유 알림** — 매니페스트를 고쳤지만 실제로 뜨는지는 못 봤습니다
+2. **알림** — macOS에서는 설정 → 알림 시험으로 확인했습니다(10초 뒤에 뜹니다).
+   **실기기는 아직입니다** — 절전 정책과 방해 금지 모드는 데스크톱에 없습니다.
+   수유·예방접종 알림도 같은 방식으로 겁니다
 3. **함께 키우기** — 계정 두 개로 초대 → 수락 → **기록까지** 보이는지
 4. **다크 모드** — 검토에서 5건이 나왔는데 아직 안 고쳤습니다
 
@@ -360,7 +405,7 @@ false` + `EmptyLocalStorage`). 화면이 쓰기 직전에 토큰을 실어 보�
 
 ## 검증 상태
 
-**자동 테스트 — Flutter 568건 / 서버 103건**
+**자동 테스트 — Flutter 671건 / 서버 103건**
 
 `flutter test`, `cd server && ./venv/bin/python -m pytest`.
 `flutter analyze`는 경고 0건입니다.
@@ -375,6 +420,18 @@ false` + `EmptyLocalStorage`). 화면이 쓰기 직전에 토큰을 실어 보�
   않는지
 - `test/background_auth_test.dart` — 백그라운드가 로그인 저장소를 공유하지
   않는지
+
+**테스트가 헛도는지 되돌려서 확인합니다.**
+
+기록 탭을 고치며 붙인 회귀 테스트 하나가 **지키려는 코드를 통째로 지워도
+통과**했습니다 — 자리를 견주는데 `indexOf`가 -1을 돌려주면 그 비교가 참이
+됩니다. 그 뒤로는 고친 것을 하나씩 되돌려 놓고 테스트가 정말 깨지는지
+확인했습니다. 이 방식이 실제로 구멍을 찾아냈습니다:
+
+- 순수 함수는 잘 덮여 있는데 **거기에 값을 넘기는 배선**이 비어 있던 자리가
+  세 곳 있었습니다. 상수를 넘기도록 바꿔도 단언이 전부 초록이었습니다.
+  이번에 결함이 난 곳도 계산이 아니라 그 배선이었습니다
+- 되돌리기 스무 가지 넘게 시험해 전부 잡히는 것을 확인했습니다
 
 글자로 읽는 방식의 한계도 겪었습니다. 로그인 화면으로 **두 번** 보내던 결함을
 그 테스트들은 하나도 잡지 못했습니다 — 찾던 문자열은 멀쩡히 다 있었으니까요.

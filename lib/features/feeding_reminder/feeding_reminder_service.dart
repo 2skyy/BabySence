@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import '../../core/services/notification_setup.dart';
 
 import 'feeding_schedule.dart';
 
@@ -28,15 +29,7 @@ class FeedingReminderService {
     tz_data.initializeTimeZones();
 
     await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(
-          // 권한은 앱 시작 때 permission_handler로 한 번에 받습니다.
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        ),
-      ),
+      settings: notificationInitSettings(),
     );
 
     final android = _plugin.resolvePlatformSpecificImplementation<
@@ -60,6 +53,7 @@ class FeedingReminderService {
   static Future<void> reschedule(
     FeedingSchedule schedule, {
     required bool notify,
+    String? babyName,
     DateTime? now,
   }) async {
     // 테스트와 웹에서는 플러그인이 없습니다. 알림이 없다고 기록이 막히면 안 됩니다.
@@ -82,8 +76,11 @@ class FeedingReminderService {
         // 정확한 알람(exact)은 안드로이드 12+에서 별도 권한을 요구합니다.
         // 수유 알림은 몇 분 늦어도 되는 종류라 권한 벽을 세우지 않습니다.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        title: '수유할 시간이에요',
-        body: '${formatClock(at)}로 정하신 시간이 되었어요.',
+        title: feedingNotificationTitle(babyName),
+        body: feedingNotificationBody(
+          lastFedAt: schedule.lastFedAt!,
+          interval: schedule.interval!,
+        ),
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
@@ -92,7 +89,8 @@ class FeedingReminderService {
             importance: Importance.high,
             priority: Priority.high,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: darwinNotificationDetails,
+          macOS: darwinNotificationDetails,
         ),
       );
     } catch (e) {

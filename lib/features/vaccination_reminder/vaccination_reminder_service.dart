@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import '../../core/services/notification_setup.dart';
 
+import '../../core/services/baby_service.dart' show trimmedBabyName;
 import '../detail/vaccination_service.dart';
 import 'vaccination_reminder_settings.dart';
 
@@ -48,15 +50,7 @@ class VaccinationReminderService {
     tz_data.initializeTimeZones();
 
     await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(
-          // 권한은 앱 시작 때 permission_handler로 한 번에 받습니다.
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        ),
-      ),
+      settings: notificationInitSettings(),
     );
 
     final android = _plugin.resolvePlatformSpecificImplementation<
@@ -76,20 +70,46 @@ class VaccinationReminderService {
   /// 알림을 울릴 시각. 예정일에서 [daysBefore]만큼 당긴 날 오전 9시입니다.
   ///
   /// [scheduledOn]은 날짜만 있는 값(자정)이라 그대로 쓰면 한밤중에 울립니다.
-  static DateTime notifyAtFor(DateTime scheduledOn, int daysBefore) {
-    final day = DateTime(scheduledOn.year, scheduledOn.month, scheduledOn.day)
-        .subtract(Duration(days: daysBefore));
-    return DateTime(day.year, day.month, day.day, _hour);
-  }
+  ///
+  /// **날짜를 빼는 데 [Duration]을 쓰지 않습니다.** 그것은 절대 시간이라
+  /// 자정에서 24시간을 빼면 서머타임이 낀 구간에서는 전날 23시가 되고,
+  /// 거기서 날짜를 꺼내 9시를 붙이면 **하루가 통째로 밀립니다** — 접종
+  /// 알림이 하루 일찍 울립니다. `DateTime(y, m, d - n)`은 생성자가 범위를
+  /// 넘는 날짜를 정규화하므로(3월 0일 → 2월 말일) 어느 시간대에서도 맞습니다.
+  /// (한국은 서머타임이 없어 드러나지 않습니다.)
+  static DateTime notifyAtFor(DateTime scheduledOn, int daysBefore) =>
+      DateTime(scheduledOn.year, scheduledOn.month,
+          scheduledOn.day - daysBefore, _hour);
 
   /// [schedule]에 맞춰 알림을 **전부 다시 잡습니다.**
   ///
   /// 접종을 마치거나 날짜를 고치면 예전 예약이 남으면 안 되므로, 늘 모두
   /// 지우고 새로 겁니다. 이미 맞은 것과 시각이 지난 것은 건너뜁니다 —
   /// 지난 시각으로 예약하면 그 자리에서 울립니다.
+  /// 알림 제목. 이름을 알면 부릅니다. 수유 알림과 같은 규칙입니다.
+  static String notificationTitle(String? babyName) {
+    final name = trimmedBabyName(babyName);
+    return name == null
+        ? '예방접종 예정일이 다가와요'
+        : '$name 예방접종 예정일이 다가와요';
+  }
+
+  /// 알림 본문. **표준 일정을 옮겨 적기만 합니다** — 맞아야 한다고 말하지
+  /// 않습니다. 접종 가능 여부는 진찰로 가리는 것이라 앱이 계산할 수 없습니다.
+  ///
+  /// 예약과 떼어 둔 것은 플러그인 없이 확인하기 위해서입니다. 붙여 두면
+  /// 문구가 테스트를 통째로 벗어납니다.
+  static String notificationBody(VaccinationStatus status, int daysBefore) {
+    final when = daysBefore == 0
+        ? '오늘'
+        : '${_formatDate(status.scheduledOn)}($daysBefore일 뒤)';
+    return '${status.vaccine.name} 접종 예정일이 $when이에요.';
+  }
+
   static Future<void> reschedule(
     List<VaccinationStatus> schedule, {
     required VaccinationReminderSettings settings,
+    String? babyName,
     DateTime? now,
   }) async {
     // 테스트와 웹에는 플러그인이 없습니다. 알림이 없다고 화면이 막히면 안 됩니다.
@@ -114,7 +134,7 @@ class VaccinationReminderService {
         final notifyAt = notifyAtFor(status.scheduledOn, settings.daysBefore);
         if (!notifyAt.isAfter(at)) continue;
 
-        await _scheduleOne(status, notifyAt, settings.daysBefore);
+        await _scheduleOne(status, notifyAt, settings.daysBefore, babyName);
         scheduled++;
       }
     } catch (e) {
@@ -127,11 +147,9 @@ class VaccinationReminderService {
     VaccinationStatus status,
     DateTime notifyAt,
     int daysBefore,
+    String? babyName,
   ) async {
     final vaccine = status.vaccine;
-    final when = daysBefore == 0
-        ? '오늘'
-        : '${_formatDate(status.scheduledOn)}($daysBefore일 뒤)';
 
     await _plugin.zonedSchedule(
       id: _idBase + vaccine.id,
@@ -141,9 +159,8 @@ class VaccinationReminderService {
       // 정확한 알람(exact)은 안드로이드 12+에서 별도 권한을 요구합니다.
       // 며칠 전 알림이라 몇 분 늦어도 되는 종류입니다.
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      title: '예방접종 예정일이 다가와요',
-      // **표준 일정을 옮겨 적기만 합니다.** 맞아야 한다고 말하지 않습니다.
-      body: '${vaccine.name} 접종 예정일이 $when이에요.',
+      title: notificationTitle(babyName),
+      body: notificationBody(status, daysBefore),
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
@@ -152,7 +169,8 @@ class VaccinationReminderService {
           importance: Importance.high,
           priority: Priority.high,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: darwinNotificationDetails,
+          macOS: darwinNotificationDetails,
       ),
     );
   }
