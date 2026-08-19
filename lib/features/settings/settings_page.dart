@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/notification_test.dart';
+import '../../core/services/push_service.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../shell/coming_soon_page.dart';
@@ -42,6 +43,11 @@ class _SettingsPageState extends State<SettingsPage> {
     // 화면을 세우고, HTTP 왕복을 기다리던 이쪽이 뒤늦게 같은 호출을 한 번 더
     // 해 방금 만든 화면을 지우고 다시 만들었습니다.
     try {
+      // **signOut보다 먼저 지웁니다.** gotrue는 서버 요청 전에 로컬 세션을
+      // 버리므로, 뒤에 지우려 하면 로그인하지 않은 상태가 되어 RLS가 막습니다.
+      // 남겨 두면 이 폰으로 다음에 로그인한 사람에게 앞사람 알림이 갑니다.
+      await PushService.clearToken();
+
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
       // **실패라고 말하지 않습니다.** 세션은 이미 지워진 뒤라 사용자는 어차피

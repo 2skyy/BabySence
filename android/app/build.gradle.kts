@@ -5,6 +5,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// FCM 설정 파일이 있을 때만 Google Services 플러그인을 켭니다.
+//
+// plugins {} 블록 안에서는 조건을 쓸 수 없어 여기서 겁니다. 늘 켜 두면
+// google-services.json이 없는 사람은 빌드 자체가 서므로, 설정을 마치기 전에도
+// 팀원이 앱을 돌릴 수 있게 이렇게 둡니다. 파일을 넣으면 자동으로 켜집니다.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.flutter_project"
     compileSdk = flutter.compileSdkVersion

@@ -14,9 +14,11 @@ import 'core/services/notification_setup.dart';
 // ★ 백엔드 파이어베이스 및 수파베이스 임포트
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/constants/supabase_config.dart';
 import 'core/services/auth_redirect.dart';
+import 'core/services/push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/auth/auth_gate.dart';
@@ -428,6 +430,21 @@ Future<void> _requestAppPermissions() async {
   }
 }
 
+/// 앱이 꺼져 있거나 뒤에 있을 때 도착한 알림을 받는 손.
+///
+/// **알림을 그리지 않습니다.** 그건 안드로이드가 알아서 합니다(`notification`
+/// 항목이 실린 메시지라면). 여기서는 앱이 앞에 있을 때처럼 우리가 띄우면
+/// 알림이 두 번 뜹니다.
+///
+/// 그래서 지금은 기록만 남깁니다. 나중에 뱃지 수를 갱신하거나 받은 알림을
+/// 저장할 자리가 생기면 여기에 붙입니다. 최상위 함수여야 하고
+/// (`@pragma('vm:entry-point')`), 별도 isolate에서 돌므로 화면 상태에
+/// 접근할 수 없습니다.
+@pragma('vm:entry-point')
+Future<void> firebaseBackgroundHandler(RemoteMessage message) async {
+  debugPrint('배경에서 알림 도착: ${message.messageId}');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -446,13 +463,23 @@ void main() async {
     publishableKey: SupabaseConfig.publishableKey,
   );
 
-  // 2. ★ Firebase 초기화 (google-services.json 기반)
+  // 2. ★ Firebase 초기화
+  //
+  // `android/app/google-services.json`이 있어야 성공합니다. 없으면 실패가
+  // **정상**이고, 그때는 서버가 보내는 알림(FCM)만 꺼집니다 — 수유·예방접종
+  // 알림은 기기가 스스로 울리는 로컬 알림이라 그대로 동작합니다.
+  // 설정 방법은 docs/firebase-push-setup.md에 있습니다.
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     try {
       await Firebase.initializeApp();
-      debugPrint("🔴 Firebase 초기화 성공!");
+
+      // 앱이 꺼져 있을 때 온 알림을 받는 손. 최상위 함수여야 하고,
+      // 등록은 runApp 전에 해야 합니다.
+      FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
+
+      debugPrint('Firebase 초기화 성공');
     } catch (e) {
-      debugPrint("🔴 Firebase 초기화 실패: $e");
+      debugPrint('Firebase 초기화 실패(푸시 알림만 꺼집니다): $e');
     }
   }
 
@@ -483,6 +510,9 @@ class _MyAppState extends State<MyApp> {
   /// 로그인이 풀리면 로그인 화면으로 보냅니다. 사정은 [AuthRedirect]에.
   final _authRedirect = AuthRedirect();
 
+  /// 로그인할 때 푸시 토큰을 다시 맞추기 위한 구독.
+  StreamSubscription<AuthState>? _pushAuthSub;
+
   /// **목록을 여기 붙들어 둡니다.** 빌드마다 새로 만들면 테마를 바꿀 때마다
   /// Navigator가 관찰자를 떼었다 다시 답니다(`didUpdateWidget`이 목록을
   /// 동일성으로 비교합니다). 동작은 같지만 할 이유가 없는 일입니다.
@@ -495,10 +525,30 @@ class _MyAppState extends State<MyApp> {
     _theme.load();
 
     _authRedirect.listenTo(Supabase.instance.client.auth.onAuthStateChange);
+
+    // 서버가 보내는 알림 받을 준비. Firebase 설정이 없으면 안에서 조용히
+    // 넘어갑니다(로컬 알림은 이와 무관하게 동작합니다).
+    //
+    // **로그인할 때마다 토큰을 다시 맞춥니다.** device_tokens는 사용자에
+    // 묶여 있어, 로그인 전에는 저장할 수 없습니다. 한 폰을 두 계정이 쓰면
+    // 주인이 바뀌어야 앞사람에게 알림이 가지 않습니다.
+    unawaited(PushService.start());
+    _pushAuthSub = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) {
+        if (state.event == AuthChangeEvent.signedIn ||
+            state.event == AuthChangeEvent.tokenRefreshed) {
+          unawaited(PushService.syncToken());
+        }
+      },
+      // auth 흐름은 갱신 실패를 에러로 흘립니다. 받는 곳이 없으면 잡히지 않는
+      // 비동기 오류가 됩니다(auth_redirect.dart에 사정이 적혀 있습니다).
+      onError: (Object e) => debugPrint('푸시 토큰 동기화 흐름 오류: $e'),
+    );
   }
 
   @override
   void dispose() {
+    _pushAuthSub?.cancel();
     _authRedirect.dispose();
     _theme.dispose();
     super.dispose();
