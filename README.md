@@ -156,6 +156,9 @@ supabase/        # schema.sql (테이블 · RLS · 마스터 데이터), migrati
 - 네비게이션은 `AppRoutes` 상수 경유가 원칙 (일부 화면은 `MaterialPageRoute` 직접 사용도 혼재)
 - 서버 주소는 `ApiConfig` 한 곳에서만 정의합니다. 화면에 URL을 하드코딩하지 마세요
 - Supabase 접근은 화면에서 직접 호출하지 않고 `core/services` 또는 feature별 서비스를 경유합니다
+- **테스트 자료에 실제 정보를 쓰지 않습니다.** 공개 저장소이고 아이 이름은
+  개인정보입니다. 자리만 채우면 되는 값에는 `지호`·`아기`처럼 누가 봐도
+  가짜인 것을 씁니다
 - 테스트는 대상 파일과 같은 경로·같은 이름에 둡니다
   (`lib/features/mypage/baby_member_service.dart` → `test/features/mypage/baby_member_service_test.dart`).
   여러 파일에 걸친 동작을 검사하는 테스트만 예외입니다

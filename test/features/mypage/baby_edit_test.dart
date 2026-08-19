@@ -11,12 +11,12 @@ void main() {
   group('buildUpdate', () {
     test('이름·성별·생년월일만 보낸다', () {
       final row = BabyService.buildUpdate(
-        name: '유승환',
+        name: '지호',
         sex: ChildSex.male,
         birthDate: DateTime(2026, 3, 1),
       );
 
-      expect(row, {'name': '유승환', 'sex': 'male', 'birth_date': '2026-03-01'});
+      expect(row, {'name': '지호', 'sex': 'male', 'birth_date': '2026-03-01'});
     });
 
     test('user_id를 보내지 않는다', () {
@@ -34,11 +34,11 @@ void main() {
 
     test('이름 앞뒤 공백을 지운다', () {
       final row = BabyService.buildUpdate(
-        name: '  유승환  ',
+        name: '  지호  ',
         sex: ChildSex.male,
         birthDate: DateTime(2026, 3, 1),
       );
-      expect(row['name'], '유승환');
+      expect(row['name'], '지호');
     });
 
     test('생년월일을 UTC로 바꾸지 않는다', () {
