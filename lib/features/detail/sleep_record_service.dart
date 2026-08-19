@@ -115,14 +115,20 @@ class SleepRecordService {
   /// 실제로는 최신 N건만 세게 됩니다. 신생아기처럼 하루에 열 번 넘게
   /// 기록하는 시기에는 그 창의 앞쪽이 통째로 빠지는데, 화면에는 잘렸다는
   /// 표시가 없습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
   static Future<List<SleepRecord>> loadRecent(
     String babyId, {
     int limit = 20,
     DateTime? since,
+    DateTime? until,
   }) async {
     var query = _client.from('sleep_records').select().eq('baby_id', babyId);
 
     if (since != null) query = query.gte('started_at', toDbTime(since));
+    if (until != null) query = query.lt('started_at', toDbTime(until));
 
     final rows =
         await query.order('started_at', ascending: false).limit(limit);

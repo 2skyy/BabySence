@@ -52,6 +52,17 @@ void main() {
       expect(app.contains('_authRedirect.dispose()'), isTrue);
       expect(app.contains('navigatorObservers: _navigatorObservers'), isTrue);
     });
+
+    test('관찰자 목록의 타입을 적는다', () {
+      // 타입을 안 적으면 [_authRedirect]가 List<AuthRedirect>로 좁혀집니다.
+      // Navigator는 observers + <NavigatorObserver>[heroController]를 하는데,
+      // 좁은 목록에는 그 덧셈이 안 됩니다. 앱이 첫 화면에서 죽었습니다.
+      final app = read('lib/main.dart');
+      expect(
+        app.contains('List<NavigatorObserver> _navigatorObservers'),
+        isTrue,
+      );
+    });
   });
 
   group('저장 실패를 성공으로 세지 않는다', () {
@@ -130,6 +141,29 @@ void main() {
         expect(read(path).contains('StaleNotice'), isTrue);
       });
     }
+
+    test('기록 탭이 아이가 없을 때도 실패를 말한다', () {
+      // 아이 없는 사용자는 조회에 성공한 적이 있어(baby == null도 성공입니다)
+      // 그 뒤의 실패가 첫 조회 실패 분기에 걸리지 않습니다. 그때 stale을
+      // 만들기 전에 돌아가면 '아이 정보를 먼저 등록해 주세요' 한 줄만 남아,
+      // 실패한 조회가 화면 어디에도 없고 다시 시도할 길도 없습니다.
+      //
+      // 자리만 견주면 선언을 지웠을 때 indexOf가 -1이 되어 조건이 참이 되고,
+      // 분기에서 `...stale` 한 줄만 빼도 자리는 그대로라 초록이 됩니다.
+      // 선언이 있는지, 그 분기가 실제로 stale을 함께 내는지까지 봅니다.
+      final page = read('lib/features/records/records_page.dart');
+      final declared = page.indexOf('final stale =');
+      expect(declared, isNonNegative, reason: 'stale 선언이 없습니다');
+
+      final branchStart = page.indexOf('if (!_hasBaby)');
+      expect(declared, lessThan(branchStart),
+          reason: 'stale을 아이 없음 분기보다 먼저 만들어야 합니다');
+
+      final branchEnd = page.indexOf('final period = _period;', branchStart);
+      expect(branchEnd, greaterThan(branchStart), reason: '분기 끝을 찾지 못했습니다');
+      expect(page.substring(branchStart, branchEnd).contains('...stale'), isTrue,
+          reason: '아이 없음 분기가 stale을 함께 내야 합니다');
+    });
   });
 
   group('로그아웃을 두 곳에서 처리하지 않는다', () {

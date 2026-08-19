@@ -164,6 +164,15 @@ void main() {
       expect(formatDayHeader(DateTime(2026, 8, 3), now: now), '어제');
     });
 
+    test('달력 날짜로 견준다 — 흐른 시간이 아니라', () {
+      // `difference().inDays`로 재면 절대 시간을 세게 되어, 서머타임이 낀
+      // 날에는 어제와 오늘 사이가 23시간이 됩니다. 그러면 어제 원을 눌러
+      // 놓고 머리글만 '오늘'이라 적습니다. 시각이 붙은 날짜로 확인합니다.
+      expect(formatDayHeader(DateTime(2026, 8, 3, 13), now: now), '어제');
+      expect(formatDayHeader(DateTime(2026, 8, 4, 23, 59), now: now), '오늘');
+      expect(formatDayHeader(DateTime(2026, 8, 2, 20), now: now), '8월 2일');
+    });
+
     test('그 이전은 날짜로 쓴다', () {
       expect(formatDayHeader(DateTime(2026, 8, 2), now: now), '8월 2일');
       expect(formatDayHeader(DateTime(2026, 7, 30), now: now), '7월 30일');

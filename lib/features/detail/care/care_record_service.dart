@@ -181,15 +181,21 @@ class CareRecordService {
   /// [since]를 주면 그 시각 이후만 읽습니다. 반복 집계는 [repeatWindowDays]
   /// 동안을 세는데, 기본 [limit]에만 기대면 그 창 안의 옛 기록이 목록에서
   /// 통째로 빠져 셀 수 없습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
   static Future<List<MedicationRecord>> loadMedications(
     String babyId, {
     int limit = 20,
     DateTime? since,
+    DateTime? until,
   }) async {
     var query =
         _client.from('medication_records').select().eq('baby_id', babyId);
 
     if (since != null) query = query.gte('taken_at', toDbTime(since));
+    if (until != null) query = query.lt('taken_at', toDbTime(until));
 
     final rows = await query.order('taken_at', ascending: false).limit(limit);
 
@@ -240,14 +246,20 @@ class CareRecordService {
   // ── 병원 방문 ────────────────────────────────────────────────────────────
 
   /// 최근 병원 방문. [since]의 뜻은 [loadMedications]와 같습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
   static Future<List<HospitalVisit>> loadVisits(
     String babyId, {
     int limit = 20,
     DateTime? since,
+    DateTime? until,
   }) async {
     var query = _client.from('hospital_visits').select().eq('baby_id', babyId);
 
     if (since != null) query = query.gte('visited_at', toDbTime(since));
+    if (until != null) query = query.lt('visited_at', toDbTime(until));
 
     final rows = await query.order('visited_at', ascending: false).limit(limit);
 

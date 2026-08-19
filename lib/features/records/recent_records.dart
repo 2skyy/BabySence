@@ -129,9 +129,15 @@ String formatTimeOfDay(DateTime at) {
 String formatDayHeader(DateTime day, {DateTime? now}) {
   final reference = now ?? DateTime.now();
   final today = DateTime(reference.year, reference.month, reference.day);
-  final diff = today.difference(day).inDays;
+  // 달력 날짜로 견줍니다. `difference().inDays`는 절대 시간을 재므로
+  // 서머타임이 낀 날에는 어제와 오늘 사이가 23시간이 되어, 어제를 눌러
+  // 놓고 머리글만 '오늘'이라 적게 됩니다.
+  final yesterday = DateTime(today.year, today.month, today.day - 1);
 
-  if (diff == 0) return '오늘';
-  if (diff == 1) return '어제';
+  bool isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  if (isSameDay(day, today)) return '오늘';
+  if (isSameDay(day, yesterday)) return '어제';
   return '${day.month}월 ${day.day}일';
 }

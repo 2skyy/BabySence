@@ -97,10 +97,15 @@ class TemperatureRecordService {
   /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 3일"이라 적어 두고
   /// 실제로는 최신 20건만 보게 됩니다. 열이 나서 자주 잰 아이일수록 그 창의
   /// 앞쪽(첫날 고열)이 빠지는데, 하필 가장 알고 싶은 값입니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
   static Future<List<TemperatureRecord>> loadRecent(
     String babyId, {
     int limit = 20,
     DateTime? since,
+    DateTime? until,
   }) async {
     var query = _client
         .from('temperature_records')
@@ -109,6 +114,7 @@ class TemperatureRecordService {
         .eq('baby_id', babyId);
 
     if (since != null) query = query.gte('measured_at', toDbTime(since));
+    if (until != null) query = query.lt('measured_at', toDbTime(until));
 
     final rows =
         await query.order('measured_at', ascending: false).limit(limit);
