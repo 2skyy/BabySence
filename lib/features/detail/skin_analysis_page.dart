@@ -32,14 +32,11 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   final Map<String, String> _koDiseases = {
     "normal": "정상 피부",
     "Atopic Dermatitis": "아토피성 피부염",
-    "Melanoma": "흑색종",
-    "Actinic keratosis": "광선각화증",
-    "Benign keratosis": "양성 각화증",
-    "Candidiasis Ringworm Tinea": "칸디다증/백선",
-    "Dermatofibroma": "피부섬유종",
-    "Melanocytic nevus": "멜라닌세포모반",
-    "Squamous carcinoma cell": "편평세포암",
-    "Vascular lesion": "혈관성 병변"
+    "Contact Dermatitis": "접촉성 피부염",
+    "Seborrheic Dermatitis": "지루성 피부염",
+    "Diaper Rash": "기저귀 발진",
+    "Infantile Eczema": "유아 습진",
+    "Urticaria": "두드러기",
   };
 
   // 1. 카메라로 촬영
@@ -98,19 +95,29 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   }
   // 3. AI 서버(FastAPI) 분석 요청
   Future<void> _sendToAiServer() async {
-    if (_image == null) return;
+    if (_image == null && _imageBytes == null) return;
 
     setState(() {
       _isLoading = true;
       _resultText = "AI가 피부 상태를 분석 중입니다. 잠시만 기다려주세요...";
     });
 
-    Dio dio = Dio();
+    //통신 타임아웃 기본값 부여 (서버 응답 지연 시 무한 로딩 방지)
+    final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+    ));
     String serverUrl = ApiConfig.skinDiagnose;
 
     try {
+      // [수정 2] byte 데이터를 직접 전달하여 모든 플랫폼/환경에서 안전하게 전송
+      final Uint8List uploadBytes = _imageBytes ?? await _image!.readAsBytes();
+
       FormData formData = FormData.fromMap({
-        "file": await MultipartFile.fromFile(_image!.path, filename: "baby_skin.jpg"),
+        "file": MultipartFile.fromBytes(
+          uploadBytes,
+          filename: "baby_skin.jpg",
+        ),
       });
 
       Response response = await dio.post(serverUrl, data: formData);
@@ -120,6 +127,13 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       if (response.statusCode == 200) {
         var data = response.data;
 
+        if (data['is_skin'] == false) {
+          setState(() {
+            _isNormal = false;
+            _resultText = data['message'] ?? '피부 사진이 아닙니다. 환부를 다시 촬영해 주세요.';
+          });
+          return;
+        }
         // 확률이 서버 기준에 못 미치면 진단명을 보여주지 않습니다.
         // 조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 처리입니다.
         if (data['status'] == 'low_confidence') {
@@ -136,9 +150,13 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
 
         String translatedDisease = _koDiseases[rawDisease] ?? rawDisease;
 
+        String message = data['message'] ?? "";
+
         setState(() {
-          _isNormal = (rawDisease == "normal");
-          _resultText = "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)";
+          _isNormal = (rawDisease.toLowerCase() == "normal");
+          _resultText = message.isNotEmpty
+              ? "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)\n\n$message"
+              : "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)";
         });
       }
     } catch (e) {
@@ -198,10 +216,10 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             const AskButton(domain: AssessmentDomain.skin),
             const SizedBox(height: 18),
 
-            // 💡 [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
+            //  [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
             Expanded(
               child: GestureDetector(
-                onTap: () => _showImageSourceBottomSheet(),
+                onTap: _isLoading ? null : () => _showImageSourceBottomSheet(),
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(

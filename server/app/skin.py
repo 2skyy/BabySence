@@ -1,64 +1,212 @@
-"""피부 질환 분류.
-
-**아직 학습된 모델이 없습니다.**
-
-이전 파이썬 서버(~/baby_skin_data/main.py)는 이미지를 열기만 하고 항상
-`{"disease": "Atopic Dermatitis", "probability": 88.4}`를 반환했습니다.
-아기 피부 질환을 판단하는 화면에서 고정값을 진단처럼 보여주는 것은
-사용자를 오도하므로 그 동작을 옮겨오지 않았습니다.
-
-모델이 준비되면 `load_model` / `predict`만 채우면 됩니다.
-학습 데이터셋과 PyTorch 학습 노트북은 ~/baby_skin_data 에 있고
-클래스는 9종입니다(Atopic Dermatitis, Melanoma, ... ).
-"""
-
+import os
+import io
+import json
+import base64
 import logging
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
+from PIL import Image
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from anthropic import Anthropic
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
+router = APIRouter()
 
+class SkinModelUnavailable(Exception):
+    pass
 
-class SkinModelUnavailable(RuntimeError):
-    """학습된 피부 모델이 없는 상태."""
+# 1. Claude API 설정
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
+# 2. 기본 클래스 라벨
+DEFAULT_CLASSES = [
+    "Atopic Dermatitis",
+    "Contact Dermatitis",
+    "Seborrheic Dermatitis",
+    "Diaper Rash",
+    "Infantile Eczema",
+    "Urticaria",
+    "normal"
+]
 
-class _SkinModel:
-    def __init__(self) -> None:
-        self._model = None
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
 
-    def load(self) -> None:
-        path = settings.skin_model_path
-        if path is None:
-            logger.warning(
-                "피부 모델이 설정되지 않았습니다. /api/skin/diagnose는 503을 반환합니다. "
-                "학습된 모델이 준비되면 SKIN_MODEL_PATH를 지정하세요."
-            )
+class SkinModelWrapper:
+    def __init__(self):
+        self.model = None
+        self.classes = DEFAULT_CLASSES
+
+    def load(self):
+        model_path = getattr(settings, "skin_model_path", None) or "baby_skin_mobilenet_model.pth"
+        if not os.path.exists(str(model_path)):
+            logger.warning("피부 모델 파일(%s)을 찾을 수 없습니다.", model_path)
             return
 
-        if not path.exists():
-            logger.warning("피부 모델 파일을 찾을 수 없습니다: %s", path)
-            return
+        try:
+            checkpoint = torch.load(str(model_path), map_location='cpu')
 
-        # TODO: 학습된 모델을 불러오는 코드. 예: torch.load(path) 후 eval()
-        logger.warning(
-            "피부 모델 파일(%s)은 있지만 불러오는 코드가 아직 없습니다.", path
+            # state_dict 및 classes 추출
+            if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+                state_dict = checkpoint["model_state_dict"]
+                if "classes" in checkpoint and checkpoint["classes"]:
+                    self.classes = checkpoint["classes"]
+            else:
+                state_dict = checkpoint
+
+            num_classes = len(self.classes)
+
+            # MobileNetV2 기본 구조 생성
+            net = models.mobilenet_v2(weights=None)
+
+            # [핵심] 주피터에서 학습된 classifier 구조와 일치시킴
+            if "classifier.3.weight" in state_dict:
+                hidden_dim = state_dict["classifier.0.weight"].shape[0]
+                net.classifier = nn.Sequential(
+                    nn.Linear(net.last_channel, hidden_dim),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout(p=0.2),
+                    nn.Linear(hidden_dim, num_classes)
+                )
+            else:
+                net.classifier[1] = nn.Linear(net.last_channel, num_classes)
+
+            # 가중치 로드
+            net.load_state_dict(state_dict)
+            net.eval()
+            self.model = net
+            logger.info("피부 분류 PyTorch 모델(.pth) 로드 성공! (클래스: %d개, 구조 자동 매핑 완료)", num_classes)
+        except Exception as e:
+            logger.error("피부 모델 로드 실패: %s", e)
+
+    def predict_local(self, contents: bytes) -> tuple[str, float]:
+        if not self.model:
+            return "Unknown", 0.0
+        try:
+            img = Image.open(io.BytesIO(contents)).convert("RGB")
+            tensor = transform(img).unsqueeze(0)
+            with torch.no_grad():
+                output = self.model(tensor)
+                prob = torch.nn.functional.softmax(output[0], dim=0)
+                conf, pred = torch.max(prob, 0)
+                return self.classes[pred.item()], round(conf.item() * 100, 1)
+        except Exception as e:
+            logger.error("1차 모델 추론 오류: %s", e)
+            return "Unknown", 0.0
+
+    # [추가 2] main.py 154번 줄에서 호출하는 predict 메서드 호환
+    def predict(self, image_input) -> tuple[str, float]:
+        if not self.model:
+            raise SkinModelUnavailable("피부 모델이 로드되지 않았습니다.")
+
+        if isinstance(image_input, Image.Image):
+            buf = io.BytesIO()
+            image_input.save(buf, format="JPEG")
+            return self.predict_local(buf.getvalue())
+        elif isinstance(image_input, (bytes, bytearray)):
+            return self.predict_local(bytes(image_input))
+        elif hasattr(image_input, "file"):
+            return self.predict_local(image_input.file.read())
+        elif hasattr(image_input, "read"):
+            return self.predict_local(image_input.read())
+        else:
+            return self.predict_local(bytes(image_input))
+
+# main.py에서 호출하는 싱글톤 인스턴스
+model = SkinModelWrapper()
+
+
+@router.post("/diagnose")
+async def diagnose_skin(file: UploadFile = File(...)):
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="업로드된 파일이 비어 있습니다.")
+
+    # [1단계] 1차 예측
+    first_prediction, first_confidence = model.predict(contents)
+
+    # Claude API 키가 없을 경우 1차 결과 리턴
+    if not client:
+        return {
+            "is_skin": True,
+            "disease": first_prediction,
+            "probability": first_confidence,
+            "message": "1차 자체 모델 분석 결과입니다."
+        }
+
+    # [2단계] Claude Vision으로 책상/비피부 사진 감지 및 2차 정밀 판독
+    try:
+        pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
+        pil_img.thumbnail((800, 800))
+        jpeg_buf = io.BytesIO()
+        pil_img.save(jpeg_buf, format="JPEG", quality=80)
+        base64_img = base64.b64encode(jpeg_buf.getvalue()).decode("utf-8")
+        media_type = "image/jpeg"
+
+        prompt = f"""
+You are an expert pediatric dermatologist AI.
+Analyze this baby skin image and validate the primary classification result.
+
+Primary Model Prediction: '{first_prediction}' (Confidence: {first_confidence}%)
+
+Tasks:
+1. Check if the image is actually human/baby skin. If it's a desk, background, object, toy, or non-skin, set "is_skin": false.
+2. If it is human skin, evaluate if the primary prediction is correct or adjust it based on visual evidence.
+3. Provide a final disease name from [{', '.join(model.classes)}] and confidence score (0-100) with a brief medical comment in Korean.
+
+Output ONLY a valid JSON object without markdown fences:
+{{
+  "is_skin": true,
+  "disease": "<DISEASE_NAME>",
+  "probability": 85.0,
+  "message": "환부 상태 설명 및 간단한 관리 팁 (한국어)"
+}}
+If "is_skin" is false:
+{{
+  "is_skin": false,
+  "disease": "None",
+  "probability": 0.0,
+  "message": "피부 사진이 아닙니다. 아기의 환부 부위를 정확히 다시 촬영해 주세요."
+}}
+"""
+
+        response = client.messages.create(
+            model="claude-sonnet-5",
+            max_tokens=400,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": base64_img}},
+                    {"type": "text", "text": prompt}
+                ]
+            }]
         )
 
-    @property
-    def is_ready(self) -> bool:
-        return self._model is not None
+        res_text = "".join(
+            block.text for block in response.content if getattr(block, "type", None) == "text"
+        ).strip()
 
-    def predict(self, image_bytes: bytes) -> tuple[str, float]:
-        """(질환 라벨, 확률 0~100)을 돌려줘야 합니다.
+        # 마크다운 코드 블록 제거 처리
+        if "```" in res_text:
+            res_text = res_text.split("```")[1]
+            if res_text.startswith("json"):
+                res_text = res_text[4:]
+            res_text = res_text.strip()
 
-        라벨은 한글로 바꾸지 않고 모델이 낸 원본을 그대로 씁니다.
-        한글 변환은 앱이 담당합니다(모델을 교체해도 과거 이력이 깨지지 않게).
-        """
-        raise SkinModelUnavailable(
-            "피부 분석 모델이 아직 준비되지 않았습니다. "
-            "학습된 모델을 SKIN_MODEL_PATH로 지정해야 합니다."
-        )
+        return json.loads(res_text)
+        # res_text = response.content[0].text.strip()
+        # if res_text.startswith("```"):
+        #     res_text = res_text.split("```")[1].replace("json", "").strip()
+        #
+        # return json.loads(res_text)
 
-
-model = _SkinModel()
+    except Exception as e:
+        logger.error("Claude Vision 분석 중 오류: %s", e)
+        raise HTTPException(status_code=500, detail=f"AI 분석 중 오류 발생: {str(e)}")

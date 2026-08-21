@@ -27,7 +27,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
-
+# [추가 1] skin.py를 수정하지 않고도 /health의 skin.model.is_ready 에러가 나지 않도록 프로퍼티 추가
+if not hasattr(skin.SkinModelWrapper, "is_ready"):
+    skin.SkinModelWrapper.is_ready = property(lambda self: self.model is not None)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,7 +52,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# [추가] skin.py의 Claude 연동 라우터 등록
+# /api/skin/diagnose 및 /skin/diagnose 두 경로 모두 지원하도록 등록
+app.include_router(skin.router, prefix="/api/skin", tags=["Skin Analysis (Claude 연동)"])
+app.include_router(skin.router, prefix="/skin", tags=["Skin Analysis (Claude 연동)"])
 async def _read_upload(file: UploadFile) -> bytes:
     """업로드 본문을 읽고 크기 상한을 확인합니다."""
     data = await file.read()
