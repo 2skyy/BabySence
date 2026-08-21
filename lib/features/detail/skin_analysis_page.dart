@@ -44,8 +44,15 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
 
   bool _loading = false;
 
-  /// 분석 결과. 아직 분석하지 않았으면 null입니다.
-  SkinReading? _reading;
+  final Map<String, String> _koDiseases = {
+    "normal": "정상 피부",
+    "Atopic Dermatitis": "아토피성 피부염",
+    "Contact Dermatitis": "접촉성 피부염",
+    "Seborrheic Dermatitis": "지루성 피부염",
+    "Diaper Rash": "기저귀 발진",
+    "Infantile Eczema": "유아 습진",
+    "Urticaria": "두드러기",
+  };
 
   /// 안내 문구. 결과가 없을 때 그 자리에 대신 보여줍니다.
   String _notice = "사진을 고르고 '확인하기'를 눌러 주세요.";
@@ -66,12 +73,101 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       );
       if (picked == null || !mounted) return;
 
-      setState(() {
-        _image = File(picked.path);
-        _reading = null;
-        _notice = "사진을 담았습니다. '확인하기'를 눌러 주세요.";
-        _noticeIsError = false;
+      final fs.XFile? file = await fs.openFile(acceptedTypeGroups: <fs.XTypeGroup>[typeGroup]);
+
+      if (file != null) {
+        final bytes = await file.readAsBytes();
+        setState(() {
+          _image = File(file.path);
+          _imageBytes = bytes;
+          _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
+          _isNormal = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("파일 선택 에러: $e");
+      try {
+        final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+        if (pickedFile != null) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() {
+            _image = File(pickedFile.path);
+            _imageBytes = bytes;
+            _resultText = "사진이 정상 등록되었습니다. '분석하기'를 누르세요.";
+            _isNormal = false;
+          });
+        }
+      } catch (err) {
+        debugPrint("백업 기기 선택 에러: $err");
+      }
+    }
+  }
+  // 3. AI 서버(FastAPI) 분석 요청
+  Future<void> _sendToAiServer() async {
+    if (_image == null && _imageBytes == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _resultText = "AI가 피부 상태를 분석 중입니다. 잠시만 기다려주세요...";
+    });
+
+    //통신 타임아웃 기본값 부여 (서버 응답 지연 시 무한 로딩 방지)
+    final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+    ));
+    String serverUrl = ApiConfig.skinDiagnose;
+
+    try {
+      // [수정 2] byte 데이터를 직접 전달하여 모든 플랫폼/환경에서 안전하게 전송
+      final Uint8List uploadBytes = _imageBytes ?? await _image!.readAsBytes();
+
+      FormData formData = FormData.fromMap({
+        "file": MultipartFile.fromBytes(
+          uploadBytes,
+          filename: "baby_skin.jpg",
+        ),
       });
+
+      Response response = await dio.post(serverUrl, data: formData);
+      // 분석은 몇 초 걸립니다. 그 사이 뒤로 가면 이 화면은 이미 사라집니다.
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        var data = response.data;
+
+        if (data['is_skin'] == false) {
+          setState(() {
+            _isNormal = false;
+            _resultText = data['message'] ?? '피부 사진이 아닙니다. 환부를 다시 촬영해 주세요.';
+          });
+          return;
+        }
+        // 확률이 서버 기준에 못 미치면 진단명을 보여주지 않습니다.
+        // 조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 처리입니다.
+        if (data['status'] == 'low_confidence') {
+          setState(() {
+            _isNormal = false;
+            _resultText = data['message'] ??
+                '정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요.';
+          });
+          return;
+        }
+
+        String rawDisease = data['disease'] ?? "normal";
+        double prob = (data['probability'] as num).toDouble();
+
+        String translatedDisease = _koDiseases[rawDisease] ?? rawDisease;
+
+        String message = data['message'] ?? "";
+
+        setState(() {
+          _isNormal = (rawDisease.toLowerCase() == "normal");
+          _resultText = message.isNotEmpty
+              ? "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)\n\n$message"
+              : "진단 결과: $translatedDisease (${prob.toStringAsFixed(1)}%)";
+        });
+      }
     } catch (e) {
       // 예전에는 debugPrint만 하고 넘어가, 권한을 거부한 사용자에게는
       // 아무 일도 일어나지 않는 것처럼 보였습니다.
@@ -201,15 +297,46 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
             const _EmergencyNotice(),
             const SizedBox(height: 14),
 
-            GestureDetector(
-              onTap: _loading ? null : _showSourceSheet,
-              child: Container(
-                width: double.infinity,
-                height: 280,
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: colors.border),
+            //  [핵심 보정] _imageBytes나 _image 둘 중 하나만 존재해도 즉시 렌더링되도록 삼항연산자 수정!
+            Expanded(
+              child: GestureDetector(
+                onTap: _isLoading ? null : () => _showImageSourceBottomSheet(),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: context.colors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: _isNormal
+                          ? Colors.green.withValues(alpha: 0.5)
+                          : context.colors.border,
+                      width: _isNormal ? 2 : 1,
+                    ),
+                  ),
+                  child: (_imageBytes != null)
+                      ? ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                  )
+                      : (_image != null)
+                      ? ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.file(_image!, fit: BoxFit.cover),
+                  )
+                      : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_a_photo_outlined, size: 48, color: context.colors.textSecondary),
+                        SizedBox(height: 12),
+                        Text(
+                          "터치하여 사진 촬영 또는 선택",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 child: _image == null
                     ? Center(
