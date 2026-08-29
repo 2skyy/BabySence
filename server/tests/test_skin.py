@@ -356,6 +356,65 @@ class TestPromptHasNoCancerCriteria:
         assert "넓이로 재지 마세요" in skin.SYSTEM_PROMPT
 
 
+class TestCommonAreas:
+    """보호자가 실제로 사진을 찍는 자리를 프롬프트가 다루는가.
+
+    폐기한 성인 데이터셋에는 기저귀 발진·땀띠·태열이 **라벨조차 없었습니다**.
+    그 자리들이야말로 이 앱에 사진이 올라오는 이유인데, 프롬프트에도 한 줄도
+    없었습니다. 무엇을 볼지 짚어 주지 않으면 관찰이 "붉은 기가 보입니다"에서
+    멈추고, 그것으로는 진료실에서 할 말이 늘지 않습니다.
+
+    **힌트를 주되 병명은 들이지 않는다**가 이 절의 조건입니다.
+    """
+
+    def _section(self):
+        s = skin.SYSTEM_PROMPT
+        start = s.index("## 보호자가 자주 찍는 자리")
+        return s[start:s.index("## 사진으로 알 수 있는", start)]
+
+    def test_covers_the_places_parents_photograph(self):
+        section = self._section()
+        for place in ["기저귀", "사타구니", "접히는 곳", "겨드랑이", "얼굴과 머리"]:
+            assert place in section, place
+
+    def test_says_what_to_look_at_and_what_to_do(self):
+        section = self._section()
+        assert section.count("볼 것:") == 3
+        assert section.count("할 수 있는 것:") == 3
+
+    def test_brings_no_disease_names(self):
+        """힌트가 병명을 뒷문으로 들여오면 안 됩니다.
+
+        '주름 안쪽까지 들어갔는지'는 보이는 것이고, '칸디다'는 진단입니다.
+        전자만 씁니다.
+        """
+        section = self._section()
+        for name in ["아토피", "지루", "칸디다", "땀띠", "태열", "습진",
+                     "피부염", "진균", "곰팡이"]:
+            assert name not in section, name
+
+    def test_forbids_interpreting_the_hints(self):
+        # 볼 것을 짚어 주면 모델이 그것으로 병을 가리려 합니다.
+        section = self._section()
+        assert "이것으로 병을 가리려 하지 마세요" in section
+        assert "그것이 무엇을 뜻하는지는 쓰지 마세요" in section
+
+    def test_care_advice_names_no_product(self):
+        """'할 수 있는 것'이 약·연고·제품 이름으로 새지 않는지.
+
+        앱 전체가 약 이름을 말하지 않기로 했습니다. 기저귀 자리에서 특히
+        새기 쉬운 자리라 여기서 한 번 더 봅니다.
+        """
+        section = self._section()
+        for word in ["크림", "연고", "파우더", "베이비파우더", "스테로이드", "제품"]:
+            assert word not in section, word
+
+    def test_does_not_apply_advice_everywhere(self):
+        # 얼굴 사진에 "기저귀를 자주 갈아 주세요"가 붙으면 안 됩니다.
+        section = self._section()
+        assert "그 자리로 보일 때만" in section
+
+
 class TestRateLimit:
     """상담과 **통을 따로** 씁니다.
 
