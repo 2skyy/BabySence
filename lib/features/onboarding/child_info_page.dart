@@ -167,8 +167,22 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
           ),
         ],
       ),
+      // **화면이 짧으면 넘쳤습니다.**
+      //
+      // 본문이 Column + Spacer뿐이라 스크롤이 없었습니다. 키 큰 화면에서는
+      // Spacer가 단추를 아래로 밀어 보기 좋지만, 작은 기기나 글씨를 키운
+      // 경우에는 그대로 넘쳐 아래가 잘렸습니다(320x640에서 1px, 글씨
+      // 1.3배에서 94px). 아이 정보를 처음 적는 화면이라 여기서 막히면
+      // 앱을 시작할 수가 없습니다.
+      //
+      // 자리가 남으면 지금처럼 Spacer가 밀고, 모자라면 스크롤합니다.
       body: SafeArea(
-        child: Padding(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,6 +314,10 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
               ),
               const SizedBox(height: 16),
             ],
+          ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
