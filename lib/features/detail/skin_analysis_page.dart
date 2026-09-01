@@ -8,6 +8,7 @@ import 'skin/skin_service.dart';
 import 'temperature_record_service.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
+import '../../core/widgets/missing_baby.dart';
 import '../../core/widgets/common_app_bar.dart';
 import '../../core/widgets/medical_disclaimer.dart';
 
@@ -127,7 +128,21 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
       // 달려 있어, 못 읽었으면 보내지 않고 그 사실을 말합니다.
       final baby = await BabyService.loadCurrent();
       if (baby == null) {
-        throw const SkinException('아이 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        // **"불러오지 못했다"와 "아직 등록하지 않았다"는 다른 말입니다.**
+        // loadCurrent()는 로그인이 풀렸으면 예외를 던지므로, null은 조회가
+        // 성공했고 아이가 없다는 뜻뿐입니다. '잠시 후 다시 시도해 주세요'는
+        // 원인을 틀리게 짚는 데다, 시키는 대로 다시 찍어도 영원히 같습니다.
+        // 기록 화면 다섯이 같은 오진을 고칠 때 쓴 자리를 여기서도 씁니다.
+        if (!mounted) return;
+        // 스낵바에는 '등록하기' 동작이 함께 붙습니다. 화면 문구도 같은
+        // 말을 해야 둘이 어긋나지 않습니다.
+        notifyMissingBaby(context, state: BabyLookup.none);
+        setState(() {
+          _notice = '먼저 아이 정보를 등록해 주세요.\n'
+              '개월 수를 알아야 사진을 볼 수 있습니다.';
+          _noticeIsError = true;
+        });
+        return;
       }
 
       final reading = await SkinService.analyze(

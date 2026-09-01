@@ -208,20 +208,6 @@ void main() {
     });
   });
 
-  group('시간 표기', () {
-    test('시간과 분을 함께 쓴다', () {
-      expect(formatDuration(const Duration(hours: 7, minutes: 30)), '7시간 30분');
-    });
-
-    test('딱 떨어지면 시간만 쓴다', () {
-      expect(formatDuration(const Duration(hours: 8)), '8시간');
-    });
-
-    test('한 시간이 안 되면 분만 쓴다', () {
-      expect(formatDuration(const Duration(minutes: 45)), '45분');
-    });
-  });
-
   test('배변도 센다', () {
     final s = WeeklySummary.from(
       feedings: const [],

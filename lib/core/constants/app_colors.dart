@@ -57,6 +57,23 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color textSecondary;
   final Color border;
 
+  /// 24시간 원의 수면 호.
+  ///
+  /// **테마마다 다릅니다.** 원의 바탕 고리가 [border]라, 밝은 테마의
+  /// 남색(#3F51B5)을 어두운 테마에 그대로 쓰면 대비가 1.50:1이 되어 정작
+  /// 원이 말하려는 것(언제 잤는가)이 보이지 않습니다. 그림 요소는 3:1이
+  /// 필요합니다.
+  final Color sleepArc;
+
+  /// 원 둘레의 수유 점.
+  final Color feedingDot;
+
+  /// 원 둘레의 배변 점.
+  ///
+  /// 밝은 테마에서 앰버(#FFA000)는 흰 카드 위 대비가 2.04:1로 **어두운
+  /// 테마보다 오히려 나빴습니다.** 밝은 쪽을 진하게 잡습니다.
+  final Color diaperDot;
+
   const AppPalette({
     required this.background,
     required this.surface,
@@ -64,6 +81,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.textPrimary,
     required this.textSecondary,
     required this.border,
+    required this.sleepArc,
+    required this.feedingDot,
+    required this.diaperDot,
   });
 
   /// 기존 화면과 완전히 같은 값입니다.
@@ -74,6 +94,12 @@ class AppPalette extends ThemeExtension<AppPalette> {
     textPrimary: Color(0xFF111827),
     textSecondary: Color(0xFF6B7280),
     border: Color(0xFFE5E7EB),
+    // 고리(#E5E7EB) 대비 5.55:1
+    sleepArc: Color(0xFF3F51B5),
+    // 흰 카드 대비 4.90:1
+    feedingDot: Color(0xFF4F7A60),
+    // 앰버 그대로면 2.04:1이라 진하게. 흰 카드 대비 4.42:1
+    diaperDot: Color(0xFFB26500),
   );
 
   /// 어두운 테마.
@@ -92,6 +118,12 @@ class AppPalette extends ThemeExtension<AppPalette> {
     textPrimary: Color(0xFFF3F4F6),
     textSecondary: Color(0xFF9CA3AF),
     border: Color(0xFF374151),
+    // 고리(#374151) 대비 4.46:1. 밝은 테마의 남색은 여기서 1.50:1입니다.
+    sleepArc: Color(0xFF9FA8DA),
+    // 어두운 카드(#1F2937) 대비 7.09:1. primary 그대로면 3.00:1로 아슬합니다.
+    feedingDot: Color(0xFF8FBFA3),
+    // 어두운 카드 대비 6.42:1
+    diaperDot: Color(0xFFFF8F00),
   );
 
   @override
@@ -102,6 +134,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? textPrimary,
     Color? textSecondary,
     Color? border,
+    Color? sleepArc,
+    Color? feedingDot,
+    Color? diaperDot,
   }) {
     return AppPalette(
       background: background ?? this.background,
@@ -110,6 +145,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       border: border ?? this.border,
+      sleepArc: sleepArc ?? this.sleepArc,
+      feedingDot: feedingDot ?? this.feedingDot,
+      diaperDot: diaperDot ?? this.diaperDot,
     );
   }
 
@@ -123,6 +161,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       border: Color.lerp(border, other.border, t)!,
+      sleepArc: Color.lerp(sleepArc, other.sleepArc, t)!,
+      feedingDot: Color.lerp(feedingDot, other.feedingDot, t)!,
+      diaperDot: Color.lerp(diaperDot, other.diaperDot, t)!,
     );
   }
 }

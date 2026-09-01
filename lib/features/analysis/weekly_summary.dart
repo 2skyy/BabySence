@@ -142,12 +142,3 @@ class WeeklySummary {
     );
   }
 }
-
-/// 시간을 '7시간 30분'처럼 씁니다. 0분이면 시간만 씁니다.
-String formatDuration(Duration d) {
-  final hours = d.inHours;
-  final minutes = d.inMinutes % 60;
-  if (hours == 0) return '$minutes분';
-  if (minutes == 0) return '$hours시간';
-  return '$hours시간 $minutes분';
-}

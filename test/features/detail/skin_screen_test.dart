@@ -127,8 +127,18 @@ void main() {
       expect(page.contains('ageInMonthsAt(baby.birthDate'), isTrue);
     });
 
-    test('아이를 못 읽으면 보내지 않는다', () {
-      expect(page.contains('아이 정보를 불러오지 못했습니다'), isTrue);
+    test('아이가 없으면 보내지 않고, 원인을 틀리게 짚지 않는다', () {
+      // loadCurrent()는 로그인이 풀렸으면 예외를 던집니다(baby_service.dart).
+      // 그래서 null이 뜻하는 것은 **조회는 성공했고 아이가 없다** 하나뿐입니다.
+      // 예전에는 그 자리에서 '불러오지 못했습니다. 잠시 후 다시 시도해
+      // 주세요'라고 말했는데, 원인을 틀리게 짚는 데다 시키는 대로 다시
+      // 찍어도 영원히 같았습니다.
+      expect(page.contains('if (baby == null)'), isTrue);
+      expect(page.contains('notifyMissingBaby(context, state: BabyLookup.none)'),
+          isTrue,
+          reason: '등록으로 가는 길을 주어야 합니다');
+      expect(page.contains('아이 정보를 불러오지 못했습니다'), isFalse,
+          reason: '조회는 실패한 적이 없습니다');
     });
 
     test('열은 세 값이다', () {

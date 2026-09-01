@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/duration_text.dart';
+
 import '../../core/services/db_time.dart';
 
 import '../../core/services/sleep_type.dart';
@@ -41,7 +43,7 @@ class SleepRecord {
   String get summary {
     final d = duration;
     if (d == null) return '${type.label} · 측정 중';
-    return '${type.label} · ${d.inHours}시간 ${d.inMinutes % 60}분';
+    return '${type.label} · ${formatDuration(d)}';
   }
 }
 

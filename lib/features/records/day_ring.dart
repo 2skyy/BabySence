@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 // 시간을 '7시간 30분'으로 쓰는 것은 분석 탭이 이미 갖고 있습니다. 화면 글씨와
 // 낭독 라벨이 같은 함수를 써야 같은 잠을 같은 말로 부릅니다.
-import '../analysis/weekly_summary.dart' show formatDuration;
+import '../../core/services/duration_text.dart';
 import 'record_period.dart';
 
 /// 하루를 24시간 원으로 그립니다 — 방학 생활계획표와 같은 모양입니다.
@@ -48,9 +48,9 @@ class DayRing extends StatelessWidget {
             arcs: pattern.sleepArcs,
             dots: pattern.dots,
             trackColor: context.colors.border,
-            sleepColor: Colors.indigo,
-            feedingColor: AppColors.primary,
-            diaperColor: Colors.amber.shade700,
+            sleepColor: context.colors.sleepArc,
+            feedingColor: context.colors.feedingDot,
+            diaperColor: context.colors.diaperDot,
             labelColor: context.colors.textSecondary,
             ringWidth: 14,
             showHourLabels: true,
@@ -138,9 +138,9 @@ class DayRingChip extends StatelessWidget {
                     arcs: pattern.sleepArcs,
                     dots: const [],
                     trackColor: context.colors.border,
-                    sleepColor: Colors.indigo,
-                    feedingColor: AppColors.primary,
-                    diaperColor: Colors.amber.shade700,
+                    sleepColor: context.colors.sleepArc,
+                    feedingColor: context.colors.feedingDot,
+                    diaperColor: context.colors.diaperDot,
                     labelColor: context.colors.textSecondary,
                     ringWidth: 4,
                     showHourLabels: false,
@@ -168,9 +168,9 @@ class DayRingChip extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (pattern.feedingCount > 0)
-                      _MiniDot(color: AppColors.primary),
+                      _MiniDot(color: context.colors.feedingDot),
                     if (pattern.diaperCount > 0)
-                      _MiniDot(color: Colors.amber.shade700),
+                      _MiniDot(color: context.colors.diaperDot),
                   ],
                 ),
               ),

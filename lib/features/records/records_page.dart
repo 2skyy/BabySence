@@ -10,7 +10,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 // 시간을 '7시간 30분'으로 쓰는 것은 분석 탭이 이미 갖고 있습니다. 같은 값을
 // 두 화면이 다르게 적으면 같은 잠이 다른 잠으로 보입니다.
-import '../analysis/weekly_summary.dart' show formatDuration;
+import '../../core/services/duration_text.dart';
 import 'day_ring.dart';
 import 'period_records.dart';
 import 'recent_records.dart';
@@ -657,7 +657,7 @@ class _RecordsPageState extends State<RecordsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _legend(
-                  const _Swatch(color: Colors.indigo, bar: true),
+                  _Swatch(color: context.colors.sleepArc, bar: true),
                   pattern.sleepArcs.isEmpty
                       ? '수면 기록 없음'
                       : '수면 ${formatDuration(pattern.sleepTotal)}'
@@ -665,7 +665,7 @@ class _RecordsPageState extends State<RecordsPage> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _legend(
-                  const _Swatch(color: AppColors.primary),
+                  _Swatch(color: context.colors.feedingDot),
                   '수유 ${pattern.feedingCount}회',
                 ),
                 const SizedBox(height: AppSpacing.sm),

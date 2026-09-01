@@ -4,6 +4,7 @@ import '../../core/widgets/common_app_bar.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
+import '../../core/widgets/stale_notice.dart';
 import 'community_models.dart';
 import 'community_service.dart';
 import 'post_detail_page.dart';
@@ -32,7 +33,15 @@ class _CommunityPageState extends State<CommunityPage> {
     _load();
   }
 
+  /// 이 조회가 몇 번째인지.
+  ///
+  /// 갈래를 빠르게 바꾸면 조회가 겹치는데, 질의에 갈래가 들어가 결과가
+  /// 서로 다릅니다. 그대로 두면 **늦게 온 앞 갈래 응답이 뒤 갈래 화면을
+  /// 덮습니다** — 고른 것과 보이는 글이 어긋납니다.
+  int _loadGen = 0;
+
   Future<void> _load() async {
+    final gen = ++_loadGen;
     setState(() {
       _loading = true;
       _error = null;
@@ -40,17 +49,20 @@ class _CommunityPageState extends State<CommunityPage> {
 
     try {
       final posts = await CommunityService.loadPosts(category: _category);
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() {
         _posts = posts;
+        // 성공했으면 앞선 실패 표시를 지웁니다.
+        _error = null;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _loadGen) return;
       setState(() {
-        _error = '글을 불러오지 못했습니다.\n$e';
+        _error = '글을 불러오지 못했습니다.';
         _loading = false;
       });
+      debugPrint('커뮤니티 조회 실패: $e');
     }
   }
 
@@ -125,9 +137,18 @@ class _CommunityPageState extends State<CommunityPage> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    // 이미 목록이 있으면 스피너로 갈아끼우지 않습니다. 갈아끼우면 보던
+    // 자리를 잃고, 새로고침할 때마다 화면이 한 번 비었다 돌아옵니다.
+    if (_loading && _posts.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    if (_error != null) {
+    // **손에 든 목록이 있으면 지우지 않습니다.**
+    //
+    // 실패했다고 보던 글을 통째로 지우면, 방금까지 읽던 것이 사라집니다.
+    // 기록·분석·성장 화면은 이미 [StaleNotice]만 얹고 목록을 남기는데
+    // 이 화면만 반대로 동작했습니다.
+    if (_error != null && _posts.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
@@ -165,16 +186,31 @@ class _CommunityPageState extends State<CommunityPage> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          96, // 글쓰기 버튼에 가리지 않도록
-        ),
-        itemCount: _posts.length,
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-        itemBuilder: (_, i) => _buildPostCard(_posts[i]),
+      child: Column(
+        children: [
+          // 낡았을 수 있다는 사실은 감추지 않습니다. 목록은 남기되
+          // 지금 것이 아닐 수 있다고 말합니다.
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+              child: StaleNotice(message: _error!, onRetry: _load),
+            ),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                96, // 글쓰기 버튼에 가리지 않도록
+              ),
+              itemCount: _posts.length,
+              separatorBuilder: (_, _) =>
+                  const SizedBox(height: AppSpacing.md),
+              itemBuilder: (_, i) => _buildPostCard(_posts[i]),
+            ),
+          ),
+        ],
       ),
     );
   }
