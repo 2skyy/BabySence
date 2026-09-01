@@ -42,8 +42,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  /// 상담 단추를 언제 보일지. 아래로 끌면 나타나고 내려 읽으면 비킵니다.
-  final AskFabVisibility _askVisibility = AskFabVisibility();
+  /// 상담 단추를 언제 보일지.
+  ///
+  /// **두 방식을 여기서 바꿉니다.**
+  /// - `visibleAtTop: false` — 평소엔 없다가 아래로 끌면 나타납니다.
+  /// - `visibleAtTop: true`  — 맨 위에서는 보이고 내려 읽으면 비킵니다.
+  final AskFabVisibility _askVisibility =
+      AskFabVisibility(visibleAtTop: false);
 
   /// 온보딩에서 등록한 아이. 아직 못 불러왔으면 null입니다.
   Baby? _baby;
@@ -224,9 +229,9 @@ class _HomePageState extends State<HomePage> {
           _askVisibility.updateMetrics(notification.metrics);
           return false; // 다른 곳도 이 알림을 받아야 합니다.
         },
-        child: NotificationListener<UserScrollNotification>(
+        child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
-            _askVisibility.updateDirection(notification.direction);
+            _askVisibility.update(notification);
             return false;
           },
           child: SingleChildScrollView(

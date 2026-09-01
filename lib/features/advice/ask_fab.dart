@@ -60,30 +60,63 @@ class AskFab extends StatefulWidget {
 /// 그렇게 만들면 단추가 영영 나타나지 않습니다. 알림은 두 물리 모두에서
 /// 옵니다(돌려서 확인했습니다).
 class AskFabVisibility extends ValueNotifier<bool> {
-  AskFabVisibility() : super(false);
-
-  /// 목록의 길이가 정해졌을 때. **끌 것이 없으면 그냥 보입니다.**
+  /// 맨 위에서 보일지 — **두 방식을 여기서 고릅니다.**
   ///
-  /// 기록이 적어 홈이 한 화면에 들어오면 아래로 끌어도 스크롤 알림이 한
-  /// 건도 오지 않습니다(돌려서 확인했습니다). 그대로 두면 그런 사람에게는
-  /// 상담으로 가는 길이 아예 막힙니다.
+  /// - `false`(기본): 평소엔 없다가 **아래로 끌면** 나타납니다.
+  /// - `true`: 맨 위에서는 보이고, 내려 읽으면 비킵니다.
+  ///
+  /// 둘 다 내려 읽으면 비키는 것은 같고, 다른 것은 **맨 위에서 보이는가**
+  /// 하나뿐입니다. 어느 쪽이 나은지는 써 봐야 알 수 있어 남겨 둡니다.
+  final bool visibleAtTop;
+
+  AskFabVisibility({this.visibleAtTop = false}) : super(false);
+
+  /// 목록을 끌 수 있는지. 처음에는 모르므로 끌 수 있다고 봅니다.
+  bool _canScroll = true;
+
+  /// 맨 위인지.
+  bool _atTop = true;
+
+  /// 아래로 끌어서 꺼내 놓았는지.
+  bool _revealed = false;
+
+  /// 스크롤이 움직였을 때. 방향과 위치를 함께 봅니다.
+  void update(ScrollNotification notification) {
+    _canScroll = notification.metrics.maxScrollExtent > 0;
+    _atTop = notification.metrics.pixels <= 0;
+
+    if (notification is UserScrollNotification) {
+      switch (notification.direction) {
+        case ScrollDirection.forward: // 손가락을 아래로 끄는 중
+          _revealed = true;
+        case ScrollDirection.reverse: // 내려 읽는 중
+          _revealed = false;
+        case ScrollDirection.idle:
+          break; // 손을 뗀 뒤에는 그대로 둡니다.
+      }
+    }
+    _apply();
+  }
+
+  /// 목록의 길이가 정해졌을 때.
+  ///
+  /// **끌 것이 없으면 끌어서 꺼낼 수도 없습니다.** 기록이 적어 홈이 한
+  /// 화면에 들어오면 아래로 끌어도 스크롤 알림이 한 건도 오지 않습니다
+  /// (돌려서 확인했습니다). 그런 사람에게는 상담으로 가는 길이 막힙니다.
   ///
   /// [ScrollMetricsNotification]은 [ScrollNotification]의 하위 타입이
   /// **아니라서** 따로 받아야 합니다.
+  ///
+  /// 이 값은 **양쪽으로 다시 계산합니다.** 예전에는 짧을 때 켜기만 하고
+  /// 끄지 않았는데, 홈은 자료를 비동기로 읽어 첫 프레임이 짧습니다. 그래서
+  /// 늘 켜진 채로 시작해 '맨 위에서 보이는' 동작이 되어 있었습니다.
   void updateMetrics(ScrollMetrics metrics) {
-    if (metrics.maxScrollExtent <= 0) value = true;
+    _canScroll = metrics.maxScrollExtent > 0;
+    _apply();
   }
 
-  /// 손가락이 움직인 방향.
-  void updateDirection(ScrollDirection direction) {
-    switch (direction) {
-      case ScrollDirection.forward: // 손가락을 아래로 끄는 중
-        value = true;
-      case ScrollDirection.reverse: // 내려 읽는 중
-        value = false;
-      case ScrollDirection.idle:
-        break; // 손을 뗀 뒤에는 그대로 둡니다.
-    }
+  void _apply() {
+    value = !_canScroll || _revealed || (visibleAtTop && _atTop);
   }
 }
 

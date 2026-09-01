@@ -60,17 +60,17 @@ void main() {
       // 넘기지 않으면 단추가 늘 떠 있습니다. 숨는 동작 자체는 아래
       // '내려 읽는 동안' 그룹이 돌려서 봅니다.
       final home = File('lib/features/home/home_page.dart').readAsStringSync();
-      expect(home.contains('NotificationListener<UserScrollNotification>'),
+      expect(home.contains('NotificationListener<ScrollNotification>'),
           isTrue,
-          reason: '목록이 스크롤 방향을 알리지 않습니다');
+          reason: '목록이 스크롤을 알리지 않습니다');
       expect(home.contains('NotificationListener<ScrollMetricsNotification>'),
           isTrue,
           reason: '끌 것이 없는 경우를 못 알아챕니다');
       expect(home.contains('AskFab(visibility: _askVisibility)'), isTrue,
           reason: '단추가 그 신호를 못 받습니다');
       // 리스너를 달아 두고 안에서 아무것도 안 하면 단추는 영영 숨어 있습니다.
-      expect(home.contains('_askVisibility.updateDirection('), isTrue,
-          reason: '방향을 넘기지 않습니다');
+      expect(home.contains('_askVisibility.update('), isTrue,
+          reason: '스크롤을 넘기지 않습니다');
       expect(home.contains('_askVisibility.updateMetrics('), isTrue,
           reason: '끌 것이 없는 경우를 넘기지 않습니다');
     });
@@ -79,8 +79,10 @@ void main() {
   group('아래로 끌면 나타난다', () {
     /// 화면보다 긴 목록 + 단추. 처음에는 단추가 **숨어 있습니다.**
     Future<void> pump(WidgetTester tester,
-        {double height = 2000, ScrollPhysics? physics}) async {
-      final visibility = AskFabVisibility();
+        {double height = 2000,
+        ScrollPhysics? physics,
+        bool visibleAtTop = false}) async {
+      final visibility = AskFabVisibility(visibleAtTop: visibleAtTop);
       addTearDown(visibility.dispose);
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -89,9 +91,9 @@ void main() {
               visibility.updateMetrics(n.metrics);
               return false;
             },
-            child: NotificationListener<UserScrollNotification>(
+            child: NotificationListener<ScrollNotification>(
               onNotification: (n) {
-                visibility.updateDirection(n.direction);
+                visibility.update(n);
                 return false;
               },
               child: SingleChildScrollView(
@@ -213,6 +215,47 @@ void main() {
       expect(await opensChat(tester), isTrue);
     });
 
+    testWidgets('자료가 늦게 와 목록이 길어지면 다시 숨는다', (tester) async {
+      // 홈은 자료를 비동기로 읽어 **첫 프레임이 짧습니다.** 그때 '끌 것이
+      // 없음' 안전망이 켜지는데, 자란 뒤 끄지 않으면 늘 보이는 채로 남아
+      // 이 기능이 통째로 없는 것과 같아집니다. 실제로 그랬습니다.
+      final visibility = AskFabVisibility();
+      addTearDown(visibility.dispose);
+      var height = 100.0;
+      late StateSetter rebuild;
+
+      await tester.pumpWidget(MaterialApp(
+        home: StatefulBuilder(builder: (context, setState) {
+          rebuild = setState;
+          return Scaffold(
+            body: NotificationListener<ScrollMetricsNotification>(
+              onNotification: (n) {
+                visibility.updateMetrics(n.metrics);
+                return false;
+              },
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (n) {
+                  visibility.update(n);
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  child: SizedBox(height: height, width: double.infinity),
+                ),
+              ),
+            ),
+            floatingActionButton: AskFab(visibility: visibility),
+          );
+        }),
+      ));
+      await tester.pumpAndSettle();
+      expect(visibility.value, isTrue, reason: '짧을 때는 보여야 합니다');
+
+      rebuild(() => height = 2000.0);
+      await tester.pumpAndSettle();
+
+      expect(visibility.value, isFalse, reason: '길어졌으면 다시 숨어야 합니다');
+    });
+
     testWidgets('알림을 안 주면 늘 보인다', (tester) async {
       // 기록 화면이나 테스트에서 그냥 쓰는 경우입니다.
       await tester.pumpWidget(const MaterialApp(
@@ -220,6 +263,61 @@ void main() {
       ));
       expect(find.byType(AnimatedScale), findsNothing);
       expect(await opensChat(tester), isTrue);
+    });
+  });
+
+  group('맨 위에서 보이는 방식', () {
+    // AskFabVisibility(visibleAtTop: true). 어느 쪽이 나은지 써 봐야 알 수
+    // 있어 둘 다 남겨 두었고, 홈에서 한 줄로 바꿉니다.
+
+    Future<AskFabVisibility> pump(WidgetTester tester) async {
+      final visibility = AskFabVisibility(visibleAtTop: true);
+      addTearDown(visibility.dispose);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: NotificationListener<ScrollMetricsNotification>(
+            onNotification: (n) {
+              visibility.updateMetrics(n.metrics);
+              return false;
+            },
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                visibility.update(n);
+                return false;
+              },
+              child: SingleChildScrollView(
+                child: const SizedBox(height: 2000, width: double.infinity),
+              ),
+            ),
+          ),
+          floatingActionButton: AskFab(visibility: visibility),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      return visibility;
+    }
+
+    testWidgets('맨 위에서는 보인다', (tester) async {
+      final visibility = await pump(tester);
+      expect(visibility.value, isTrue);
+    });
+
+    testWidgets('내려 읽으면 비킨다', (tester) async {
+      final visibility = await pump(tester);
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(visibility.value, isFalse);
+    });
+
+    testWidgets('맨 위로 돌아오면 다시 보인다', (tester) async {
+      final visibility = await pump(tester);
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(visibility.value, isFalse);
+
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, 900));
+      await tester.pumpAndSettle();
+      expect(visibility.value, isTrue);
     });
   });
 
