@@ -208,6 +208,12 @@ class DayPattern {
   bool get hasOngoingSleep => sleepArcs.any((a) => a.ongoing);
 }
 
+/// 끝나지 않은 수면을 그려 주는 한도.
+///
+/// 이보다 오래 열려 있으면 재는 중인 잠이 아니라 **끝맺지 못한 기록**으로
+/// 봅니다. 언제 끝났는지 모르므로 그리지 않습니다.
+const Duration _openSleepLimit = Duration(hours: 24);
+
 /// 시각을 그 날 안에서의 시로 옮깁니다. 14:30 → 14.5.
 ///
 /// 뺄셈을 하지 않습니다. `difference(자정)`으로 재면 서머타임이 시작한 날에는
@@ -258,6 +264,19 @@ List<DayPattern> buildDayPatterns({
     // 끝나지 않은 수면은 지금까지만 그립니다. 시작이 미래면 그릴 것이 없습니다.
     final rawEnd = s.endedAt ?? reference;
     final ongoing = s.endedAt == null;
+
+    // **하루가 넘도록 끝나지 않은 것은 그리지 않습니다.**
+    //
+    // 소음 측정을 켜 두고 끝맺지 못한 행이 실제로 생깁니다. 그것을 '지금까지
+    // 자는 중'으로 보고 그리면 한 건이 여러 날을 24시간 수면으로 채웁니다
+    // (9월 1일 21시에 열린 행 하나가 18일을 꽉 채웠습니다). 아이가 그렇게
+    // 잤다는 근거는 어디에도 없으니 지어내는 쪽입니다.
+    //
+    // `weekly_summary.dart`가 이미 같은 판단을 합니다 — "끝난 수면만
+    // 더합니다. 측정 중인 수면은 길이를 알 수 없습니다."
+    //
+    // 오늘 밤 재는 중인 잠은 하루를 넘지 않으므로 그대로 그려집니다.
+    if (ongoing && rawEnd.difference(s.startedAt) > _openSleepLimit) continue;
 
     // 이 구간 밖으로 삐져나간 부분은 자릅니다. 전날 밤에 시작해 첫날 새벽에
     // 끝난 잠이 **첫날 원의 0~6시**로 남는 것이 이 자르기입니다.

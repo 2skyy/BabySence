@@ -427,4 +427,42 @@ void main() {
           DateTime(2026, 5, 1));
     });
   });
+
+  group('끝맺지 못한 수면', () {
+    test('하루가 넘도록 열려 있으면 그리지 않는다', () {
+      // 소음 측정을 켜 두고 끝맺지 못한 행이 실제로 생깁니다. 그것을
+      // '지금까지 자는 중'으로 보고 그리면 한 건이 여러 날을 24시간
+      // 수면으로 채웁니다 — 아이가 그렇게 잤다는 근거는 없습니다.
+      final stale = sleep(DateTime(2026, 9, 1, 21));  // 끝나지 않음
+      final now = DateTime(2026, 9, 20, 10);
+      final month = RecordPeriod.of(PeriodMode.month, now);
+
+      final ps = buildDayPatterns(period: month, sleeps: [stale], now: now);
+
+      expect(ps.where((p) => p.sleepArcs.isNotEmpty), isEmpty,
+          reason: '열린 지 19일 된 기록으로 잠을 그리면 지어내는 것입니다');
+    });
+
+    test('오늘 밤 재는 중인 잠은 그대로 그린다', () {
+      // 하루를 넘지 않았으므로 '측정 중'으로 살아 있어야 합니다.
+      final tonight = sleep(DateTime(2026, 9, 19, 21));
+      final now = DateTime(2026, 9, 20, 6);
+      final day = RecordPeriod.of(PeriodMode.day, now);
+
+      final ps = buildDayPatterns(period: day, sleeps: [tonight], now: now);
+
+      expect(ps.single.sleepArcs, isNotEmpty);
+      expect(ps.single.hasOngoingSleep, isTrue);
+      expect(ps.single.sleepArcs.single.endHour, 6.0);
+    });
+
+    test('꼭 하루가 되는 경계에서 아직 그린다', () {
+      final edge = sleep(DateTime(2026, 9, 19, 10));
+      final now = DateTime(2026, 9, 20, 10); // 정확히 24시간
+      final ps = buildDayPatterns(
+          period: RecordPeriod.of(PeriodMode.day, now),
+          sleeps: [edge], now: now);
+      expect(ps.single.sleepArcs, isNotEmpty);
+    });
+  });
 }

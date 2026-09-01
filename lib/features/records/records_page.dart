@@ -385,41 +385,39 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   List<Widget> _buildDayList(List<RecentRecord> ofDay, DayPattern? pattern) {
+    // **원에는 그려져 있는데 목록만 비는 날이 있습니다.** 자정을 넘는 밤잠은
+    // 두 원에 나뉘어 그려지지만, 목록에는 시작한 날에만 들어갑니다
+    // (RecentRecord.at이 시작 시각입니다). 그대로 두면 원은 여섯 시간을
+    // 잤다고 그리고 바로 아래에서는 남긴 기록이 없다고 말합니다 —
+    // 화면이 스스로와 어긋납니다.
+    //
+    // **비는 분기가 둘이고, 둘 다 같은 판단을 써야 합니다.** 처음에는 아래쪽
+    // (ofDay)에만 넣었는데, 기간 전체가 넘겨받은 잠뿐이면 위쪽(_records)에서
+    // 먼저 빠져나가 일·월 눈금에서 그대로 어긋났습니다.
+    final carried = pattern != null && pattern.sleepArcs.isNotEmpty;
+    const carriedNote = '이 날 시작한 기록은 없습니다.\n'
+        '원에 보이는 잠은 전날 밤에 시작한 것입니다.';
+
+    final style = TextStyle(
+      color: context.colors.textSecondary,
+      fontSize: 13,
+      height: 1.6,
+    );
+
     if (_records.isEmpty) {
       // 읽은 것은 이 기간뿐이므로 이 기간에 대해서만 말합니다. '아직 남긴
       // 기록이 없습니다'라고 적으면, 지난달까지 꾸준히 기록하다 이번 주를
       // 쉰 사람에게 한 번도 기록한 적 없다고 말하게 됩니다.
       return [
-        Text(
-          '이 기간에 남긴 기록이 없습니다.',
-          style: TextStyle(
-            color: context.colors.textSecondary,
-            fontSize: 13,
-            height: 1.6,
-          ),
-        ),
+        Text(carried ? carriedNote : '이 기간에 남긴 기록이 없습니다.',
+            style: style),
       ];
     }
 
     if (ofDay.isEmpty) {
-      // **원에는 그려져 있는데 목록만 비는 날이 있습니다.** 자정을 넘는
-      // 밤잠은 두 원에 나뉘어 그려지지만, 목록에는 시작한 날에만 들어갑니다
-      // (RecentRecord.at이 시작 시각입니다). 그대로 두면 원은 여섯 시간을
-      // 잤다고 그리고 바로 아래에서는 남긴 기록이 없다고 말합니다 —
-      // 화면이 스스로와 어긋납니다.
-      final carried = pattern != null && pattern.sleepArcs.isNotEmpty;
       return [
-        Text(
-          carried
-              ? '이 날 시작한 기록은 없습니다.\n'
-                  '원에 보이는 잠은 전날 밤에 시작한 것입니다.'
-              : '이 날은 남긴 기록이 없습니다.',
-          style: TextStyle(
-            color: context.colors.textSecondary,
-            fontSize: 13,
-            height: 1.6,
-          ),
-        ),
+        Text(carried ? carriedNote : '이 날은 남긴 기록이 없습니다.',
+            style: style),
       ];
     }
 

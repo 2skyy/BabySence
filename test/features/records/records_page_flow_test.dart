@@ -397,8 +397,34 @@ void main() {
 
     // 목록은 비지만, 왜 비는지를 말해야 합니다.
     expect(find.textContaining('이 날 시작한 기록은 없습니다'), findsOneWidget);
+    expect(find.text('이 기간에 남긴 기록이 없습니다.'), findsNothing,
+        reason: '기간 전체가 넘겨받은 잠뿐일 때도 같은 판단을 써야 합니다');
     expect(find.text('이 날은 남긴 기록이 없습니다.'), findsNothing,
         reason: '원이 잠을 그리는데 아무 기록도 없다고 말하면 서로 다른 말입니다');
+  });
+
+  testWidgets('일 눈금에서도 넘겨받은 잠의 까닭을 밝힌다', (tester) async {
+    // 일 눈금은 기간이 하루뿐이라, 어제 시작한 잠은 **기간 밖**입니다.
+    // 그래서 목록이 _records.isEmpty 쪽으로 빠져나갑니다 — 처음 고칠 때
+    // 아래쪽(ofDay) 분기에만 넣어 이 경로가 그대로 어긋나 있었습니다.
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+
+    await pump(tester, loader: (p) async => PeriodRecords(sleeps: [
+          SleepRecord(
+            id: 'n',
+            type: SleepType.night,
+            startedAt: DateTime(
+                yesterday.year, yesterday.month, yesterday.day, 20, 30),
+            endedAt: DateTime(today.year, today.month, today.day, 6, 15),
+          ),
+        ]));
+
+    await tester.tap(find.byKey(const ValueKey('mode-day')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('이 날 시작한 기록은 없습니다'), findsOneWidget);
+    expect(find.text('이 기간에 남긴 기록이 없습니다.'), findsNothing,
+        reason: '원은 잠을 그리는데 기간에 기록이 없다고만 말하면 어긋납니다');
   });
 
   testWidgets('정말 아무것도 없는 날은 그냥 없다고 한다', (tester) async {
