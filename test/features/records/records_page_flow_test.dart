@@ -374,4 +374,50 @@ void main() {
     expect(find.byType(DayRing), findsOneWidget);
     expect(find.text('분유 · 120ml'), findsOneWidget);
   });
+
+  testWidgets('원에 잠이 있는데 목록이 비면 그 까닭을 밝힌다', (tester) async {
+    // 자정을 넘는 밤잠은 두 원에 나뉘어 그려지지만, 목록에는 **시작한
+    // 날에만** 들어갑니다(RecentRecord.at이 시작 시각). 그래서 원은 여섯
+    // 시간을 잤다고 그리는데 바로 아래에서는 남긴 기록이 없다고 말하는
+    // 날이 생깁니다. 실제 자료로 재현되던 것입니다.
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+
+    await pump(tester, loader: (p) async => PeriodRecords(sleeps: [
+          SleepRecord(
+            id: 'n',
+            type: SleepType.night,
+            startedAt: DateTime(
+                yesterday.year, yesterday.month, yesterday.day, 20, 30),
+            endedAt: DateTime(today.year, today.month, today.day, 6, 15),
+          ),
+        ]));
+
+    // 오늘 원에는 새벽 몫이 그려집니다.
+    expect(find.textContaining('수면'), findsWidgets);
+
+    // 목록은 비지만, 왜 비는지를 말해야 합니다.
+    expect(find.textContaining('이 날 시작한 기록은 없습니다'), findsOneWidget);
+    expect(find.text('이 날은 남긴 기록이 없습니다.'), findsNothing,
+        reason: '원이 잠을 그리는데 아무 기록도 없다고 말하면 서로 다른 말입니다');
+  });
+
+  testWidgets('정말 아무것도 없는 날은 그냥 없다고 한다', (tester) async {
+    // 원도 비었으면 덧붙일 말이 없습니다. 없는 사연을 지어내지 않습니다.
+    await pump(tester, loader: (p) async {
+      final f = filled(p);
+      // 오늘만 비웁니다.
+      bool notToday(DateTime at) => !(at.year == today.year &&
+          at.month == today.month &&
+          at.day == today.day);
+      return PeriodRecords(
+        feedings: f.feedings.where((r) => notToday(r.fedAt)).toList(),
+        diapers: f.diapers.where((r) => notToday(r.recordedAt)).toList(),
+        sleeps: f.sleeps
+            .where((r) => notToday(r.startedAt) && notToday(r.endedAt!))
+            .toList(),
+      );
+    });
+
+    expect(find.text('이 날은 남긴 기록이 없습니다.'), findsOneWidget);
+  });
 }

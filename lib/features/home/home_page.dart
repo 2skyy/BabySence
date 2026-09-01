@@ -286,7 +286,8 @@ class _HomePageState extends State<HomePage> {
               mainAxisSpacing: 12,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 0.72,
+              // 부제목 한 줄이 늘어 0.72로는 큰 글씨에서 넘쳤습니다(1.3배에서 9.7px).
+              childAspectRatio: 0.64,
               children: [
                 _buildSquareRecordButton(
                   context: context,
@@ -479,9 +480,14 @@ class _HomePageState extends State<HomePage> {
               child: Icon(icon, color: iconColor, size: 26),
             ),
             const SizedBox(height: 8),
-            Text(
+            // 아주 큰 글씨에서는 칸을 넘기지 않도록 줄여 담습니다. 격자라
+            // 타일 높이가 고정이고, 넘치면 붉은 줄무늬가 뜹니다.
+            Flexible(
+              child: Text(
               title,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               // 색을 비워 두면 테마의 글씨색을 물려받습니다. 예전에는 타일
               // 바탕만 밝은 색으로 고정돼 있어, 어두운 테마에서 밝은 바탕에
               // 밝은 글씨가 겹쳐 대비 1.01:1로 아무것도 보이지 않았습니다.
@@ -489,6 +495,27 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
                 color: context.colors.textPrimary,
+              ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            // **부제목을 그립니다.** [_tileSubtitle]이 '불러오는 중…'·
+            // '불러오지 못함'·'기록 없음'을 갈라 만드는데, 그것을 받아 놓고
+            // 그리지 않아 **한 번도 화면에 닿은 적이 없었습니다.** 그래서
+            // 홈에서는 조회 실패와 기록 없음이 똑같아 보였습니다 — 이 앱이
+            // 스스로 세운 첫 번째 원칙이 정작 홈에서 지켜지지 않았습니다.
+            //
+            // 한 줄로 자릅니다. 타일이 3열 격자라 두 줄이 되면 넘칩니다.
+            Flexible(
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.colors.textSecondary,
+                ),
               ),
             ),
           ],
