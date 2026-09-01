@@ -34,12 +34,13 @@ class DayRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      // 눈으로 읽는 범례와 같은 함수로 씁니다. `inHours`로 적으면 50분 잔
-      // 날이 '0시간'으로 읽혀, 옆 글씨('50분')와 다른 잠을 말하게 됩니다.
-      // 기록이 없는 날도 범례와 같은 말로 구별합니다.
-      label: '24시간 원. '
-          '${pattern.sleepArcs.isEmpty ? '수면 기록 없음' : '수면 ${formatDuration(pattern.sleepTotal)}'}, '
-          '수유 ${pattern.feedingCount}회, 배변 ${pattern.diaperCount}회.',
+      // **값은 옆 범례가 말합니다.** 여기서도 같은 값을 적으면 낭독기가
+      // '수면 11시간, 수유 9회…'를 두 번 읽습니다. 그림에는 그림이라는
+      // 사실과 무엇이 담겼는지만 남깁니다.
+      label: '24시간 원. 수면·수유·배변을 하루 시각 위에 그렸습니다. '
+          '${pattern.hasOngoingSleep ? '측정 중인 잠이 있습니다. ' : ''}'
+          '자세한 값은 옆에 있습니다.',
+      image: true,
       child: SizedBox(
         width: size,
         height: size,
@@ -103,7 +104,15 @@ class DayRingChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '$weekday${pattern.day.month}월 ${pattern.day.day}일, '
+      // **이 칩이 그리는 것은 수면 호뿐입니다**(64~67행). 그런데 라벨에
+      // 수면이 없어, 밤새 자고 수유·배변을 안 남긴 날이 낭독기에는
+      // '수유 0회, 배변 0회'로만 읽혀 **기록 없는 날과 똑같아졌습니다.**
+      // 큰 원과 같은 함수로 적어 두 원이 같은 말을 하게 합니다.
+      //
+      // '오늘'도 색으로만 알리고 있어 함께 넣습니다.
+      label: '${isToday ? '오늘, ' : ''}'
+          '$weekday${pattern.day.month}월 ${pattern.day.day}일, '
+          '${pattern.sleepArcs.isEmpty ? '수면 기록 없음' : '수면 ${formatDuration(pattern.sleepTotal)}'}, '
           '수유 ${pattern.feedingCount}회, 배변 ${pattern.diaperCount}회.',
       // 안쪽 숫자·요일 글씨는 라벨이 이미 말했습니다. 함께 읽으면 같은 날이
       // 두 번 불립니다. 대신 누르는 동작은 여기서 직접 답합니다.

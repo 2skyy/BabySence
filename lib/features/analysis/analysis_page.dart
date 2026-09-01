@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/stale_notice.dart';
+import '../../routes/app_routes.dart';
 import '../../core/services/duration_text.dart';
 
 import '../../core/services/refresh_signal.dart';
@@ -81,7 +82,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
     try {
       final baby = await BabyService.loadCurrent();
       if (baby == null) {
-        if (!mounted) return;
+        // 나머지 세 자리와 같은 방어입니다. 여기만 빠져 있어, 늦게 온
+        // '아이 없음'이 방금 읽어 낸 요약을 지웠습니다.
+        if (!mounted || gen != _loadGen) return;
         setState(() {
           _hasBaby = false;
           _summary = null;
@@ -185,12 +188,22 @@ class _AnalysisPageState extends State<AnalysisPage> {
     if (!_hasBaby) {
       return [
         Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
+          padding: const EdgeInsets.only(top: 40),
           child: Text(
             '아이 정보를 먼저 등록해 주세요.',
             style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
           ),
         ),
+          // 안내만 하고 갈 길을 주지 않으면 막다른 길입니다. 시키는 대로
+          // 등록하려 해도 이 화면에서는 갈 수 없어, 전체 탭 → 마이페이지를
+          // 스스로 찾아내야 했습니다. 마이페이지가 쓰는 것과 같은 길입니다.
+          TextButton(
+            onPressed: () async {
+              await Navigator.pushNamed(context, AppRoutes.onboarding);
+              if (mounted) _load();
+            },
+            child: const Text('등록하기'),
+          ),
       ];
     }
 

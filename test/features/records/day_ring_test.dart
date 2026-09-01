@@ -157,7 +157,7 @@ void main() {
       expect(
         tester.getSemantics(chips.at(2)),
         isSemantics(
-          label: '수요일, 8월 12일, 수유 6회, 배변 4회.',
+          label: '오늘, 수요일, 8월 12일, 수면 11시간 25분, 수유 6회, 배변 4회.',
           isButton: true,
           isSelected: true,
           hasTapAction: true,
@@ -165,7 +165,8 @@ void main() {
       );
       expect(
         tester.getSemantics(chips.at(4)),
-        isSemantics(label: '금요일, 8월 14일, 수유 0회, 배변 0회.',
+        isSemantics(
+            label: '금요일, 8월 14일, 수면 기록 없음, 수유 0회, 배변 0회.',
             isSelected: false),
       );
     });
@@ -192,18 +193,50 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('화면 낭독기가 읽을 수 있게 숫자를 말로도 남긴다', (tester) async {
-      // 원은 그림이라 그대로는 읽히지 않습니다.
+    testWidgets('큰 원은 그림임을 알리고 값은 범례에 맡긴다', (tester) async {
+      // 큰 원 옆에는 범례가 나란히 섭니다. 범례는 평범한 글씨라 낭독기가
+      // 이미 읽습니다. 원에도 같은 값을 적으면 '수면 11시간, 수유 9회…'가
+      // **두 번** 들립니다. 원은 그림이라는 사실만 말합니다.
       await pump(tester, DayRing(pattern: busyWeek()[2]));
 
-      final semantics = tester.getSemantics(find.byType(DayRing));
-      expect(semantics.label, contains('수유 6회'));
-      expect(semantics.label, contains('배변 4회'));
+      final label = tester.getSemantics(find.byType(DayRing)).label;
+      expect(label, contains('24시간 원'));
+      expect(label.contains('수유 6회'), isFalse,
+          reason: '옆 범례가 이미 읽습니다. 여기서도 읽으면 두 번 들립니다');
+      expect(label.contains('배변 4회'), isFalse);
     });
 
-    testWidgets('수면을 범례와 같은 말로 읽어 준다', (tester) async {
-      // `inHours`로 적으면 50분 잔 날이 '0시간'으로 읽혀, 바로 옆 범례가
-      // 적은 '50분'과 다른 잠을 말하게 됩니다.
+    testWidgets('측정 중인 잠은 원이 직접 알린다', (tester) async {
+      // 이것만은 범례에 없습니다. 원 위에서만 보이는 사실입니다.
+      final patterns = buildDayPatterns(
+        period: week,
+        sleeps: [
+          SleepRecord(
+            id: 'live',
+            type: SleepType.night,
+            startedAt: DateTime(2026, 8, 12, 13),
+          ),
+        ],
+        now: DateTime(2026, 8, 12, 15),
+      );
+
+      await pump(
+        tester,
+        DayRing(pattern: patterns.firstWhere((p) => p.day.day == 12)),
+      );
+
+      expect(tester.getSemantics(find.byType(DayRing)).label,
+          contains('측정 중'));
+    });
+  });
+
+  group('작은 원이 수면을 말한다', () {
+    // 작은 원은 **수면 호만** 그립니다(점은 너무 작아 얼룩이 됩니다).
+    // 그런데 라벨에 수면이 없어, 밤새 자고 수유·배변을 안 남긴 날이
+    // 낭독기에는 기록 없는 날과 똑같이 들렸습니다. 옆에 범례도 없습니다.
+
+    testWidgets('잔 시간을 범례와 같은 말로 읽는다', (tester) async {
+      // `inHours`로 적으면 50분 잔 날이 '0시간'으로 읽힙니다.
       final patterns = buildDayPatterns(
         period: week,
         sleeps: [
@@ -217,23 +250,45 @@ void main() {
         now: now,
       );
 
-      await pump(
-        tester,
-        DayRing(pattern: patterns.firstWhere((p) => p.day.day == 12)),
-      );
+      await pump(tester, strip(patterns));
 
-      expect(tester.getSemantics(find.byType(DayRing)).label,
-          contains('수면 50분'));
+      final label = tester
+          .getSemantics(find.byType(DayRingChip).at(2))
+          .label;
+      expect(label, contains('수면 50분'));
+      expect(label.contains('0시간'), isFalse);
     });
 
-    testWidgets('기록이 없는 날은 0시간이 아니라 없다고 읽어 준다', (tester) async {
-      // 범례는 '수면 기록 없음'이라 적습니다. 라벨만 '0시간'이라 읽으면
-      // 안 잔 날과 잠깐 잔 날을 귀로는 가릴 수 없습니다.
-      final empty = buildDayPatterns(period: week, now: now);
-      await pump(tester, DayRing(pattern: empty.first));
+    testWidgets('안 잔 날은 0시간이 아니라 없다고 읽는다', (tester) async {
+      await pump(tester, strip(buildDayPatterns(period: week, now: now)));
 
-      expect(tester.getSemantics(find.byType(DayRing)).label,
+      expect(tester.getSemantics(find.byType(DayRingChip).first).label,
           contains('수면 기록 없음'));
+    });
+
+    testWidgets("'오늘'을 색이 아니라 말로도 알린다", (tester) async {
+      // 색만으로 알리면 색각 이상이나 낭독기 사용자는 어느 날이 오늘인지
+      // 알 수 없습니다.
+      final patterns = buildDayPatterns(period: week, now: now);
+      await pump(
+        tester,
+        Row(children: [
+          for (final p in patterns)
+            Expanded(
+              child: DayRingChip(
+                pattern: p,
+                selected: false,
+                isToday: p.day.day == 12,
+                onTap: () {},
+              ),
+            ),
+        ]),
+      );
+
+      expect(tester.getSemantics(find.byType(DayRingChip).at(2)).label,
+          startsWith('오늘, '));
+      expect(tester.getSemantics(find.byType(DayRingChip).first).label,
+          isNot(startsWith('오늘')));
     });
   });
 }

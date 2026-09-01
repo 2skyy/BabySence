@@ -171,6 +171,27 @@ void main() {
     });
   });
 
+  group('아이가 없을 때', () {
+    testWidgets('기록 탭이 등록으로 가는 길을 준다', (tester) async {
+      // 안내만 하고 갈 길을 주지 않으면 막다른 길입니다. 시키는 대로
+      // 등록하려 해도 이 화면에서는 갈 수 없었습니다.
+      await pump(tester, RecordsPage(loader: (p) async => PeriodRecords.noBaby));
+
+      expect(find.text('아이 정보를 먼저 등록해 주세요.'), findsOneWidget);
+      expect(find.text('등록하기'), findsOneWidget,
+          reason: '갈 길이 없으면 안내가 막다른 길이 됩니다');
+    });
+
+    testWidgets('실패는 여전히 실패라고 말한다', (tester) async {
+      // 등록 단추를 붙이면서 실패 안내를 덮으면 안 됩니다.
+      await pump(tester, RecordsPage(loader: (p) async => throw StateError('끊김')));
+
+      expect(find.text('기록을 불러오지 못했습니다.'), findsOneWidget);
+      expect(find.text('등록하기'), findsNothing,
+          reason: '조회 실패는 아이 미등록이 아닙니다');
+    });
+  });
+
   group('분석 탭', () {
     testWidgets('조회에 실패해도 터지지 않고 안내한다', (tester) async {
       await pump(tester, const AnalysisPage());
