@@ -42,6 +42,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// 홈 목록의 스크롤. 상담 단추가 내려 읽는 동안 비키는 데 씁니다.
+  final ScrollController _scroll = ScrollController();
+
   /// 온보딩에서 등록한 아이. 아직 못 불러왔으면 null입니다.
   Baby? _baby;
 
@@ -59,6 +62,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _scroll.dispose();
     widget.refresh?.removeListener(_loadBaby);
     super.dispose();
   }
@@ -211,6 +215,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: backgroundColor,
       appBar: _buildTopAppBar(context),
       body: SingleChildScrollView(
+        controller: _scroll,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +355,7 @@ class _HomePageState extends State<HomePage> {
       ),
       // 오른쪽 아래에 동그랗게. 홈은 기록하러 들어가기 전에 머무는 곳이라,
       // 여기서는 눈에 띄어도 하던 일을 가로막지 않습니다.
-      floatingActionButton: const AskFab(),
+      floatingActionButton: AskFab(controller: _scroll),
     );
   }
 
