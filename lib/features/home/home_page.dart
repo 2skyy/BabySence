@@ -42,8 +42,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  /// 홈 목록의 스크롤. 상담 단추가 내려 읽는 동안 비키는 데 씁니다.
-  final ScrollController _scroll = ScrollController();
+  /// 상담 단추를 언제 보일지. 아래로 끌면 나타나고 내려 읽으면 비킵니다.
+  final AskFabVisibility _askVisibility = AskFabVisibility();
 
   /// 온보딩에서 등록한 아이. 아직 못 불러왔으면 null입니다.
   Baby? _baby;
@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _askVisibility.dispose();
     widget.refresh?.removeListener(_loadBaby);
     super.dispose();
   }
@@ -214,9 +214,23 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: _buildTopAppBar(context),
-      body: SingleChildScrollView(
-        controller: _scroll,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+      // 스크롤 방향을 단추에 알립니다. 컨트롤러가 아니라 알림을 쓰는 까닭은
+      // [AskFabVisibility]에 적어 뒀습니다 — 맨 위에서 아래로 끌 때
+      // 안드로이드에서는 위치가 움직이지 않아 컨트롤러가 조용합니다.
+      // 목록 길이가 정해질 때와, 손가락이 움직일 때. 둘은 서로 다른 알림
+      // 계층이라 따로 받습니다.
+      body: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          _askVisibility.updateMetrics(notification.metrics);
+          return false; // 다른 곳도 이 알림을 받아야 합니다.
+        },
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            _askVisibility.updateDirection(notification.direction);
+            return false;
+          },
+          child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -350,12 +364,14 @@ class _HomePageState extends State<HomePage> {
             // 그리던 시절의 자리인데, 지금은 [MainShell]이 그립니다 — 홈
             // 본문은 이미 그 위에서 끝나므로 그만큼이 통째로 빈 공간이었습니다.
             const SizedBox(height: AskFab.reservedHeight),
-          ],
+            ],
+          ),
+          ),
         ),
       ),
       // 오른쪽 아래에 동그랗게. 홈은 기록하러 들어가기 전에 머무는 곳이라,
       // 여기서는 눈에 띄어도 하던 일을 가로막지 않습니다.
-      floatingActionButton: AskFab(controller: _scroll),
+      floatingActionButton: AskFab(visibility: _askVisibility),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
@@ -25,20 +26,19 @@ import 'chat_page.dart';
 /// 떠 있는 단추는 스크롤한 내용의 마지막 줄을 덮습니다. 홈 목록 아래쪽에
 /// [reservedHeight]만큼 여백을 두어야 마지막 카드가 가려지지 않습니다.
 ///
-/// ## 내려 읽는 동안에는 비킵니다
+/// ## 평소에는 없다가, 아래로 끌면 나타납니다
 ///
-/// [controller]를 주면 아래로 내려 읽는 동안 숨고, **손가락을 아래로 끌면**
-/// 다시 나타납니다. 맨 위에서는 항상 보입니다.
+/// [visibility]를 주면 처음에는 **숨어 있고**, 손가락을 아래로 끌면
+/// 나타납니다. 내려 읽으면 다시 비킵니다.
 ///
-/// 완전히 숨기지 않는 이유는 위에 적은 두 번째 실패 때문입니다 — 앱바
-/// 아이콘으로 옮겼을 때 아무도 못 찾았습니다. 홈에 들어오면 처음부터 보이고
-/// 위로 올리면 곧바로 돌아오므로, '있는지조차 모르는' 자리로는 가지
-/// 않습니다.
+/// 위에 적은 두 번째 실패(앱바 아이콘 — 아무도 못 찾음)와 같은 위험이
+/// 있는 자리입니다. 그래서 나타나는 조건을 **가장 흔한 손짓 하나**로
+/// 두었습니다. 목록 어디에서든, 맨 위에서도 아래로 끌기만 하면 나옵니다.
 class AskFab extends StatefulWidget {
-  /// 홈 목록의 스크롤. 없으면 **늘 보입니다**(기록 화면·테스트).
-  final ScrollController? controller;
+  /// 언제 보일지. 없으면 **늘 보입니다**(기록 화면·테스트).
+  final ValueListenable<bool>? visibility;
 
-  const AskFab({super.key, this.controller});
+  const AskFab({super.key, this.visibility});
 
   /// 홈 목록이 아래에 비워 둬야 하는 높이.
   ///
@@ -52,73 +52,66 @@ class AskFab extends StatefulWidget {
   State<AskFab> createState() => _AskFabState();
 }
 
-class _AskFabState extends State<AskFab> {
-  bool _visible = true;
+/// 스크롤 방향을 보고 상담 단추를 보일지 정합니다.
+///
+/// **[ScrollController]로는 부족합니다.** 맨 위에서 아래로 끌 때 안드로이드
+/// 기본 물리(clamping)에서는 위치가 한 픽셀도 움직이지 않아 컨트롤러
+/// 리스너가 **한 번도 불리지 않습니다** — 홈의 첫 화면이 바로 그 자리라,
+/// 그렇게 만들면 단추가 영영 나타나지 않습니다. 알림은 두 물리 모두에서
+/// 옵니다(돌려서 확인했습니다).
+class AskFabVisibility extends ValueNotifier<bool> {
+  AskFabVisibility() : super(false);
 
-  @override
-  void initState() {
-    super.initState();
-    widget.controller?.addListener(_onScroll);
+  /// 목록의 길이가 정해졌을 때. **끌 것이 없으면 그냥 보입니다.**
+  ///
+  /// 기록이 적어 홈이 한 화면에 들어오면 아래로 끌어도 스크롤 알림이 한
+  /// 건도 오지 않습니다(돌려서 확인했습니다). 그대로 두면 그런 사람에게는
+  /// 상담으로 가는 길이 아예 막힙니다.
+  ///
+  /// [ScrollMetricsNotification]은 [ScrollNotification]의 하위 타입이
+  /// **아니라서** 따로 받아야 합니다.
+  void updateMetrics(ScrollMetrics metrics) {
+    if (metrics.maxScrollExtent <= 0) value = true;
   }
 
-  @override
-  void didUpdateWidget(AskFab old) {
-    super.didUpdateWidget(old);
-    if (old.controller != widget.controller) {
-      old.controller?.removeListener(_onScroll);
-      widget.controller?.addListener(_onScroll);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller?.removeListener(_onScroll);
-    super.dispose();
-  }
-
-  void _onScroll() {
-    final controller = widget.controller;
-    if (controller == null || !controller.hasClients) return;
-    final position = controller.position;
-
-    // 맨 위에서는 항상 보입니다. 홈에 들어온 첫 화면이 여기이고, 탭을
-    // 다시 눌러 맨 위로 돌아오는 경로도 여기로 들어옵니다.
-    //
-    // 스크롤할 것이 없는 경우(기록이 적어 홈이 한 화면에 들어오는 사람)는
-    // 따로 막지 않습니다 — 그때는 이 리스너가 **한 번도 불리지 않습니다.**
-    // 돌려서 확인했습니다(바운스·클램핑 두 물리 모두 알림 0건).
-    if (position.pixels <= 0) return _setVisible(true);
-
-    switch (position.userScrollDirection) {
-      case ScrollDirection.reverse: // 내려 읽는 중
-        _setVisible(false);
+  /// 손가락이 움직인 방향.
+  void updateDirection(ScrollDirection direction) {
+    switch (direction) {
       case ScrollDirection.forward: // 손가락을 아래로 끄는 중
-        _setVisible(true);
+        value = true;
+      case ScrollDirection.reverse: // 내려 읽는 중
+        value = false;
       case ScrollDirection.idle:
         break; // 손을 뗀 뒤에는 그대로 둡니다.
     }
   }
+}
 
-  void _setVisible(bool value) {
-    if (_visible == value || !mounted) return;
-    setState(() => _visible = value);
-  }
-
+class _AskFabState extends State<AskFab> {
   @override
   Widget build(BuildContext context) {
-    // 숨었을 때는 눌리지도, 낭독되지도 않아야 합니다. 보이지 않는 단추가
-    // 손가락을 먹으면 그 자리의 카드를 누를 수 없습니다.
-    return IgnorePointer(
-      ignoring: !_visible,
-      child: ExcludeSemantics(
-        excluding: !_visible,
-        child: AnimatedScale(
-          scale: _visible ? 1 : 0,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          child: _button(context),
-        ),
-      ),
+    final visibility = widget.visibility;
+    if (visibility == null) return _button(context);
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: visibility,
+      builder: (context, visible, child) {
+        // 숨었을 때는 눌리지도, 낭독되지도 않아야 합니다. 보이지 않는
+        // 단추가 손가락을 먹으면 그 자리의 카드를 누를 수 없습니다.
+        return IgnorePointer(
+          ignoring: !visible,
+          child: ExcludeSemantics(
+            excluding: !visible,
+            child: AnimatedScale(
+              scale: visible ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: _button(context),
     );
   }
 
