@@ -54,17 +54,22 @@ class AskFab extends StatelessWidget {
           ),
           // **원으로 잘라 냅니다.**
           //
-          // 앱 아이콘은 자체 배경을 가진 정사각형 이미지입니다. 원 안에
+          // 아이콘은 자체 배경을 가진 정사각형 이미지입니다. 원 안에
           // 그냥 얹으면 네 모서리가 드러나 '원 안의 네모'로 보입니다.
           // 여백을 두고 줄이면 60px 안에서 선이 1px 남짓이 되어 뭉갭니다.
           //
           // 잘라서 꽉 채우면 아이콘 자체가 곧 동그란 단추가 됩니다.
+          //
+          // 앱 아이콘(app_icon.png)이 아니라 배경을 어둡게 내린 판을
+          // 씁니다. 원본은 밝은 민트 배경이라 **흰 선과 대비가 1.35:1**로
+          // 선이 보이지 않았고, 홈의 다른 강조색(AppColors.primary)과도
+          // 따로 놀았습니다. 만드는 법은 tool/make_chat_logo.py에 있습니다.
           child: ClipOval(
             child: SizedBox(
               width: 60,
               height: 60,
               child: Image.asset(
-                'assets/icon/app_icon.png',
+                'assets/icon/chat_logo.png',
                 fit: BoxFit.cover,
                 // 이미지를 못 읽어도 단추는 살아 있어야 합니다.
                 errorBuilder: (_, _, _) => const Center(
