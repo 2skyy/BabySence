@@ -76,7 +76,7 @@ void main() {
     });
   });
 
-  group('아래로 끌면 나타난다', () {
+  group('내려 보면 나타난다', () {
     /// 화면보다 긴 목록 + 단추. 처음에는 단추가 **숨어 있습니다.**
     Future<void> pump(WidgetTester tester,
         {double height = 2000,
@@ -139,60 +139,59 @@ void main() {
       return find.text('종합 상담').evaluate().isNotEmpty;
     }
 
-    Future<void> dragDown(WidgetTester tester, [double d = 250]) async {
-      await tester.drag(find.byType(SingleChildScrollView), Offset(0, d));
+    /// 목록을 **내려 봅니다**(화면이 위로 밀림). 손가락은 위로 움직입니다.
+    Future<void> scrollDown(WidgetTester tester, [double d = 400]) async {
+      await tester.drag(find.byType(SingleChildScrollView), Offset(0, -d));
       // 커지는 중에는 단추가 작아 탭이 빗나갑니다. 끝까지 기다립니다.
       await tester.pumpAndSettle();
     }
 
-    Future<void> readDown(WidgetTester tester, [double d = 400]) async {
-      await tester.drag(find.byType(SingleChildScrollView), Offset(0, -d));
-      await tester.pump();
+    /// 위로 되돌아갑니다.
+    Future<void> scrollUp(WidgetTester tester, [double d = 250]) async {
+      await tester.drag(find.byType(SingleChildScrollView), Offset(0, d));
+      await tester.pumpAndSettle();
     }
 
     testWidgets('처음에는 없다', (tester) async {
+      expect(AskFabVisibility().value, isFalse);
+
       await pump(tester);
       expect(isShown(tester), isFalse);
       expect(blocksTouch(tester), isTrue, reason: '숨었는데 손가락을 먹습니다');
       expect(await opensChat(tester), isFalse);
     });
 
-    testWidgets('아래로 끌면 나타난다', (tester) async {
+    testWidgets('내려 보면 나타난다', (tester) async {
       await pump(tester);
-      await dragDown(tester);
+      await scrollDown(tester);
       expect(isShown(tester), isTrue);
     });
 
-    testWidgets('맨 위에서 끌어도 나타난다', (tester) async {
-      // **홈의 첫 화면이 여기입니다.** 안드로이드 기본 물리에서는 맨 위에서
-      // 아래로 끌어도 위치가 한 픽셀도 움직이지 않습니다. 스크롤 위치를
-      // 보고 판단하면 단추가 영영 나타나지 않습니다.
+    testWidgets('안드로이드 물리에서도 나타난다', (tester) async {
       await pump(tester, physics: const ClampingScrollPhysics());
       expect(isShown(tester), isFalse);
-
-      await dragDown(tester);
-
-      expect(isShown(tester), isTrue, reason: '맨 위에서 끌었는데 안 나옵니다');
+      await scrollDown(tester);
+      expect(isShown(tester), isTrue);
     });
 
-    testWidgets('iOS 물리에서도 맨 위에서 나타난다', (tester) async {
+    testWidgets('iOS 물리에서도 나타난다', (tester) async {
       await pump(tester, physics: const BouncingScrollPhysics());
-      await dragDown(tester);
+      await scrollDown(tester);
       expect(isShown(tester), isTrue);
     });
 
-    testWidgets('내려 읽으면 다시 비킨다', (tester) async {
+    testWidgets('다시 위로 올라가면 비킨다', (tester) async {
       await pump(tester);
-      await dragDown(tester);
+      await scrollDown(tester);
       expect(isShown(tester), isTrue);
 
-      await readDown(tester);
+      await scrollUp(tester);
       expect(isShown(tester), isFalse);
     });
 
     testWidgets('나타난 뒤에는 눌린다', (tester) async {
       await pump(tester);
-      await dragDown(tester);
+      await scrollDown(tester);
       expect(blocksTouch(tester), isFalse);
       expect(await opensChat(tester), isTrue);
     });
@@ -203,7 +202,7 @@ void main() {
       await pump(tester);
       expect(isAnnounced(tester), isFalse);
 
-      await dragDown(tester);
+      await scrollDown(tester);
       expect(isAnnounced(tester), isTrue);
     });
 
@@ -297,12 +296,16 @@ void main() {
       return visibility;
     }
 
-    testWidgets('맨 위에서는 보인다', (tester) async {
+    testWidgets('첫 프레임부터 보인다', (tester) async {
+      // 알림을 기다렸다가 켜면 홈에 들어온 순간 한 박자 늦게 나타납니다.
+      // 맨 위·안 움직임·끌 수 있음이 곧 시작 상태입니다.
+      expect(AskFabVisibility(visibleAtTop: true).value, isTrue);
+
       final visibility = await pump(tester);
       expect(visibility.value, isTrue);
     });
 
-    testWidgets('내려 읽으면 비킨다', (tester) async {
+    testWidgets('내려 보면 비킨다 — 기본과 정반대다', (tester) async {
       final visibility = await pump(tester);
       await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -400));
       await tester.pumpAndSettle();

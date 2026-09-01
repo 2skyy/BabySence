@@ -26,14 +26,14 @@ import 'chat_page.dart';
 /// 떠 있는 단추는 스크롤한 내용의 마지막 줄을 덮습니다. 홈 목록 아래쪽에
 /// [reservedHeight]만큼 여백을 두어야 마지막 카드가 가려지지 않습니다.
 ///
-/// ## 평소에는 없다가, 아래로 끌면 나타납니다
+/// ## 평소에는 없다가, 목록을 내려 보면 나타납니다
 ///
-/// [visibility]를 주면 처음에는 **숨어 있고**, 손가락을 아래로 끌면
-/// 나타납니다. 내려 읽으면 다시 비킵니다.
+/// [visibility]를 주면 처음에는 **숨어 있고**, 목록을 아래로 내려 보면
+/// 나타납니다. 다시 위로 올라가면 비킵니다.
 ///
 /// 위에 적은 두 번째 실패(앱바 아이콘 — 아무도 못 찾음)와 같은 위험이
 /// 있는 자리입니다. 그래서 나타나는 조건을 **가장 흔한 손짓 하나**로
-/// 두었습니다. 목록 어디에서든, 맨 위에서도 아래로 끌기만 하면 나옵니다.
+/// 두었습니다 — 홈을 훑어 내려가기만 하면 나옵니다.
 class AskFab extends StatefulWidget {
   /// 언제 보일지. 없으면 **늘 보입니다**(기록 화면·테스트).
   final ValueListenable<bool>? visibility;
@@ -62,14 +62,16 @@ class AskFab extends StatefulWidget {
 class AskFabVisibility extends ValueNotifier<bool> {
   /// 맨 위에서 보일지 — **두 방식을 여기서 고릅니다.**
   ///
-  /// - `false`(기본): 평소엔 없다가 **아래로 끌면** 나타납니다.
-  /// - `true`: 맨 위에서는 보이고, 내려 읽으면 비킵니다.
+  /// - `false`(기본): 평소엔 없다가 **목록을 내려 보면** 나타납니다.
+  /// - `true`: **맨 위에서 보이고** 내려 보면 비킵니다(정반대입니다).
   ///
-  /// 둘 다 내려 읽으면 비키는 것은 같고, 다른 것은 **맨 위에서 보이는가**
-  /// 하나뿐입니다. 어느 쪽이 나은지는 써 봐야 알 수 있어 남겨 둡니다.
+  /// 어느 쪽이 나은지는 써 봐야 알 수 있어 둘 다 남겨 둡니다.
   final bool visibleAtTop;
 
-  AskFabVisibility({this.visibleAtTop = false}) : super(false);
+  /// 처음 값은 **알림을 기다리지 않고** 정합니다. 첫 프레임에는 스크롤
+  /// 알림이 아직 오지 않아, 기다리면 맨 위에서 보여야 하는 방식이 한 박자
+  /// 늦게 켜집니다. 맨 위·안 움직임·끌 수 있음이 곧 시작 상태입니다.
+  AskFabVisibility({this.visibleAtTop = false}) : super(visibleAtTop);
 
   /// 목록을 끌 수 있는지. 처음에는 모르므로 끌 수 있다고 봅니다.
   bool _canScroll = true;
@@ -77,7 +79,7 @@ class AskFabVisibility extends ValueNotifier<bool> {
   /// 맨 위인지.
   bool _atTop = true;
 
-  /// 아래로 끌어서 꺼내 놓았는지.
+  /// 내려 보아서 꺼내 놓았는지.
   bool _revealed = false;
 
   /// 스크롤이 움직였을 때. 방향과 위치를 함께 봅니다.
@@ -87,9 +89,12 @@ class AskFabVisibility extends ValueNotifier<bool> {
 
     if (notification is UserScrollNotification) {
       switch (notification.direction) {
-        case ScrollDirection.forward: // 손가락을 아래로 끄는 중
+        // **목록을 아래로 내려 볼 때** 나타납니다. 화면이 위로 밀리는
+        // 그 방향이고, 손가락은 위로 움직입니다(ScrollDirection.reverse).
+        case ScrollDirection.reverse:
           _revealed = true;
-        case ScrollDirection.reverse: // 내려 읽는 중
+        // 위로 되돌아갈 때는 비킵니다.
+        case ScrollDirection.forward:
           _revealed = false;
         case ScrollDirection.idle:
           break; // 손을 뗀 뒤에는 그대로 둡니다.
@@ -116,7 +121,10 @@ class AskFabVisibility extends ValueNotifier<bool> {
   }
 
   void _apply() {
-    value = !_canScroll || _revealed || (visibleAtTop && _atTop);
+    // visibleAtTop이면 맨 위에서 보이고, 내려 보면 _revealed가 켜지므로
+    // 정반대 동작이 되도록 그 값을 뒤집어 씁니다.
+    final byScroll = visibleAtTop ? (_atTop && !_revealed) : _revealed;
+    value = !_canScroll || byScroll;
   }
 }
 
