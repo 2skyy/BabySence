@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/missing_baby.dart';
 import '../../core/widgets/stale_notice.dart';
-import '../../routes/app_routes.dart';
 
 import '../../core/services/refresh_signal.dart';
 
@@ -315,20 +315,7 @@ class _RecordsPageState extends State<RecordsPage> {
     if (!_hasBaby) {
       return [
         ...stale,
-        Text(
-          '아이 정보를 먼저 등록해 주세요.',
-          style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
-        ),
-          // 안내만 하고 갈 길을 주지 않으면 막다른 길입니다. 시키는 대로
-          // 등록하려 해도 이 화면에서는 갈 수 없어, 전체 탭 → 마이페이지를
-          // 스스로 찾아내야 했습니다. 마이페이지가 쓰는 것과 같은 길입니다.
-          TextButton(
-            onPressed: () async {
-              await Navigator.pushNamed(context, AppRoutes.onboarding);
-              if (mounted) _load();
-            },
-            child: const Text('등록하기'),
-          ),
+        MissingBabyNotice(onRegistered: _load),
       ];
     }
 

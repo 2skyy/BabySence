@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/stale_notice.dart';
-import '../../routes/app_routes.dart';
 import '../../core/services/duration_text.dart';
 
 import '../../core/services/refresh_signal.dart';
@@ -12,6 +11,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/widgets/medical_disclaimer.dart';
+import '../../core/widgets/missing_baby.dart';
 import '../detail/assessment/assessment.dart';
 import '../detail/assessment/assessment_service.dart';
 import '../detail/diaper_record_service.dart';
@@ -187,23 +187,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     if (!_hasBaby) {
       return [
-        Padding(
-          padding: const EdgeInsets.only(top: 40),
-          child: Text(
-            '아이 정보를 먼저 등록해 주세요.',
-            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
-          ),
-        ),
-          // 안내만 하고 갈 길을 주지 않으면 막다른 길입니다. 시키는 대로
-          // 등록하려 해도 이 화면에서는 갈 수 없어, 전체 탭 → 마이페이지를
-          // 스스로 찾아내야 했습니다. 마이페이지가 쓰는 것과 같은 길입니다.
-          TextButton(
-            onPressed: () async {
-              await Navigator.pushNamed(context, AppRoutes.onboarding);
-              if (mounted) _load();
-            },
-            child: const Text('등록하기'),
-          ),
+        const Padding(padding: EdgeInsets.only(top: 40)),
+        MissingBabyNotice(onRegistered: _load),
       ];
     }
 

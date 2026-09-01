@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_colors.dart';
 import '../../routes/app_routes.dart';
 
 /// 저장하려는데 아이가 없을 때 안내합니다.
@@ -68,4 +69,42 @@ void notifyMissingBaby(
       duration: const Duration(seconds: 6),
     ),
   );
+}
+
+
+/// 아이가 없을 때 화면 가운데에 놓는 안내.
+///
+/// [notifyMissingBaby]가 스낵바로 말하는 것을 **화면에 눌러앉아** 말하는
+/// 판입니다. 기록·분석 탭처럼 아이가 없으면 보여줄 것이 아예 없는 화면이
+/// 씁니다.
+///
+/// **안내만 하고 갈 길을 주지 않으면 막다른 길입니다.** 두 탭이 한 줄만
+/// 띄워, 시키는 대로 등록하려 해도 그 화면에서는 갈 수 없었습니다. 전체 탭
+/// → 마이페이지를 스스로 찾아내야 했습니다.
+class MissingBabyNotice extends StatelessWidget {
+  /// 등록을 마치고 돌아왔을 때. 대개 화면을 다시 읽습니다.
+  final VoidCallback onRegistered;
+
+  const MissingBabyNotice({super.key, required this.onRegistered});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '아이 정보를 먼저 등록해 주세요.',
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
+        ),
+        TextButton(
+          onPressed: () async {
+            await Navigator.pushNamed(context, AppRoutes.onboarding);
+            onRegistered();
+          },
+          child: const Text('등록하기'),
+        ),
+      ],
+    );
+  }
 }

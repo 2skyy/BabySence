@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/missing_baby.dart';
+import '../../core/services/duration_text.dart';
 
 
 import 'widgets/record_save_button.dart';
@@ -184,8 +185,9 @@ class _SleepRecordPageState extends State<SleepRecordPage> {
     // 기상이 취침보다 이르면 자정을 넘긴 것입니다.
     if (end < start) end += const Duration(days: 1);
 
-    final diff = end - start;
-    return '${diff.inHours}시간 ${diff.inMinutes % 60}분';
+    // 목록·홈·원과 같은 함수를 씁니다. 직접 적으면 50분이 '0시간 50분'이
+    // 되어, 같은 잠을 화면마다 다르게 부르게 됩니다.
+    return formatDuration(end - start);
   }
 
   @override
