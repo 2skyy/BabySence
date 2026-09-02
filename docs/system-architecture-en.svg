@@ -10,7 +10,7 @@
   -->
 
   <text font-size="28px" font-weight="700" fill="#1A2230" x="600" y="46" text-anchor="middle">BabySense System Architecture</text>
-  <text font-size="15px" fill="#6B7280" x="600" y="78" text-anchor="middle">Four-layer structure: input → analysis → classification → action guide</text>
+  <text font-size="15px" fill="#6B7280" x="600" y="78" text-anchor="middle">Four-layer structure: input → storage → judgment → action guide</text>
 
   <!-- ============ (a) Client Layer : 106 .. 292 ============ -->
   <rect x="100" y="106" width="1000" height="186" rx="10" fill="#E9F0F9" stroke="#5A6B85" stroke-width="1.6"/>
@@ -25,13 +25,13 @@
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="176" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="202" text-anchor="middle">Social Sign-in</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="224" text-anchor="middle">Kakao · Google · Apple</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="224" text-anchor="middle">Kakao · Google (Apple planned)</text>
   <text font-size="13px" fill="#4A5260" x="600" y="242" text-anchor="middle">via Supabase Auth</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="176" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="202" text-anchor="middle">Input · View · Measure</text>
   <text font-size="13px" fill="#4A5260" x="919" y="224" text-anchor="middle">Status input · result views</text>
-  <text font-size="13px" fill="#4A5260" x="919" y="242" text-anchor="middle">Noise metering · FCM push</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="242" text-anchor="middle">Noise metering · push receipt</text>
 
   <path stroke="#2E6E9E" stroke-width="3" fill="none" d="M 340 344 L 340 306"/>
   <path d="M 332 308 L 340 296 L 348 308 z" fill="#2E6E9E"/>
@@ -48,13 +48,13 @@
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="418" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="444" text-anchor="middle">FastAPI Unified Backend</text>
-  <text font-size="13px" fill="#4A5260" x="281" y="466" text-anchor="middle">Request routing</text>
-  <text font-size="13px" fill="#4A5260" x="281" y="484" text-anchor="middle">Response assembly</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="466" text-anchor="middle">Request routing · assembly</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="484" text-anchor="middle">Advice · skin reading only</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="418" width="302" height="100" rx="7"/>
-  <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="444" text-anchor="middle">Auth · Input Validation</text>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="444" text-anchor="middle">Auth · Request Limits</text>
   <text font-size="13px" fill="#4A5260" x="600" y="466" text-anchor="middle">Supabase Auth token check</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="484" text-anchor="middle">Range checks on all inputs</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="484" text-anchor="middle">Prompt length · image type · rate</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="418" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="444" text-anchor="middle">API Key Protection</text>
@@ -75,22 +75,22 @@
   <text font-size="19px" font-weight="700" fill="#1A2230" x="190" y="635">Analysis Layer</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="660" width="302" height="100" rx="7"/>
-  <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="686" text-anchor="middle">Rule-based Engine</text>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="281" y="686" text-anchor="middle">Rule-based Engine (in app)</text>
   <text font-size="13px" fill="#4A5260" x="281" y="708" text-anchor="middle">Age-specific thresholds</text>
-  <text font-size="13px" fill="#4A5260" x="281" y="726" text-anchor="middle">Temp · growth · sleep · feed</text>
+  <text font-size="13px" fill="#4A5260" x="281" y="726" text-anchor="middle">Temp · growth · noise</text>
   <text font-size="13px" fill="#4A5260" x="281" y="744" text-anchor="middle">Normal · Caution · Consult</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="660" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="686" text-anchor="middle">External LLM API</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="708" text-anchor="middle">Turns the judgment into</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="726" text-anchor="middle">sentence-level guidance</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="744" text-anchor="middle">Falls back to consult notice</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="708" text-anchor="middle">Receives the judgment as context</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="726" text-anchor="middle">Handles chat · never overrides</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="744" text-anchor="middle">Unreadable → advises a visit</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="660" width="302" height="100" rx="7"/>
-  <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="686" text-anchor="middle">Skin Image Classifier</text>
-  <text font-size="13px" fill="#4A5260" x="919" y="708" text-anchor="middle">10-class CNN model</text>
-  <text font-size="13px" fill="#4A5260" x="919" y="726" text-anchor="middle">In-house · on-server</text>
-  <text font-size="13px" fill="#4A5260" x="919" y="744" text-anchor="middle">No external API used</text>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="919" y="686" text-anchor="middle">Skin Image Reader</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="708" text-anchor="middle">External vision LLM</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="726" text-anchor="middle">No disease name or probability</text>
+  <text font-size="13px" fill="#4A5260" x="919" y="744" text-anchor="middle">Observations + two levels</text>
 
   <path stroke="#2E6E9E" stroke-width="3" fill="none" d="M 340 828 L 340 790"/>
   <path d="M 332 792 L 340 780 L 348 792 z" fill="#2E6E9E"/>
@@ -107,19 +107,19 @@
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="130" y="902" width="223" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="242" y="940" text-anchor="middle">Supabase Postgres</text>
-  <text font-size="13px" fill="#4A5260" x="242" y="966" text-anchor="middle">14 tables with RLS</text>
+  <text font-size="13px" fill="#4A5260" x="242" y="966" text-anchor="middle">19 tables with RLS</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="369" y="902" width="223" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="481" y="940" text-anchor="middle">Supabase Auth</text>
   <text font-size="13px" fill="#4A5260" x="481" y="966" text-anchor="middle">Social login · sessions</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="608" y="902" width="223" height="100" rx="7"/>
-  <text font-size="15px" font-weight="700" fill="#1A2230" x="720" y="940" text-anchor="middle">Supabase Storage</text>
-  <text font-size="13px" fill="#4A5260" x="720" y="966" text-anchor="middle">Skin image files</text>
+  <text font-size="15px" font-weight="700" fill="#1A2230" x="720" y="940" text-anchor="middle">(unused)</text>
+  <text font-size="13px" fill="#4A5260" x="720" y="966" text-anchor="middle">Photos are not stored</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="847" y="902" width="223" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="959" y="940" text-anchor="middle">Firebase FCM</text>
-  <text font-size="13px" fill="#4A5260" x="959" y="966" text-anchor="middle">Vaccination · alerts</text>
+  <text font-size="13px" fill="#4A5260" x="959" y="966" text-anchor="middle">Server pushes · device_tokens</text>
 
   <text font-size="14px" fill="#6B7280" x="600" y="1058" text-anchor="middle">* Results are for reference only and do not replace medical diagnosis.</text>
 </svg>

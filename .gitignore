@@ -58,3 +58,7 @@ my_app/
 test/**/failures/
 flutter_*.log
 .pytest_cache/
+
+# FCM 설정. 프로젝트마다 다르고 공개 저장소에 올릴 것이 아닙니다.
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist

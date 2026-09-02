@@ -165,9 +165,14 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
         _noticeIsError = true;
       });
     } on SkinException catch (e) {
+      // 서버에 닿지 못한 것도 **결과를 못 받은 것**입니다. 판독 불가와 같은
+      // 이유로 한 줄을 덧붙입니다 — 새벽에 서버가 죽어 오류만 뜨면 그것도
+      // 안심으로 읽힙니다.
       if (!mounted) return;
       setState(() {
-        _notice = e.message;
+        _notice = '${e.message}\n\n'
+            '확인하지 못했다는 것은 괜찮다는 뜻이 아닙니다. '
+            '걱정되시면 사진과 관계없이 진료를 받아 주세요.';
         _noticeIsError = true;
       });
     } finally {
