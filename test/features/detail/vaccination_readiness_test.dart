@@ -11,7 +11,7 @@ import 'package:flutter_project/features/detail/vaccination_readiness.dart';
 /// - CDC/ACIP: "ACIP has not defined a body temperature above which vaccines
 ///   should not be administered."
 /// - 질병관리청: 주의사항은 "중등도 또는 중증의 급성 질환(발열 여부에 무관)"
-/// - WHO: "a fever below 38.5 °C, vaccinate as usual"
+/// - WHO: "a fever below 38.5 ℃, vaccinate as usual"
 void main() {
   final now = DateTime(2026, 8, 12, 10, 0);
 

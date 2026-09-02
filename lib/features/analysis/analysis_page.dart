@@ -286,7 +286,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
             label: '최고 체온',
             value: s.highestTemperature == null
                 ? '기록 없음'
-                : '${s.highestTemperature!.toStringAsFixed(1)}°C',
+                : '${s.highestTemperature!.toStringAsFixed(1)}℃',
             detail: s.highestTemperature == null ? '체온을 기록해 보세요' : '7일 중 가장 높은 값',
           ),
         ],

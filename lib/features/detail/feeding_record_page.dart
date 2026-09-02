@@ -30,7 +30,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
 
   final TextEditingController feedingAmountController = TextEditingController();
 
-  String selectedFeedingType = '분유';
+  String selectedFeedingType = FeedingType.formula.label;
 
   /// 화면을 연 시각으로 시작합니다. 나중에 몰아서 적을 때는 직접 고칩니다.
   final _time = RecordTimeController.now();
@@ -205,11 +205,11 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _buildFeedingTypeButton('분유')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.formula.label)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFeedingTypeButton('모유(직수)')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.breast.label)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFeedingTypeButton('이유식')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.solid.label)),
                 ],
               ),
               const SizedBox(height: 32),

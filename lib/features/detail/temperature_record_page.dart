@@ -36,7 +36,12 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
   /// 화면을 연 시각으로 시작합니다. 나중에 몰아서 적을 때는 직접 고칩니다.
   final _time = RecordTimeController.now();
 
-  final List<String> symptoms = ['없음', '기침', '콧물', '발진', '구토', '설사'];
+  /// 이름을 손으로 다시 적지 않고 enum에서 가져옵니다. 한 글자만 어긋나도
+  /// `Symptom.fromLabel`이 null을 돌려주고 저장에서 조용히 빠집니다.
+  final List<String> symptoms = [
+    '없음',
+    ...Symptom.values.map((s) => s.label),
+  ];
 
   @override
   void initState() {
@@ -219,7 +224,7 @@ class _TemperatureRecordPageState extends State<TemperatureRecordPage> {
               Icon(icon, color: color, size: 22),
               const SizedBox(width: 8),
               Text(
-                assessment.level.label,
+                assessment.levelLabel,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,

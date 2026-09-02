@@ -80,7 +80,7 @@ class TemperatureRecord {
 
   /// 이력 목록에 보여줄 요약. 증상이 없으면 체온만 보여줍니다.
   String get summary {
-    final temp = '${temperatureC.toStringAsFixed(1)}°C';
+    final temp = '${temperatureC.toStringAsFixed(1)}℃';
     if (symptoms.isEmpty) return temp;
     return '$temp · ${symptoms.map((s) => s.label).join(', ')}';
   }

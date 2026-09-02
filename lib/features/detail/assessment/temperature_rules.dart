@@ -63,7 +63,16 @@ class TemperatureRules {
     required int ageInMonths,
     required List<Symptom> symptoms,
   }) {
-    if (ageInMonths < symptomNoteFromMonths) return null;
+    // 6개월 미만은 NICE가 가리키는 연령대가 아니라 아래 안내를 붙이지
+    // 않습니다. 다만 보호자가 **적어 준 것을 화면에서 지워서는 안 됩니다** —
+    // 판정은 체온만 보므로, 증상은 판정에 넣지 않았다는 사실과 함께
+    // 그대로 되읽어 줍니다. 단계는 바꾸지 않습니다.
+    if (ageInMonths < symptomNoteFromMonths) {
+      if (symptoms.isEmpty) return null;
+      return '적어 주신 증상: ${symptoms.map((s) => s.label).join(', ')}. '
+          '이 판정은 체온에 대한 것이라 증상은 넣지 않았습니다. '
+          '아이가 평소와 달라 보이면 체온과 상관없이 살펴봐 주세요.';
+    }
 
     final listed = symptoms.isEmpty
         ? '함께 기록한 증상은 없습니다.'

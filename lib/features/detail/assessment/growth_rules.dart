@@ -85,7 +85,7 @@ class GrowthRules {
         : GrowthCalculator.lengthZScore(sex, age, heightCm);
 
     final weightLevel = weightZ == null ? null : levelForZ(weightZ);
-    final heightLevel = heightZ == null ? null : levelForZ(heightZ);
+    final heightLevel = heightZ == null ? null : levelForHeightZ(heightZ);
 
     final level = _higher(weightLevel, heightLevel)!;
 
@@ -120,6 +120,16 @@ class GrowthRules {
     if (distance > cautionZ) return AssessmentLevel.caution;
     return AssessmentLevel.normal;
   }
+
+  /// 키의 Z-score를 단계로 바꿉니다. **아래쪽만** 봅니다.
+  ///
+  /// WHO는 신장-연령에 저신장(stunting, "less than −2")만 정의하고
+  /// **위쪽 경계를 두지 않습니다.** 체중의 위쪽 경계는 급격한 증가를
+  /// 놓치지 않으려는 프로젝트 결정이지만(위 [levelForZ] 주석), 그 이유는
+  /// 키에 해당하지 않습니다. 같은 대칭 규칙을 키에 그대로 쓰면 **잘 크는
+  /// 아이의 보호자에게 소아과 상담을 권하게 됩니다.**
+  static AssessmentLevel levelForHeightZ(double z) =>
+      z > 0 ? AssessmentLevel.normal : levelForZ(z);
 
   /// 둘 중 더 높은 단계. 한쪽이 null이면 나머지를 씁니다.
   static AssessmentLevel? _higher(AssessmentLevel? a, AssessmentLevel? b) {

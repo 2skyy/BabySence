@@ -111,6 +111,44 @@ void main() {
   /// 논문 3-3절: "6개월 초과 연령에서는 체온 판정 결과와 함께 입력된 동반
   /// 증상을 반드시 병기하여 제시한다." 근거는 [26] NICE NG143 — 6개월을 넘은
   /// 아이는 체온의 높이만으로 중증 질환 여부를 판단하지 말 것.
+  group('6개월 미만에서도 적어 준 증상은 되읽어 준다', () {
+    // 앱이 가장 보수적으로 대해야 할 연령대에서만 보호자가 직접 본 것이
+    // 화면에서 지워지던 자리입니다. 단계는 그대로 두고 되읽기만 합니다.
+    test('증상을 적었으면 판정 문구에 그대로 남는다', () {
+      final a = TemperatureRules.assess(
+        temperatureC: 36.8,
+        ageInMonths: 2,
+        symptoms: [Symptom.vomit, Symptom.rash],
+      );
+      expect(a.guideText, contains('구토'));
+      expect(a.guideText, contains('발진'));
+    });
+
+    test('증상이 괜찮다는 뜻으로 읽히지 않는다', () {
+      final a = TemperatureRules.assess(
+        temperatureC: 36.8,
+        ageInMonths: 2,
+        symptoms: [Symptom.vomit],
+      );
+      expect(a.guideText, isNot(contains('증상은 없습니다')));
+      // 체온에 대한 판정이라는 것을 밝혀야 합니다.
+      expect(a.guideText, contains('체온'));
+    });
+
+    test('단계는 바꾸지 않는다', () {
+      final withS = TemperatureRules.assess(
+        temperatureC: 36.8, ageInMonths: 2, symptoms: [Symptom.vomit]);
+      final without = TemperatureRules.assess(
+        temperatureC: 36.8, ageInMonths: 2);
+      expect(withS.level, without.level);
+    });
+
+    test('증상이 없으면 군더더기를 붙이지 않는다', () {
+      final a = TemperatureRules.assess(temperatureC: 36.8, ageInMonths: 2);
+      expect(a.guideText, isNot(contains('적어 주신')));
+    });
+  });
+
   group('동반 증상 병기', () {
     String guide(int months, List<Symptom> symptoms) =>
         TemperatureRules.assess(

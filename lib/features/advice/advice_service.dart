@@ -166,7 +166,7 @@ String buildAdviceContext({
 
   if (assessment != null) {
     lines.add(
-      '- 앱 판정: ${assessment.domain.label} ${assessment.level.label}'
+      '- 앱 판정: ${assessment.domain.label} ${assessment.levelLabel}'
       ' (기준 버전 ${assessment.ruleVersion})',
     );
     lines.add('- 판정 안내: ${assessment.guideText}');

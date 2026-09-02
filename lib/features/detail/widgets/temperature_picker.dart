@@ -87,7 +87,7 @@ class TemperaturePicker extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
                 )
               : Text(
-                  assessment.level.label,
+                  assessment.levelLabel,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

@@ -67,7 +67,7 @@ class TodaySummary {
   /// 타일에 쓸 문구. 기록이 없으면 null을 돌려주고 화면이 '기록 없음'을 씁니다.
   String? get feedingLabel => feeding?.summary;
   String? get temperatureLabel =>
-      temperature == null ? null : '${temperature!.temperatureC.toStringAsFixed(1)}°C';
+      temperature == null ? null : '${temperature!.temperatureC.toStringAsFixed(1)}℃';
   String? get diaperLabel => diaper?.summary;
 
   String? get sleepLabel {

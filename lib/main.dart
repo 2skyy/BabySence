@@ -450,7 +450,7 @@ void main() async {
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     try {
       await Firebase.initializeApp();
-      debugPrint("🔴 Firebase 초기화 성공!");
+      // 초기화 성공은 조용히 지나갑니다. 실패만 알립니다.
     } catch (e) {
       debugPrint("🔴 Firebase 초기화 실패: $e");
     }

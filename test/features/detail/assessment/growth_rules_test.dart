@@ -50,6 +50,32 @@ void main() {
       expect(GrowthRules.levelForZ(2.5), AssessmentLevel.caution);
       expect(GrowthRules.levelForZ(3.5), AssessmentLevel.consult);
     });
+
+    // 키는 위쪽을 보지 않습니다. WHO는 신장-연령에 **낮은 쪽(저신장)만**
+    // 정의하고 위쪽 경계를 두지 않습니다. 체중과 달리 '키가 크다'를
+    // 상담 사유로 삼을 근거가 없습니다.
+    test('키는 위쪽에서 단계를 올리지 않는다', () {
+      expect(GrowthRules.levelForHeightZ(2.5), AssessmentLevel.normal);
+      expect(GrowthRules.levelForHeightZ(3.5), AssessmentLevel.normal);
+      expect(GrowthRules.levelForHeightZ(9.9), AssessmentLevel.normal);
+    });
+
+    test('키도 아래쪽은 체중과 같게 본다', () {
+      expect(GrowthRules.levelForHeightZ(-2.0), AssessmentLevel.normal);
+      expect(GrowthRules.levelForHeightZ(-2.01), AssessmentLevel.caution);
+      expect(GrowthRules.levelForHeightZ(-3.01), AssessmentLevel.consult);
+    });
+
+    test('키가 큰 아이에게 상담을 권하지 않는다', () {
+      // 앱이 없는 문제를 만들던 자리입니다.
+      final a = GrowthRules.assess(
+        sex: ChildSex.male,
+        ageInMonths: 12,
+        heightCm: heightForZ(3.5),
+      );
+      expect(a!.level, AssessmentLevel.normal);
+      expect(a.guideText, isNot(contains('상담을 권합니다')));
+    });
   });
 
   group('실제 측정값으로도 같은 단계가 나온다', () {

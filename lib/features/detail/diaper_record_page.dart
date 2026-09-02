@@ -26,15 +26,15 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
   Color get textColor => context.colors.textPrimary;
   Color get secondaryTextColor => context.colors.textSecondary;
 
-  String selectedDiaperType = "소변";
-  String selectedStoolState = "황금변";
+  String selectedDiaperType = DiaperType.urine.label;
+  String selectedStoolState = StoolState.golden.label;
 
   /// 기록은 대개 기저귀를 간 직후에 남깁니다. 화면을 열면 지금 시각이 들어가
   /// 있어 대부분의 경우 시간을 건드릴 필요가 없습니다.
   final _time = RecordTimeController.now();
 
   /// 대변이 섞여 있는 종류인가. 소변에는 대변 상태가 없습니다.
-  bool get _hasStool => selectedDiaperType != "소변";
+  bool get _hasStool => selectedDiaperType != DiaperType.urine.label;
 
   void selectDiaper(String type) {
     setState(() => selectedDiaperType = type);
@@ -176,11 +176,11 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _diaperButton("소변")),
+                  Expanded(child: _diaperButton(DiaperType.urine.label)),
                   const SizedBox(width: 10),
-                  Expanded(child: _diaperButton("대변")),
+                  Expanded(child: _diaperButton(DiaperType.stool.label)),
                   const SizedBox(width: 10),
-                  Expanded(child: _diaperButton("혼합")),
+                  Expanded(child: _diaperButton(DiaperType.mixed.label)),
                 ],
               ),
               // 소변에는 대변 상태가 없습니다. 서비스도 NULL로 넣습니다.
@@ -204,10 +204,10 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
                   childAspectRatio: 3.8,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _stoolButton("황금변", Colors.amber),
-                    _stoolButton("녹변", Colors.green),
-                    _stoolButton("묽음", Colors.blue),
-                    _stoolButton("단단함", Colors.brown),
+                    _stoolButton(StoolState.golden.label, Colors.amber),
+                    _stoolButton(StoolState.green.label, Colors.green),
+                    _stoolButton(StoolState.loose.label, Colors.blue),
+                    _stoolButton(StoolState.hard.label, Colors.brown),
                   ],
                 ),
               ],

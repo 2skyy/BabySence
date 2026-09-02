@@ -55,3 +55,6 @@ env.json
 # flutter create로 생긴 빈 템플릿. 본 프로젝트와 무관합니다.
 # 지워도 빌드하면 산출물이 다시 생겨 커밋에 쓸려 들어갑니다.
 my_app/
+test/**/failures/
+flutter_*.log
+.pytest_cache/

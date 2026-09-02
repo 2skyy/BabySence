@@ -78,7 +78,7 @@ void main() {
       );
 
       expect(sum.feedingLabel, '분유 · 160ml');
-      expect(sum.temperatureLabel, '37.2°C');
+      expect(sum.temperatureLabel, '37.2℃');
       expect(sum.diaperLabel, '소변');
       expect(sum.hasAny, isTrue);
     });

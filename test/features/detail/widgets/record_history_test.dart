@@ -99,7 +99,7 @@ void main() {
       });
 
       expect(r.symptoms, isEmpty);
-      expect(r.summary, '36.5°C');
+      expect(r.summary, '36.5℃');
     });
 
     test('중첩 select로 읽은 증상이 한글로 표시된다', () {
@@ -113,7 +113,7 @@ void main() {
         ],
       });
 
-      expect(r.summary, '38.2°C · 콧물, 기침');
+      expect(r.summary, '38.2℃ · 콧물, 기침');
     });
 
     test('알 수 없는 증상 값은 무시하고 나머지를 보여준다', () {
