@@ -150,7 +150,12 @@ class GrowthRules {
 
     switch (level) {
       case AssessmentLevel.normal:
-        return '$measured로 또래 범위 안입니다. '
+        // **'또래 범위 안'이라고 덧붙이지 않습니다.** 키는 위쪽을 정상으로
+        // 보므로(levelForHeightZ), 잘 크는 아이에서 "키 또래보다 많이 큼로
+        // 또래 범위 안입니다"처럼 한 문장이 스스로를 부정했습니다. 단계는
+        // levelLabel이 따로 말하니 여기서는 잰 것만 옮깁니다. 아래 두 갈래와
+        // 문장 모양도 같아집니다.
+        return '$measured입니다. '
             '성장은 한 번의 측정보다 추세가 중요하니 기록을 이어가 주세요.';
       case AssessmentLevel.caution:
         return '$measured입니다. 또래 대비 차이가 있어 지켜볼 구간입니다. '

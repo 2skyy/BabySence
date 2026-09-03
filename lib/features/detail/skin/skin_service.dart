@@ -110,7 +110,16 @@ class SkinService {
       throw SkinException(_messageFor(e));
     }
 
-    final data = response.data as Map;
+    // **맨 캐스트를 쓰지 않습니다.** 200인데 본문이 Map이 아닌 경우가
+    // 있습니다 — 프록시가 끼워 넣은 HTML 안내문, 빈 본문. 그대로 캐스트하면
+    // TypeError가 나는데 그건 SkinException도 SkinUnreadable도 아니라
+    // 화면의 catch 둘을 모두 지나칩니다. 오류도 결과도 없이 "확인하는
+    // 중입니다…"에 멈춘 화면이 남고, 그것이 안심으로 읽힙니다.
+    final body = response.data;
+    if (body is! Map) {
+      throw SkinException('사진을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    final data = body;
 
     if (data['status'] == 'unreadable') {
       throw SkinUnreadable(

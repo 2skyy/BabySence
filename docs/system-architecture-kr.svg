@@ -25,7 +25,7 @@
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="449" y="176" width="302" height="100" rx="7"/>
   <text font-size="15px" font-weight="700" fill="#1A2230" x="600" y="202" text-anchor="middle">간편 로그인</text>
-  <text font-size="13px" fill="#4A5260" x="600" y="224" text-anchor="middle">카카오 · 구글 (애플 예정)</text>
+  <text font-size="13px" fill="#4A5260" x="600" y="224" text-anchor="middle">카카오 · 구글 · 애플</text>
   <text font-size="13px" fill="#4A5260" x="600" y="242" text-anchor="middle">Supabase Auth 연동</text>
 
   <rect fill="#ffffff" stroke="#3A4250" stroke-width="1.4" x="768" y="176" width="302" height="100" rx="7"/>

@@ -19,7 +19,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -62,6 +63,37 @@ if settings.cors_origins:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+
+@app.middleware("http")
+async def _refuse_oversized_body(request: Request, call_next):
+    """본문을 받기 **전에** Content-Length로 거절합니다.
+
+    크기 확인이 핸들러 안에만 있으면 늦습니다. FastAPI는 multipart 본문을
+    먼저 파싱한 뒤에 의존성(`require_user`)을 풀기 때문에, 로그인하지 않은
+    요청도 본문을 끝까지 올려 보낸 다음에야 401을 받습니다 — 거절하는 비용을
+    보내는 쪽이 아니라 서버가 냅니다.
+
+    헤더는 보내는 쪽이 적는 값이라 이것만 믿지는 않습니다. 실제 크기는
+    `_read_upload`가 다시 확인합니다. 여기서 막는 것은 정직하게 큰 본문입니다.
+    """
+    length = request.headers.get("content-length")
+    if length is not None:
+        try:
+            if int(length) > settings.max_upload_bytes:
+                limit_mb = settings.max_upload_bytes // (1024 * 1024)
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"파일이 너무 큽니다. {limit_mb}MB 이하만 업로드할 수 있습니다."
+                    },
+                )
+        except ValueError:
+            # 숫자가 아니면 헤더를 믿지 않고 그냥 통과시킵니다. 실제 크기는
+            # `_read_upload`가 봅니다.
+            pass
+
+    return await call_next(request)
+
 
 #: 사용자 한 명이 부를 수 있는 횟수.
 _per_user_limit = SlidingWindow(
@@ -318,9 +350,19 @@ async def diagnose_skin(
     # 피부가 아니거나 판독이 안 되는 사진. 단계를 내보내면 화면이 '정상'으로
     # 그립니다 — 확인이 안 됐다는 사실과 정상은 다른 말입니다.
     if not reading.is_skin:
+        message = reading.advice
+
+        # **열은 사진에 있던 것이 아닙니다.** `_settle`이 나이와 체온 기록만
+        # 보고 켠 urgent는 사진을 읽었는지와 무관합니다. 단계는 여전히
+        # 내보내지 않지만(화면이 색을 그리면 안 되므로) 이 안내까지 함께
+        # 버리면, 열이 나는 3개월 미만 아기의 발진을 흐리게 찍은 보호자가
+        # "다시 찍어 주세요"만 보고 화면을 닫습니다.
+        if reading.urgent:
+            message = f"{skin.FEVER_URGENT_NOTICE}\n\n{message}"
+
         return {
             "status": "unreadable",
-            "message": reading.advice,
+            "message": message,
             "disclaimer": advice.DISCLAIMER,
         }
 

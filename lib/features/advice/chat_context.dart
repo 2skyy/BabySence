@@ -269,23 +269,23 @@ class ChatContext {
   }
 
   /// 가장 최근 키·몸무게 한 줄.
+  ///
+  /// **예외를 삼키지 않습니다.** 실패해서 null을 돌려주면 성장 기록이 아직
+  /// 없는 아이와 글자 그대로 같은 맥락이 나가고, 호출부의 catch도 예외가
+  /// 오지 않아 실행되지 않습니다 — 맥락이 빈 것을 아무도 모르게 됩니다.
   static Future<String?> _latestGrowth(String babyId) async {
-    try {
-      // loadRecords는 측정일 오름차순이라 마지막이 가장 최근입니다.
-      final rows = await GrowthRecordService.loadRecords(babyId);
-      if (rows.isEmpty) return null;
+    // loadRecords는 측정일 오름차순이라 마지막이 가장 최근입니다.
+    final rows = await GrowthRecordService.loadRecords(babyId);
+    if (rows.isEmpty) return null;
 
-      final r = rows.last;
-      final parts = <String>[
-        if (r.weightKg != null) '몸무게 ${r.weightKg}kg',
-        if (r.heightCm != null) '키 ${r.heightCm}cm',
-      ];
-      if (parts.isEmpty) return null;
+    final r = rows.last;
+    final parts = <String>[
+      if (r.weightKg != null) '몸무게 ${r.weightKg}kg',
+      if (r.heightCm != null) '키 ${r.heightCm}cm',
+    ];
+    if (parts.isEmpty) return null;
 
-      return '최근 성장 기록: ${parts.join(', ')}';
-    } catch (_) {
-      return null;
-    }
+    return '최근 성장 기록: ${parts.join(', ')}';
   }
 }
 

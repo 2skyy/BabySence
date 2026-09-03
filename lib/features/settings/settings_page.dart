@@ -7,8 +7,10 @@ import '../../core/services/notification_test.dart';
 import '../../core/services/push_service.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/common_app_bar.dart';
+import '../feeding_reminder/feeding_reminder_service.dart';
 import '../shell/coming_soon_page.dart';
 import '../shell/more_page.dart';
+import '../vaccination_reminder/vaccination_reminder_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -47,6 +49,13 @@ class _SettingsPageState extends State<SettingsPage> {
       // 버리므로, 뒤에 지우려 하면 로그인하지 않은 상태가 되어 RLS가 막습니다.
       // 남겨 두면 이 폰으로 다음에 로그인한 사람에게 앞사람 알림이 갑니다.
       await PushService.clearToken();
+
+      // **이 폰에 걸어 둔 알림도 지웁니다.** 수유·접종 알림은 서버가 아니라
+      // 기기 안에 예약되므로 계정을 바꿔도 그대로 울립니다. 접종 알림 문구에는
+      // 아이 이름이 들어가서, 지우지 않으면 이 폰으로 다음에 로그인한 사람에게
+      // 앞사람 아이 이름이 뜹니다. 토큰을 지우는 것과 같은 이유입니다.
+      await FeedingReminderService.cancel();
+      await VaccinationReminderService.cancelAll();
 
       await Supabase.instance.client.auth.signOut();
     } catch (e) {

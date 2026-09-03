@@ -70,10 +70,14 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
   }
 
   Future<void> _handleSave() async {
-    if (_nameController.text.isEmpty ||
+    // **자르고 나서 봅니다.** 저장은 `trim()`한 값으로 하므로, 여기서 자르지
+    // 않고 보면 스페이스 하나가 검사를 지나 이름이 빈 아이가 만들어집니다.
+    final name = _nameController.text.trim();
+
+    if (name.isEmpty ||
         _birthDate == null ||
         _sex == null ||
-        _weightController.text.isEmpty) {
+        _weightController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('모든 정보를 입력해주세요.')),
       );
@@ -124,7 +128,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
       // 행을 고르므로 나중에 적은 값은 어느 화면에도 나오지 않습니다.
       // 중복 행을 지울 수단도 앱에 없습니다.
       final baby = _created ??= await BabyService.create(
-        name: _nameController.text.trim(),
+        name: name,
         sex: _sex!,
         birthDate: _birthDate!,
       );

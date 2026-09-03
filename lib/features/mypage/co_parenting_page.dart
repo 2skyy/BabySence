@@ -192,6 +192,14 @@ class _CoParentingPageState extends State<CoParentingPage> {
       if (!mounted) return;
       await _load();
       // 정책이 막으면 삭제는 0행으로 조용히 끝납니다. 목록으로 확인합니다.
+      //
+      // **다만 목록을 못 읽었으면 아무 말도 하지 않습니다.** 재조회가
+      // 실패하면 `_members`는 낡은 값 그대로라 방금 내보낸 사람이 아직
+      // 있는 것으로 보입니다. 그걸 근거로 "권한이 없다"고 말하면 성공한
+      // 내보내기를 실패라고, 그것도 틀린 원인으로 말하게 됩니다.
+      // `_load()`가 이미 통신 오류를 띄운 뒤이기도 합니다.
+      if (_loadFailed) return;
+
       final stillThere = _members.any((m) => m.userId == member.userId);
       if (stillThere) {
         _showMessage('권한이 없어 처리하지 못했습니다.');

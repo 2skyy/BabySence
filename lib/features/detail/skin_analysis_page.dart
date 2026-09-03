@@ -39,6 +39,10 @@ const double _feverC = 38.0;
 /// 이 시간 안에 잰 것만 봅니다. 어제 열은 오늘 발진의 동반 증상이 아닙니다.
 const Duration _feverWindow = Duration(hours: 12);
 
+/// [_feverWindow] 안의 체온을 빠짐없이 읽기 위한 상한. 5분마다 재도 144건이라
+/// 넉넉합니다.
+const int _feverWindowLimit = 200;
+
 class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   File? _image;
   final ImagePicker _picker = ImagePicker();
@@ -98,8 +102,16 @@ class _SkinAnalysisPageState extends State<SkinAnalysisPage> {
   static Future<String> _recentFever(String babyId) async {
     try {
       final since = DateTime.now().subtract(_feverWindow);
-      final records =
-          await TemperatureRecordService.loadRecent(babyId, since: since);
+      // **한도를 함께 올립니다.** 조회는 최신순이라 기본 20건에 기대면 창
+      // 안에 그보다 많이 잰 경우 오래된 쪽부터 빠집니다. 열이 나서 자주
+      // 잰 아이일수록 그렇고, 해열제로 내려가기 전 고열이 바로 그 자리에
+      // 있습니다 — 아래 any 검사가 그 값을 보려고 창 전체를 보는 것인데,
+      // 한도가 그걸 되돌립니다. 12시간이면 5분마다 재도 144건입니다.
+      final records = await TemperatureRecordService.loadRecent(
+        babyId,
+        since: since,
+        limit: _feverWindowLimit,
+      );
       if (records.isEmpty) return 'unknown';
 
       // 창 안에 한 번이라도 넘었으면 있음으로 봅니다. 마지막 한 번만 보면

@@ -336,6 +336,17 @@ def detect_media_type(image_bytes: bytes) -> str | None:
     return None
 
 
+#: 사진을 읽지 못했을 때도 앞에 붙는 안내.
+#:
+#: `_settle`이 켜는 urgent는 사진이 아니라 **나이와 체온 기록**에서 나옵니다.
+#: 생후 3개월 미만의 발열은 `advice.py`의 병원 안내 목록 맨 위 항목이라,
+#: 판독 여부와 상관없이 같은 말이 나가야 합니다.
+FEVER_URGENT_NOTICE = (
+    "열이 있고 아직 생후 3개월이 되지 않았습니다. 사진과 상관없이 "
+    "지금 진료를 받아 주세요."
+)
+
+
 def _settle(
     level: str, urgent: bool, age_months: int, has_fever: str
 ) -> tuple[str, bool]:

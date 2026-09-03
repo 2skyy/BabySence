@@ -5,7 +5,6 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   audioplayers_windows
-  desktop_drop
   file_selector_windows
   firebase_core
   permission_handler_windows

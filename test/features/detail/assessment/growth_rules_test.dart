@@ -76,6 +76,26 @@ void main() {
       expect(a!.level, AssessmentLevel.normal);
       expect(a.guideText, isNot(contains('상담을 권합니다')));
     });
+
+    test('키가 큰 아이의 안내 문장이 스스로 어긋나지 않는다', () {
+      // 키는 위쪽을 정상으로 봅니다. 그런데 문장을 만드는 _describe는
+      // 여전히 '또래보다 큼'이라 적어, 둘을 이어 붙이면 "키 또래보다
+      // 큼으로 또래 범위 안입니다"가 됩니다 — 한 문장이 스스로를
+      // 부정합니다. 보호자는 이 말을 읽고 무엇을 해야 할지 알 수 없습니다.
+      final a = GrowthRules.assess(
+        sex: ChildSex.male,
+        ageInMonths: 12,
+        heightCm: heightForZ(3.5),
+      );
+      expect(a!.guideText, isNot(contains('큼로')));
+      expect(a.guideText, isNot(contains('큼으로')));
+      expect(
+        a.guideText.contains('또래 범위 안입니다') &&
+            a.guideText.contains('또래보다 많이 큼'),
+        isFalse,
+        reason: '"또래보다 많이 큼"과 "또래 범위 안"을 한 문장에 같이 씁니다',
+      );
+    });
   });
 
   group('실제 측정값으로도 같은 단계가 나온다', () {

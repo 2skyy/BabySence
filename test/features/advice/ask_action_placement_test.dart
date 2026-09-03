@@ -386,6 +386,17 @@ void main() {
       expect(context.contains('} else if (rows.isNotEmpty) {'), isTrue);
     });
 
+    test('성장 조회 실패도 "기록 없음"과 구별한다', () {
+      // 성장은 어느 영역에서든 배경으로 실립니다. _latestGrowth가 예외를
+      // 삼켜 null을 돌려주면 "성장 기록이 아직 없는 아이"와 **글자 그대로
+      // 같은 맥락**이 나갑니다. 호출부에 catch가 있지만 그때는 이미 예외가
+      // 오지 않으므로 실행되지 않습니다 — failed는 false로 남고, 화면은
+      // 맥락이 빈 것을 모른 채 답을 보여 줍니다.
+      final body = context.substring(context.indexOf('_latestGrowth(String'));
+      expect(body.substring(0, body.indexOf('\n  }')).contains('catch'), isFalse,
+          reason: '조회 실패를 여기서 삼키면 호출부가 알 방법이 없습니다');
+    });
+
     test('실패를 "기록 없음"과 구별해 화면에 전한다', () {
       // _recentFor가 실패에 빈 목록을 돌려주면 "없다"와 같은 말이 되고,
       // 모델이 없는 것을 없다고 확언합니다. 화면도 "아이 정보를 등록하면…"

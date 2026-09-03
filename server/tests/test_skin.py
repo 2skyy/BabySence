@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import advice, auth, main, skin  # noqa: E402
+from app import advice, auth, config, main, skin  # noqa: E402
 
 client = TestClient(main.app)
 
@@ -205,6 +205,33 @@ class TestResult:
         body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
         assert body["status"] == "unreadable"
         assert "level" not in body
+
+    def test_an_unreadable_photo_still_carries_the_fever_warning(self, logged_in, monkeypatch):
+        """사진은 못 읽어도 **열은 사진에 있던 것이 아닙니다.**
+
+        생후 3개월 미만의 발열은 advice.py의 병원 안내 목록 맨 위 항목이고,
+        `_settle`이 모델과 무관하게 코드로 urgent를 켭니다. 그런데 판독 불가
+        응답은 message만 돌려주어 그 판단이 통째로 사라졌습니다 — 열이 나는
+        2개월 아기의 발진을 흐리게 찍은 보호자가 "다시 찍어 주세요"만 보고
+        화면을 닫게 됩니다.
+        """
+        monkeypatch.setattr(
+            skin.model,
+            "read",
+            lambda image, media_type, age, fever: skin.SkinReading(
+                is_skin=False,
+                level="consult",
+                urgent=True,
+                observations=[],
+                unknown="",
+                advice="사진이 어두워 잘 보이지 않습니다. 밝은 곳에서 다시 찍어 주세요.",
+            ),
+        )
+        body = client.post("/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED).json()
+        assert body["status"] == "unreadable"
+        # 단계는 여전히 내보내지 않습니다 — 화면이 색을 그리면 안 됩니다.
+        assert "level" not in body
+        assert "진료" in body["message"], "코드가 켠 응급 안내가 사라졌습니다"
 
     def test_reports_an_urgent_reading(self, logged_in, monkeypatch):
         monkeypatch.setattr(
@@ -480,3 +507,31 @@ class TestRateLimit:
             headers=AUTHED,
         )
         assert answer.status_code == 200
+
+
+class TestOversizedBodyIsRefusedEarly:
+    """본문을 다 받기 **전에** 크기로 거절합니다.
+
+    FastAPI는 multipart 본문을 먼저 파싱한 뒤에 의존성(`require_user`)을
+    풉니다. 그래서 크기 확인이 핸들러 안에 있으면, 로그인하지 않은 요청도
+    본문을 끝까지 올려 보낸 다음에야 401을 받습니다 — 거절하는 데 드는
+    비용을 보내는 쪽이 아니라 서버가 냅니다.
+    """
+
+    def test_rejects_a_huge_body_without_a_token(self):
+        oversized = b"x" * (config.settings.max_upload_bytes + 1)
+        r = client.post(
+            "/api/skin/diagnose",
+            files={"file": ("big.jpg", oversized, "image/jpeg")},
+            data=FIELDS,
+        )
+        assert r.status_code == 413, r.status_code
+
+    def test_lets_a_normal_photo_through(self, logged_in, monkeypatch):
+        monkeypatch.setattr(
+            skin.model, "read", lambda image, media_type, age, fever: READING
+        )
+        r = client.post(
+            "/api/skin/diagnose", files=photo(), data=FIELDS, headers=AUTHED
+        )
+        assert r.status_code == 200, r.status_code
