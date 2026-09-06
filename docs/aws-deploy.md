@@ -117,6 +117,10 @@ http://<서버 IP>:8000/health
 flutter run --dart-define-from-file=env.json --dart-define=API_BASE_URL=http://<서버 IP>:8000
 ```
 
+매번 붙이기 번거로우면 `env.json`에 `"API_BASE_URL": "http://<서버 IP>:8000"` 한 줄을
+넣어 두세요(`env.example.json` 참고). 그러면 평소 명령
+`flutter run --dart-define-from-file=env.json` 그대로 이 서버에 붙습니다.
+
 이제 USB 터널(`adb reverse`)도, 같은 와이파이도 필요 없습니다.
 
 ---
