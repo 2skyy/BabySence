@@ -1,0 +1,16 @@
+# BabySense 분석 서버(FastAPI). deploy/ec2-setup.sh 가 경로를 채워 설치합니다.
+# 설정은 server/.env 에서 읽습니다(app/config.py 의 python-dotenv).
+[Unit]
+Description=BabySense AI server (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__HOME__/BabySence/server
+ExecStart=__HOME__/BabySence/server/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
