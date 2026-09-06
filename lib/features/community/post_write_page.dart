@@ -99,7 +99,9 @@ class _PostWritePageState extends State<PostWritePage> {
       backgroundColor: context.colors.background,
       appBar: CommonAppBar(title: _isEditing ? '글 수정' : '글쓰기'),
       body: SafeArea(
-        child: Padding(
+        // 키보드가 올라오면 화면이 반으로 줄어듭니다. 세로 고정 배치는 그 안에
+        // 못 들어가 넘침(노란 줄무늬)이 났습니다. 스크롤로 두면 밀려 올라갈 뿐입니다.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -160,19 +162,19 @@ class _PostWritePageState extends State<PostWritePage> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: TextField(
-                  controller: _bodyController,
-                  maxLength: bodyMax,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  decoration: InputDecoration(
-                    labelText: '내용',
-                    alignLabelWithHint: true,
-                    filled: true,
-                    fillColor: context.colors.surface,
-                  ),
+              TextField(
+                controller: _bodyController,
+                maxLength: bodyMax,
+                // 스크롤 안에서는 남은 높이를 채울 수 없어 최소 줄 수로 둡니다.
+                // 글이 길어지면 칸이 따라 늘어납니다.
+                minLines: 8,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: InputDecoration(
+                  labelText: '내용',
+                  alignLabelWithHint: true,
+                  filled: true,
+                  fillColor: context.colors.surface,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
