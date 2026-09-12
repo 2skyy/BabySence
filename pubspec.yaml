@@ -51,6 +51,8 @@ flutter:
 
     # 앱 아이콘 원본. 실행 직후 로딩 화면에서도 씁니다.
     - assets/icon/app_icon.png
+    # 로딩 화면의 흰 선 로고(투명 배경). 안드로이드 시작 화면과 같은 그림입니다.
+    - assets/icon/logo_lineart.png
 
     # 홈의 상담 단추용. 앱 아이콘의 배경만 어둡게 내린 것입니다
     # (tool/make_chat_logo.py). 밝은 민트 위 흰 선은 대비가 1.35:1이라
