@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱이 첫 화면을 그리기 전까지 보이는 배경. Flutter 쪽 로딩 화면(brand_splash)의
+         surface 색과 같게 두어 화면이 튀지 않게 합니다. -->
+    <color name="launch_background">#FFFFFF</color>
+</resources>

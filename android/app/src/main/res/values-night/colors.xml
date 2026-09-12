@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 다크 모드. 검은색(#000000)이 아니라 앱의 다크 surface(#1F2937)를 씁니다.
+         기본 테마의 검은 창 배경이 "앱 켤 때 검은 화면"으로 보이던 원인입니다. -->
+    <color name="launch_background">#1F2937</color>
+</resources>

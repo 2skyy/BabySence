@@ -475,6 +475,23 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           maxX: 24,
           minY: axis.min,
           maxY: axis.max,
+          // 점을 누르면 뜨는 값. 기본 툴팁은 실수를 그대로 찍어 백분위 곡선의
+          // 보간값이 소수점 열 자리로 나왔습니다. 기록·곡선 모두 한 자리로 맞춥니다.
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (spots) => [
+                for (final s in spots)
+                  LineTooltipItem(
+                    '${s.y.toStringAsFixed(1)}${isWeight ? 'kg' : 'cm'}',
+                    TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: s.bar.color ?? context.colors.textPrimary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

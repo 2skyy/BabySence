@@ -280,8 +280,8 @@ class ChatContext {
 
     final r = rows.last;
     final parts = <String>[
-      if (r.weightKg != null) '몸무게 ${r.weightKg}kg',
-      if (r.heightCm != null) '키 ${r.heightCm}cm',
+      if (r.weightKg != null) '몸무게 ${r.weightKg!.toStringAsFixed(1)}kg',
+      if (r.heightCm != null) '키 ${r.heightCm!.toStringAsFixed(1)}cm',
     ];
     if (parts.isEmpty) return null;
 
