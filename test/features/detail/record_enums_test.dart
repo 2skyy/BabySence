@@ -20,11 +20,12 @@ void main() {
       expect(FeedingType.fromLabel('이유식'), FeedingType.solid);
     });
 
-    test('모유(직수)만 수유량을 받지 않는다', () {
-      // amount_ml은 모유(직수)에서 NULL이어야 합니다(테이블 주석).
-      expect(FeedingType.breast.allowsAmount, isFalse);
-      expect(FeedingType.formula.allowsAmount, isTrue);
-      expect(FeedingType.solid.allowsAmount, isTrue);
+    test('모유(직수)만 수유량이 선택이다', () {
+      // 분유·이유식은 양을 알 수 있어 필수. 모유(직수)는 대개 잴 수 없어
+      // 비워도 되고(NULL, 테이블 주석), 잰 경우에는 적을 수 있습니다.
+      expect(FeedingType.breast.requiresAmount, isFalse);
+      expect(FeedingType.formula.requiresAmount, isTrue);
+      expect(FeedingType.solid.requiresAmount, isTrue);
     });
   });
 

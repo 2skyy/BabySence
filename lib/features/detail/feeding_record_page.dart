@@ -101,17 +101,16 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
     final type = FeedingType.fromLabel(selectedFeedingType);
     final amount = int.tryParse(feedingAmountController.text);
 
-    // 모유(직수)는 계량이 불가능해 수유량을 받지 않습니다(테이블도 NULL 허용).
-    if (type.allowsAmount) {
-      if (amount == null) {
-        _showMessage('수유량을 입력해주세요.');
-        return;
-      }
-      // amount_ml의 CHECK 제약(0~2000)과 같은 범위입니다.
-      if (amount < 0 || amount > 2000) {
-        _showMessage('수유량은 0~2000ml 사이로 입력해주세요.');
-        return;
-      }
+    // 분유·이유식은 수유량이 필수, 모유(직수)는 선택입니다(잰 경우만 적고,
+    // 비우면 NULL). 적었다면 종류와 상관없이 범위를 봅니다.
+    if (type.requiresAmount && amount == null) {
+      _showMessage('수유량을 입력해주세요.');
+      return;
+    }
+    // amount_ml의 CHECK 제약(0~2000)과 같은 범위입니다.
+    if (amount != null && (amount < 0 || amount > 2000)) {
+      _showMessage('수유량은 0~2000ml 사이로 입력해주세요.');
+      return;
     }
 
     final fedAt = _time.toDateTime();
@@ -214,7 +213,10 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
               ),
               const SizedBox(height: 32),
               Text(
-                '수유량 (ml)',
+                // 직수는 대개 잴 수 없으니 비워도 된다는 것을 라벨에서 알립니다.
+                FeedingType.fromLabel(selectedFeedingType).requiresAmount
+                    ? '수유량 (ml)'
+                    : '수유량 (ml) · 잰 경우만',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -237,8 +239,6 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
                 child: TextField(
                   controller: feedingAmountController,
-                  // 모유(직수)는 계량이 불가능해 입력을 막습니다.
-                  enabled: FeedingType.fromLabel(selectedFeedingType).allowsAmount,
                   keyboardType: TextInputType.number,
                   // ✅ 숫자만 입력 가능
                   inputFormatters: [

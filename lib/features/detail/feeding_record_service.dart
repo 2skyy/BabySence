@@ -20,9 +20,13 @@ enum FeedingType {
         orElse: () => FeedingType.formula,
       );
 
-  /// 모유(직수)는 계량이 불가능해 amount_ml을 NULL로 둡니다.
-  /// 테이블 주석에 명시된 규칙입니다.
-  bool get allowsAmount => this != FeedingType.breast;
+  /// 수유량을 반드시 받아야 하는지.
+  ///
+  /// 분유·이유식은 양을 알 수 있으니 받습니다. 모유(직수)는 대개 잴 수 없어
+  /// **선택**입니다 — 유축해서 먹였거나 체중법으로 잰 보호자는 적을 수 있고,
+  /// 비워 두면 NULL로 남습니다(테이블 주석의 "NULL 허용"이 그 뜻입니다).
+  /// 예전에는 입력칸 자체를 막았는데, 잰 사람은 적을 곳이 없었습니다.
+  bool get requiresAmount => this != FeedingType.breast;
 }
 
 /// feeding_records 테이블의 한 행.
@@ -100,7 +104,7 @@ class FeedingRecordService {
       'baby_id': babyId,
       'feeding_type': type.name,
       // 모유(직수)는 수량을 받지 않으므로 값이 들어와도 무시합니다.
-      'amount_ml': type.allowsAmount ? amountMl : null,
+      'amount_ml': amountMl,
       'fed_at': toDbTime(fedAt),
     };
   }
