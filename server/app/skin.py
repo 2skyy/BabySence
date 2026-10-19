@@ -22,8 +22,9 @@ import json
 import logging
 from typing import NamedTuple
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIConnectionError, APIStatusError
 
+from . import claude_client
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -384,16 +385,22 @@ class _SkinClient:
                 "ANTHROPIC_API_KEY가 없습니다. /api/skin/diagnose는 503을 반환합니다."
             )
             return
-        self._client = Anthropic(
-            api_key=settings.anthropic_api_key,
-            timeout=60.0,
-            max_retries=1,
-        )
+        # 타임아웃·재시도 정책은 claude_client가 한곳에서 정합니다.
+        self._client = claude_client.make_anthropic(settings.anthropic_api_key)
         logger.info("피부 분석을 준비했습니다. model=%s", settings.skin_model)
 
     @property
     def is_ready(self) -> bool:
         return self._client is not None
+
+    def _call(self, **kwargs):
+        """벤더 호출 한 번. 확인·분류·기록은 guard가 한곳에서 합니다."""
+        with claude_client.guard():
+            # 비스트리밍이라 read 타임아웃이 생성 전체를 자릅니다. 공용
+            # 30초 대신 이 호출만 60초를 씁니다(claude_client.SKIN_TIMEOUT).
+            return self._client.messages.create(
+                timeout=claude_client.SKIN_TIMEOUT, **kwargs
+            )
 
     def read(
         self,
@@ -408,7 +415,10 @@ class _SkinClient:
                 "피부 분석 기능이 설정되지 않았습니다. 서버에 ANTHROPIC_API_KEY가 필요합니다."
             )
 
-        message = self._client.messages.create(
+        # 브레이커가 열려 있으면 guard가 벤더를 부르지 않고 던집니다.
+        # 상담과 같은 브레이커입니다 — 벤더가 하나라 관측도 하나면 됩니다.
+        try:
+            message = self._call(
             model=settings.skin_model,
             max_tokens=settings.skin_max_tokens,
             system=SYSTEM_PROMPT + _context_block(age_months, has_fever),
@@ -438,8 +448,10 @@ class _SkinClient:
                         },
                     ],
                 }
-            ],
-        )
+                ],
+            )
+        except claude_client.CircuitOpen:
+            raise SkinModelUnavailable(claude_client.OPEN_MESSAGE) from None
 
         # 안전 분류기가 거절하면 content가 비어 있습니다. 먼저 보지 않으면
         # 아래에서 빈 문자열을 파싱하다 터집니다.

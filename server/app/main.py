@@ -25,7 +25,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import advice, auth, skin
+from . import advice, auth, claude_client, skin
 from .config import settings
 from .ratelimit import SlidingWindow
 
@@ -214,6 +214,13 @@ async def get_advice(
             detail=f"질문은 {settings.max_question_chars}자 이하로 적어 주세요.",
         )
 
+    # 브레이커가 열려 있으면 상한을 깎기 **전에** 거절합니다. 이 503은
+    # 벤더를 부르지 않아 비용이 없는데, 상한 한 칸을 태우면 벤더가 회복된
+    # 뒤 정작 그 사용자가 429에 막힙니다 — 즉시 오는 503은 재시도를
+    # 부르니 더 그렇습니다.
+    if claude_client.breaker.would_block():
+        raise HTTPException(status_code=503, detail=claude_client.OPEN_MESSAGE)
+
     # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
     # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에
     # 막혀 거절된 요청도 앞 통을 한 칸 씁니다 — 계정 하나로 전체 상한을
@@ -305,6 +312,11 @@ async def diagnose_skin(
             status_code=400,
             detail="사진 파일만 올릴 수 있습니다. JPG나 PNG로 다시 시도해 주세요.",
         )
+
+    # 브레이커가 열려 있으면 상한을 깎기 전에 거절합니다(위 상담과 같은 이유
+    # — 사진 상한은 시간당 몇 건뿐이라 억울한 소모가 더 아픕니다).
+    if claude_client.breaker.would_block():
+        raise HTTPException(status_code=503, detail=claude_client.OPEN_MESSAGE)
 
     # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
     # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에

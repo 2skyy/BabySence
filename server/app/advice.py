@@ -18,6 +18,9 @@ from anthropic import (
     RateLimitError,
 )
 
+import httpx
+
+from . import claude_client
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -140,14 +143,9 @@ class _AdviceClient:
                 "ANTHROPIC_API_KEY가 없습니다. /api/advice는 503을 반환합니다."
             )
             return
-        # SDK 기본값은 10분 타임아웃 × 재시도 2회라 최악의 경우 30분을
-        # 붙잡습니다. 앱은 60초에 포기하므로 그때는 아무도 안 기다리는
-        # 답변을 서버 혼자 만들고 있는 셈입니다.
-        self._client = Anthropic(
-            api_key=settings.anthropic_api_key,
-            timeout=60.0,
-            max_retries=1,
-        )
+        # 타임아웃·재시도 정책은 claude_client가 한곳에서 정합니다.
+        # 피부 판독과 같은 정책을 써야 브레이커의 관측이 서로 유효합니다.
+        self._client = claude_client.make_anthropic(settings.anthropic_api_key)
         logger.info("Claude 클라이언트를 준비했습니다. model=%s", settings.advice_model)
 
     @property
@@ -184,17 +182,25 @@ class _AdviceClient:
         # 켜집니다**(생략하면 추론이 꺼지던 Opus 4.8/4.7과 반대). 끄는 쪽은
         # 일부러 피했습니다 — 이 모델은 추론을 끄면 <thinking> 태그가 답변에
         # 새어 나오는 일이 있습니다. 비용은 effort로 낮춥니다.
-        with self._client.messages.stream(
-            model=settings.advice_model,
-            # 추론과 본문이 함께 쓰는 상한입니다.
-            max_tokens=settings.advice_max_tokens,
-            system=system,
-            # 육아 질문은 대개 짧고 즉답형이라 낮은 effort로 충분합니다.
-            # 답이 얕으면 medium으로 올리세요.
-            output_config={"effort": "low"},
-            messages=messages,
-        ) as stream:
-            message = stream.get_final_message()
+        # 확인·분류·기록은 guard가 한곳에서 합니다. 피부 판독과 같은
+        # 기제여야 공유 브레이커의 창이 한 잣대로 채워집니다. 열려 있으면
+        # 벤더를 부르지 않고 즉시 안내합니다 — 30초 로딩 끝의 실패가 아니라
+        # 1초 안의 안내가 되게 하는 층입니다.
+        try:
+            with claude_client.guard():
+                with self._client.messages.stream(
+                    model=settings.advice_model,
+                    # 추론과 본문이 함께 쓰는 상한입니다.
+                    max_tokens=settings.advice_max_tokens,
+                    system=system,
+                    # 육아 질문은 대개 짧고 즉답형이라 낮은 effort로
+                    # 충분합니다. 답이 얕으면 medium으로 올리세요.
+                    output_config={"effort": "low"},
+                    messages=messages,
+                ) as stream:
+                    message = stream.get_final_message()
+        except claude_client.CircuitOpen:
+            raise AdviceUnavailable(claude_client.OPEN_MESSAGE) from None
 
         # 안전 분류기가 거절하면 content가 비어 있습니다. 먼저 확인하지 않으면
         # content[0]에서 터집니다.
@@ -264,7 +270,8 @@ def to_http_detail(error: Exception) -> tuple[int, str]:
         return 503, str(error)
     if isinstance(error, RateLimitError):
         return 429, "요청이 많습니다. 잠시 후 다시 시도해 주세요."
-    if isinstance(error, APIConnectionError):
+    if isinstance(error, (APIConnectionError, httpx.HTTPError)):
+        # httpx가 날것으로 오는 경우: 스트리밍 본문을 읽는 중의 끊김.
         return 503, "답변 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."
     if isinstance(error, APIStatusError):
         logger.error("Claude 오류 %s: %s", error.status_code, error.message)
