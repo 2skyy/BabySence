@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/services/db_time.dart';
 
 /// 동반 증상. enum 이름이 temperature_symptoms.symptom의 CHECK 제약
 /// (`cough` / `runny_nose` / `rash` / `vomit` / `diarrhea`)과 일치해야 합니다.
@@ -77,7 +80,7 @@ class TemperatureRecord {
 
   /// 이력 목록에 보여줄 요약. 증상이 없으면 체온만 보여줍니다.
   String get summary {
-    final temp = '${temperatureC.toStringAsFixed(1)}°C';
+    final temp = '${temperatureC.toStringAsFixed(1)}℃';
     if (symptoms.isEmpty) return temp;
     return '$temp · ${symptoms.map((s) => s.label).join(', ')}';
   }
@@ -88,15 +91,33 @@ class TemperatureRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// 최근 기록을 증상과 함께 가져옵니다.
-  static Future<List<TemperatureRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
+  /// 최근 체온 기록.
+  ///
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 3일"이라 적어 두고
+  /// 실제로는 최신 20건만 보게 됩니다. 열이 나서 자주 잰 아이일수록 그 창의
+  /// 앞쪽(첫날 고열)이 빠지는데, 하필 가장 알고 싶은 값입니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
+  static Future<List<TemperatureRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+    DateTime? until,
+  }) async {
+    var query = _client
         .from('temperature_records')
         // 증상은 별도 테이블이라 중첩 select로 한 번에 읽습니다.
         .select('*, temperature_symptoms(symptom)')
-        .eq('baby_id', babyId)
-        .order('measured_at', ascending: false)
-        .limit(limit);
+        .eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('measured_at', toDbTime(since));
+    if (until != null) query = query.lt('measured_at', toDbTime(until));
+
+    final rows =
+        await query.order('measured_at', ascending: false).limit(limit);
 
     return rows.map(TemperatureRecord.fromMap).toList();
   }
@@ -115,7 +136,7 @@ class TemperatureRecordService {
     return {
       'baby_id': babyId,
       'temperature_c': temperatureC,
-      'measured_at': measuredAt.toIso8601String(),
+      'measured_at': toDbTime(measuredAt),
     };
   }
 
@@ -138,7 +159,18 @@ class TemperatureRecordService {
   ///
   /// 증상은 다중 선택이라 별도 테이블에 여러 행으로 들어갑니다. 먼저 체온 행을
   /// 만들고 그 id로 증상을 넣습니다.
-  static Future<void> save({
+  /// 체온과 동반 증상을 저장합니다.
+  ///
+  /// 두 표에 나눠 넣어야 해서 **한 번에 끝나지 않습니다.** 증상 저장이
+  /// 실패했을 때 통째로 예외를 던지면, 체온은 이미 들어갔는데 화면은
+  /// "저장하지 못했습니다"라고 말합니다. 사용자가 다시 누르면 같은 체온이
+  /// 한 번 더 쌓입니다.
+  ///
+  /// 그래서 증상 실패는 **예외 대신 결과로** 알립니다. 판정 저장이 이미
+  /// 그렇게 돼 있습니다 — 곁다리가 실패했다고 본체를 무효로 만들지 않습니다.
+  ///
+  /// 돌려주는 값이 false면 체온만 저장된 것입니다.
+  static Future<bool> save({
     required String babyId,
     required double temperatureC,
     required DateTime measuredAt,
@@ -158,8 +190,14 @@ class TemperatureRecordService {
       recordId: row['id'] as String,
       symptoms: symptoms,
     );
-    if (symptomRows.isEmpty) return;
+    if (symptomRows.isEmpty) return true;
 
-    await _client.from('temperature_symptoms').insert(symptomRows);
+    try {
+      await _client.from('temperature_symptoms').insert(symptomRows);
+      return true;
+    } catch (e) {
+      debugPrint('동반 증상 저장 실패: $e');
+      return false;
+    }
   }
 }

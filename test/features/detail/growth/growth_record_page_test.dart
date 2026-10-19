@@ -154,8 +154,37 @@ void main() {
     await tester.tap(find.byIcon(Icons.delete_outline));
     await tester.pumpAndSettle();
 
+    // 곧바로 지우지 않고 한 번 묻습니다. 이 기록은 되돌릴 수 없습니다.
+    expect(find.text('이 기록을 지울까요?'), findsOneWidget);
+    expect(repo.deletedIds, isEmpty, reason: '묻기 전에 지우면 안 됩니다');
+
+    await tester.tap(find.widgetWithText(TextButton, '삭제'));
+    await tester.pumpAndSettle();
+
     expect(repo.deletedIds, ['r1']);
     expect(find.textContaining('몸무게 5.5kg'), findsNothing);
+  });
+
+  testWidgets('삭제 확인 창에서 취소하면 지우지 않는다', (tester) async {
+    final repo = _FakeGrowthRepository(
+      baby: _baby,
+      records: [
+        GrowthRecord(id: 'r1', date: DateTime(2026, 3, 1), weightKg: 5.5),
+      ],
+    );
+
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '취소'));
+    await tester.pumpAndSettle();
+
+    expect(repo.deletedIds, isEmpty);
+    expect(find.textContaining('몸무게 5.5kg'), findsOneWidget);
   });
 
   testWidgets('불러오기가 실패하면 오류와 다시 시도 버튼을 보여준다', (tester) async {

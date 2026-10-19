@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- 안드로이드 11 이하, 그리고 12+에서 시스템 스플래시 뒤에 Flutter가 첫 프레임을
+     그리기 전까지의 배경. 로딩 화면과 같은 초록 바탕에 같은 로고를 가운데 둡니다. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item android:drawable="@color/launch_background" />
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/splash_logo" />
+    </item>
 </layer-list>

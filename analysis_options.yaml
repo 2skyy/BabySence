@@ -14,6 +14,12 @@ analyzer:
   # 플러그인 원본이 딸려 들어와 flutter analyze가 남의 코드 오류를 쏟아냅니다.
   exclude:
     - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the

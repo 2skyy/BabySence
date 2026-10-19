@@ -11,9 +11,12 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 시간·날짜 선택기를 한국어로 띄우기 위한 것입니다. 없으면 'Select time',
+  # 'CANCEL' 처럼 영어로 나옵니다.
+  flutter_localizations:
+    sdk: flutter
+
   cupertino_icons: ^1.0.8
-  desktop_drop: ^0.4.4
-  http: ^1.6.0
   noise_meter: ^5.1.0
   permission_handler: ^12.0.3
   flutter_background_service: ^5.1.0
@@ -22,10 +25,11 @@ dependencies:
   flutter_local_notifications: ^22.0.0
   fl_chart: ^0.69.0
   shared_preferences: ^2.5.5
+  # 수유 알림 예약(zonedSchedule)에 직접 씁니다. flutter_local_notifications가
+  # 함께 끌어오지만, 직접 import하므로 명시합니다.
+  timezone: ^0.11.1
   dio: ^5.9.2
   image_picker: ^1.2.2
-  file_selector: ^1.1.0
-  file_picker: ^11.0.2
 
   # 오디오 플레이어 패키지
   audioplayers: ^6.1.0
@@ -47,6 +51,13 @@ flutter:
 
     # 앱 아이콘 원본. 실행 직후 로딩 화면에서도 씁니다.
     - assets/icon/app_icon.png
+    # 로딩 화면의 흰 선 로고(투명 배경). 안드로이드 시작 화면과 같은 그림입니다.
+    - assets/icon/logo_lineart.png
+
+    # 홈의 상담 단추용. 앱 아이콘의 배경만 어둡게 내린 것입니다
+    # (tool/make_chat_logo.py). 밝은 민트 위 흰 선은 대비가 1.35:1이라
+    # 선이 보이지 않았고, 홈의 다른 강조색과도 따로 놀았습니다.
+    - assets/icon/chat_logo.png
 
     # ★ 수정: assets/audio/ 폴더 전체 등록 (개별 파일 대신 폴더 경로 지정)
     - assets/audio/

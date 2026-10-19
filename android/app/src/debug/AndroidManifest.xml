@@ -4,4 +4,10 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- 개발 중에는 분석 서버(FastAPI)에 http://로 붙습니다. 안드로이드 9+는
+         비암호화 http를 기본으로 막으므로, 이 허용이 없으면 앱만 조용히
+         "서버 연동 실패"가 됩니다. 디버그 빌드에만 적용되고 배포 빌드는
+         그대로 막혀 있습니다. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

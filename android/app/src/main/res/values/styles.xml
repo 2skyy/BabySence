@@ -5,6 +5,12 @@
         <!-- Show a splash screen on the activity. Automatically removed when
              the Flutter engine draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- 안드로이드 12+는 앱 아이콘을 얹은 시스템 스플래시를 먼저 그립니다.
+             그 배경도 같은 색으로 맞춥니다(없앨 수는 없고, 튀지 않게만). -->
+        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
+        <!-- 시스템 스플래시 가운데 아이콘도 같은 로고로. 없으면 런처 아이콘이
+             흰 판 위에 얹혀 나와 로딩 화면과 다른 그림이 됩니다. -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your

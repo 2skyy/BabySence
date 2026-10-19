@@ -13,16 +13,30 @@ import 'package:flutter_project/features/detail/temperature_record_service.dart'
 void main() {
   const babyId = 'baby-1';
 
-  group('수유: 모유(직수)는 amount_ml이 NULL', () {
-    test('모유(직수)는 수량을 넣어도 NULL로 나간다', () {
+  group('수유: 모유(직수)는 amount_ml이 선택', () {
+    // 예전에는 직수를 무조건 NULL로 접었지만, 유축·체중법으로 잰 보호자는
+    // 적을 수 있어야 합니다. DB 제약도 '0~2000 범위'뿐이라(스키마 160행,
+    // 주석은 "NULL 허용" — 강제가 아님) 적은 값은 그대로 나가야 합니다.
+    test('모유(직수)도 적은 수량은 그대로 나간다', () {
       final row = FeedingRecordService.buildRow(
         babyId: babyId,
         type: FeedingType.breast,
         fedAt: DateTime(2026, 7, 30, 9),
-        amountMl: 120, // 사용자가 이전에 입력해 남아 있던 값
+        amountMl: 120, // 체중법으로 잰 값
       );
 
       expect(row['feeding_type'], 'breast');
+      expect(row['amount_ml'], 120);
+    });
+
+    test('모유(직수)는 비워 두면 NULL로 나간다', () {
+      final row = FeedingRecordService.buildRow(
+        babyId: babyId,
+        type: FeedingType.breast,
+        fedAt: DateTime(2026, 7, 30, 9),
+        amountMl: null,
+      );
+
       expect(row['amount_ml'], isNull);
     });
 
@@ -122,7 +136,8 @@ void main() {
 
       expect(row['sleep_type'], 'night');
 
-      final saved = DateTime.parse(row['ended_at'] as String);
+      // 저장은 UTC로 나가고 읽을 때 toLocal()로 되돌립니다(db_time.dart).
+      final saved = DateTime.parse(row['ended_at'] as String).toLocal();
       expect(saved, DateTime(2026, 7, 31, 6, 30));
       expect(saved.isAfter(start), isTrue);
     });
@@ -139,14 +154,17 @@ void main() {
       );
 
       expect(row['sleep_type'], 'nap');
-      expect(DateTime.parse(row['ended_at'] as String), end);
+      expect(DateTime.parse(row['ended_at'] as String).toLocal(), end);
     });
 
-    test('취침과 기상이 같은 시각이면 하루를 더한다', () {
-      // ended_at > started_at을 만족해야 하므로 같아도 밀어줍니다.
+    test('취침과 기상이 같으면 저장 전에 걸러낸다', () {
+      // 예전에는 여기서도 하루를 더해 24시간짜리 수면으로 저장했습니다.
+      // 같은 화면의 미리보기는 '0시간 0분'을 보여주고 있었으니, 사용자가
+      // 본 값과 저장된 값이 정반대였습니다.
       final at = DateTime(2026, 7, 30, 21, 0);
-      expect(SleepRecordService.resolveEnd(at, at),
-          DateTime(2026, 7, 31, 21, 0));
+      expect(SleepRecordService.isZeroLength(at, at), isTrue);
+      expect(SleepRecordService.isZeroLength(at, at.add(const Duration(minutes: 1))),
+          isFalse);
     });
   });
 }

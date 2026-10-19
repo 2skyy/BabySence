@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 다크 모드에서도 같은 색. 앱은 자체 설정으로 테마를 정하고 로딩 화면이
+         이 색이라, 여기만 다르면 켤 때마다 색이 튑니다. -->
+    <color name="launch_background">#A6ECC0</color>
+</resources>

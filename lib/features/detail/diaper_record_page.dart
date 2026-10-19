@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../../core/widgets/missing_baby.dart';
+
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'diaper_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/record_time_field.dart';
 
 class DiaperRecordPage extends StatefulWidget {
   const DiaperRecordPage({super.key});
@@ -14,18 +21,20 @@ class DiaperRecordPage extends StatefulWidget {
 
 class _DiaperRecordPageState extends State<DiaperRecordPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color surfaceColor = Colors.white;
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
-  String selectedDiaperType = "소변";
-  String selectedStoolState = "황금변";
-  String selectedAmPm = "AM";
+  String selectedDiaperType = DiaperType.urine.label;
+  String selectedStoolState = StoolState.golden.label;
 
-  final TextEditingController hourController = TextEditingController(text: "08");
-  final TextEditingController minuteController = TextEditingController(text: "40");
+  /// 기록은 대개 기저귀를 간 직후에 남깁니다. 화면을 열면 지금 시각이 들어가
+  /// 있어 대부분의 경우 시간을 건드릴 필요가 없습니다.
+  final _time = RecordTimeController.now();
+
+  /// 대변이 섞여 있는 종류인가. 소변에는 대변 상태가 없습니다.
+  bool get _hasStool => selectedDiaperType != DiaperType.urine.label;
 
   void selectDiaper(String type) {
     setState(() => selectedDiaperType = type);
@@ -33,10 +42,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   void selectStool(String state) {
     setState(() => selectedStoolState = state);
-  }
-
-  void selectAmPm(String value) {
-    setState(() => selectedAmPm = value);
   }
 
   bool isSaving = false;
@@ -88,24 +93,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
     }
   }
 
-  /// 화면의 AM/PM + 시:분을 오늘 날짜의 시각으로 만듭니다.
-  /// 미래 시각이 나오면 어제로 봅니다(자정 직후에 전날 기록을 넣는 경우).
-  DateTime? _recordedAt() {
-    final hour = int.tryParse(hourController.text);
-    final minute = int.tryParse(minuteController.text);
-    if (hour == null || minute == null) return null;
-    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-
-    var hour24 = hour % 12;
-    if (selectedAmPm == "PM") hour24 += 12;
-
-    final now = DateTime.now();
-    final at = DateTime(now.year, now.month, now.day, hour24, minute);
-    return at.isAfter(now) ? at.subtract(const Duration(days: 1)) : at;
-  }
-
   Future<void> handleAnalyze() async {
-    final recordedAt = _recordedAt();
+    final recordedAt = _time.toDateTime();
     if (recordedAt == null) {
       _showMessage("시간을 1~12시, 0~59분으로 입력해주세요.");
       return;
@@ -115,10 +104,19 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
     setState(() => isSaving = true);
     try {
-      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
-      final baby = _baby ?? await BabyService.loadCurrent();
+      // 화면을 열 때 잡은 아이에만 저장합니다. 저장 순간에 다시 고르면,
+      // 화면을 열 때 조회가 실패했을 경우 다른 아이가 뽑힐 수 있습니다.
+      final baby = _baby;
       if (baby == null) {
-        _showMessage("먼저 아이 정보를 등록해주세요.");
+        // 조회가 실패한 것과 아이가 아직 없는 것을 구별합니다.
+        // 뒤쪽이라면 화면을 다시 열어도 소용없고, 등록으로 보내야 합니다.
+        notifyMissingBaby(context,
+            state: _loadingHistory
+                ? BabyLookup.loading
+                : _historyError != null
+                    ? BabyLookup.failed
+                    : BabyLookup.none,
+            onRegistered: _loadHistory);
         return;
       }
 
@@ -148,8 +146,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
 
   @override
   void dispose() {
-    hourController.dispose();
-    minuteController.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -157,21 +154,8 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "배변 기록",
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      appBar: const CommonAppBar(
+        title: '배변 기록',
       ),
       // ★ 수정: 키보드가 올라올 때 화면이 부드럽게 스크롤되도록 전체를 감싸줍니다.
       body: SafeArea(
@@ -181,7 +165,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 "배변 종류",
                 style: TextStyle(
                   fontSize: 15,
@@ -192,162 +176,52 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _diaperButton("소변")),
+                  Expanded(child: _diaperButton(DiaperType.urine.label)),
                   const SizedBox(width: 10),
-                  Expanded(child: _diaperButton("대변")),
+                  Expanded(child: _diaperButton(DiaperType.stool.label)),
                   const SizedBox(width: 10),
-                  Expanded(child: _diaperButton("혼합")),
+                  Expanded(child: _diaperButton(DiaperType.mixed.label)),
                 ],
               ),
-              const SizedBox(height: 28),
-              const Text(
-                "대변 상태",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
+              // 소변에는 대변 상태가 없습니다. 서비스도 NULL로 넣습니다.
+              // 고를 수 있게 두면 고른 값이 저장된다고 오해합니다.
+              if (_hasStool) ...[
+                const SizedBox(height: 28),
+                Text(
+                  "대변 상태",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 3.8,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _stoolButton("황금변", Colors.amber),
-                  _stoolButton("녹변", Colors.green),
-                  _stoolButton("묽음", Colors.blue),
-                  _stoolButton("단단함", Colors.brown),
-                ],
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                "교체 시간",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                const SizedBox(height: 14),
+                GridView.count(
+                  shrinkWrap: true,
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 3.8,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _amPmButton("AM", "오전"),
-                    const SizedBox(width: 6),
-                    _amPmButton("PM", "오후"),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: hourController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
-                        ],
-                        onChanged: (value) {
-                          if (value.isEmpty) return;
-                          final intVal = int.tryParse(value);
-                          if (intVal == null) return;
-                          if (intVal < 1) {
-                            hourController.text = "1";
-                          } else if (intVal > 12) {
-                            hourController.text = "12";
-                          }
-                          hourController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: hourController.text.length),
-                          );
-                        },
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        ":",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: minuteController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
-                        ],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
+                    _stoolButton(StoolState.golden.label, Colors.amber),
+                    _stoolButton(StoolState.green.label, Colors.green),
+                    _stoolButton(StoolState.loose.label, Colors.blue),
+                    _stoolButton(StoolState.hard.label, Colors.brown),
                   ],
                 ),
+              ],
+              const SizedBox(height: 28),
+              RecordTimeField(
+                label: '교체 시간',
+                controller: _time,
+                onChanged: () => setState(() {}),
               ),
               // ★ 수정: 스크롤 뷰 내부에서 에러를 내는 Spacer() 대신 고정 간격 지정
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyze,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                    "기록하기",
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyze,
+                saving: isSaving,
               ),
               const SizedBox(height: 36),
               RecordHistorySection(
@@ -372,30 +246,6 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
     );
   }
 
-  Widget _amPmButton(String value, String label) {
-    final selected = selectedAmPm == value;
-    return GestureDetector(
-      onTap: () => selectAmPm(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? primaryColor : borderColor,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: selected ? primaryColor : secondaryTextColor,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _diaperButton(String label) {
     final selected = selectedDiaperType == label;
     return GestureDetector(
@@ -404,7 +254,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? primaryColor.withValues(alpha: 0.1) : Colors.white,
+          color: selected ? primaryColor.withValues(alpha: 0.1) : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? primaryColor : borderColor,
@@ -432,7 +282,7 @@ class _DiaperRecordPageState extends State<DiaperRecordPage> {
         duration: const Duration(milliseconds: 200),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.2) : Colors.white,
+          color: selected ? color.withValues(alpha: 0.2) : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? color : borderColor,

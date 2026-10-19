@@ -6,6 +6,7 @@ import '../../core/constants/app_spacing.dart';
 import '../../core/services/baby_service.dart';
 import '../../core/services/growth_calculator.dart';
 import '../../core/widgets/common_app_bar.dart';
+import 'baby_edit_page.dart';
 import '../../routes/app_routes.dart';
 import 'baby_member_service.dart';
 import 'co_parenting_page.dart';
@@ -35,8 +36,14 @@ class _MyPagePageState extends State<MyPagePage> {
     _load();
   }
 
+  /// 아이 정보를 못 읽었는지. 아이가 없는 것과 다릅니다.
+  bool _loadFailed = false;
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final baby = await BabyService.loadCurrent();
       final count = baby == null
@@ -48,6 +55,9 @@ class _MyPagePageState extends State<MyPagePage> {
         _memberCount = count;
       });
     } catch (e) {
+      // 못 읽은 것과 아이가 없는 것은 다릅니다. 삼키면 "아이 정보를
+      // 등록해 주세요"가 떠서, 등록한 사람에게 등록하라고 말하게 됩니다.
+      if (mounted) setState(() => _loadFailed = true);
       debugPrint('아이 정보 조회 실패: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -69,7 +79,7 @@ class _MyPagePageState extends State<MyPagePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: const CommonAppBar(title: '마이페이지'),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -92,10 +102,10 @@ class _MyPagePageState extends State<MyPagePage> {
 
   Widget _sectionTitle(String title) => Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       );
 
@@ -116,17 +126,17 @@ class _MyPagePageState extends State<MyPagePage> {
               children: [
                 Text(
                   _displayName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _user?.email ?? '',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -152,6 +162,24 @@ class _MyPagePageState extends State<MyPagePage> {
       );
     }
 
+    if (_loadFailed) {
+      return _card(
+        onTap: _load,
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: AppColors.error),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                '아이 정보를 불러오지 못했어요. 눌러서 다시 시도',
+                style: TextStyle(color: context.colors.textPrimary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final baby = _baby;
     if (baby == null) {
       return _card(
@@ -159,23 +187,26 @@ class _MyPagePageState extends State<MyPagePage> {
           await Navigator.pushNamed(context, AppRoutes.onboarding);
           if (mounted) _load();
         },
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.add_circle_outline, color: AppColors.primary),
             SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
                 '아이 정보를 등록해 주세요',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: context.colors.textPrimary),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(Icons.chevron_right, color: context.colors.textSecondary),
           ],
         ),
       );
     }
 
     return _card(
+      // 예전에는 등록만 있고 고칠 길이 없었습니다. 생년월일은 체온·성장
+      // 판정의 기준이라, 틀린 채로 두면 판정도 계속 틀립니다.
+      onTap: () => _openEdit(baby),
       child: Row(
         children: [
           const Icon(Icons.child_care, color: AppColors.brand, size: 28),
@@ -186,27 +217,37 @@ class _MyPagePageState extends State<MyPagePage> {
               children: [
                 Text(
                   baby.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${baby.sex == ChildSex.male ? '남아' : '여아'} · '
                   '${_formatDate(baby.birthDate)} 출생',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
               ],
             ),
           ),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
+  }
+
+  /// 아이 정보 수정으로 갑니다. 고치고 돌아오면 바뀐 값을 바로 반영합니다.
+  Future<void> _openEdit(Baby baby) async {
+    final updated = await Navigator.push<Baby>(
+      context,
+      MaterialPageRoute(builder: (_) => BabyEditPage(baby: baby)),
+    );
+    if (updated != null && mounted) setState(() => _baby = updated);
   }
 
   /// 함께 키우는 사람 관리.
@@ -232,9 +273,9 @@ class _MyPagePageState extends State<MyPagePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '함께 보는 사람 관리',
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: context.colors.textPrimary),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -243,15 +284,15 @@ class _MyPagePageState extends State<MyPagePage> {
                       : count <= 1
                           ? '아직 나 혼자예요'
                           : '$count명이 함께 보고 있어요',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          Icon(Icons.chevron_right, color: context.colors.textSecondary),
         ],
       ),
     );
@@ -264,7 +305,7 @@ class _MyPagePageState extends State<MyPagePage> {
     );
 
     return Material(
-      color: AppColors.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: onTap == null
           ? content

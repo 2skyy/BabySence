@@ -7,6 +7,12 @@ import '../../core/constants/app_colors.dart';
 /// 세션 확인처럼 첫 화면을 정하는 동안 표시됩니다. 빈 화면이나 동그란
 /// 진행 표시만 두면 "앱이 멈췄나" 싶게 보여서, 로고를 함께 보여줍니다.
 ///
+/// **안드로이드가 먼저 그리는 시작 화면과 같은 그림입니다.** OS는 앱이 뜨는
+/// 동안 `launch_background` 색 위에 `splash_logo`를 화면 정중앙에 그리고, 그
+/// 자리를 이 화면이 이어받습니다. 배경색·로고·위치를 맞춰 두어야 두 화면이
+/// 한 장면으로 보입니다. 그래서 로고는 [Center]로 정중앙에 고정하고, 글자와
+/// 진행 표시는 그 아래에 따로 놓습니다 — 글자 길이가 로고 위치를 밀면 안 됩니다.
+///
 /// [message]로 진행 상태를 덧붙일 수 있습니다.
 class BrandSplash extends StatelessWidget {
   final String? message;
@@ -16,65 +22,69 @@ class BrandSplash extends StatelessWidget {
 
   const BrandSplash({super.key, this.message, this.showProgress = true});
 
+  /// android/app/src/main/res/values/colors.xml 의 launch_background 와 같은 값.
+  static const Color _background = Color(0xFFA6ECC0);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 아이콘 원본에 이미 배경이 들어 있어 모서리만 둥글립니다.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: Image.asset(
-                'assets/icon/app_icon.png',
-                width: 132,
-                height: 132,
-                fit: BoxFit.cover,
-              ),
+      backgroundColor: _background,
+      body: Stack(
+        children: [
+          Center(
+            child: Image.asset(
+              'assets/icon/logo_lineart.png',
+              width: 150,
+              height: 150,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'BabySense',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-                color: AppColors.brand,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '아이의 하루를 기록하고 살펴봅니다',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 40),
-            if (showProgress)
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.brand),
-                ),
-              ),
-            if (message != null) ...[
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  message!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+          ),
+          Align(
+            alignment: const Alignment(0, 0.42),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'BabySense',
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: Colors.white,
                   ),
                 ),
-              ),
-            ],
-          ],
-        ),
+                const SizedBox(height: 6),
+                const Text(
+                  '아이의 하루를 기록하고 살펴봅니다',
+                  style: TextStyle(fontSize: 14, color: AppColors.primary),
+                ),
+                const SizedBox(height: 28),
+                if (showProgress)
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                if (message != null) ...[
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      message!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

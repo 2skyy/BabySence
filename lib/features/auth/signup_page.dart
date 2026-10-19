@@ -28,6 +28,10 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
+  /// 가입 요청 중인지. 연타하면 계정이 두 번 만들어지려 시도됩니다.
+  /// 로그인 화면은 이미 같은 방식으로 막고 있습니다.
+  bool _isSigningUp = false;
+
   // 3. ⭐️ 가입하기 버튼을 눌렀을 때 실행될 Supabase Auth 회원가입 함수
   Future<void> handleSignupSubmit() async {
     final name = _nameController.text.trim();
@@ -58,6 +62,7 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    setState(() => _isSigningUp = true);
     try {
       final response = await Supabase.instance.client.auth.signUp(
         email: email,
@@ -101,18 +106,20 @@ class _SignupPageState extends State<SignupPage> {
           const SnackBar(content: Text('네트워크 연결을 확인해주세요.')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSigningUp = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new, color: context.colors.textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -133,12 +140,12 @@ class _SignupPageState extends State<SignupPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           '회원가입을 위해\n정보를 입력해주세요',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: context.colors.textPrimary,
                             height: 1.4,
                           ),
                         ),
@@ -149,9 +156,9 @@ class _SignupPageState extends State<SignupPage> {
                           controller: _nameController,
                           decoration: InputDecoration(
                             hintText: '이름',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
@@ -165,9 +172,9 @@ class _SignupPageState extends State<SignupPage> {
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             hintText: '이메일',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
@@ -181,9 +188,9 @@ class _SignupPageState extends State<SignupPage> {
                           obscureText: true,
                           decoration: InputDecoration(
                             hintText: '비밀번호',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
@@ -197,9 +204,9 @@ class _SignupPageState extends State<SignupPage> {
                           obscureText: true,
                           decoration: InputDecoration(
                             hintText: '비밀번호 확인',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
+                            border: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.colors.border)),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
                             ),
@@ -213,7 +220,7 @@ class _SignupPageState extends State<SignupPage> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: handleSignupSubmit,
+                            onPressed: _isSigningUp ? null : handleSignupSubmit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
@@ -221,8 +228,8 @@ class _SignupPageState extends State<SignupPage> {
                               ),
                               elevation: 0,
                             ),
-                            child: const Text(
-                              '가입하기',
+                            child: Text(
+                              _isSigningUp ? '가입하는 중…' : '가입하기',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,

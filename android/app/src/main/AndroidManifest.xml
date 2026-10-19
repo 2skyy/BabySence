@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <!-- 기기를 다시 켜도 수유 알림 예약이 살아 있게 합니다.
+         이게 없으면 재부팅 한 번에 잡아 둔 알림이 전부 사라집니다. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:label="BabySense"
         android:name="${applicationName}"
@@ -17,6 +21,29 @@
             android:exported="true">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="BabySense Sleep Sound Monitor"/>
         </service>
+
+        <!-- 수유 알림을 실제로 띄우는 리시버들.
+             flutter_local_notifications는 예약을 PendingIntent.getBroadcast로
+             걸어 두는데, 매니페스트에 선언되지 않은 컴포넌트로 가는 브로드캐스트는
+             **예외도 로그도 없이 버려집니다.** 그래서 이 두 줄이 없으면 알림이
+             영영 뜨지 않고, 화면에는 아무 단서도 남지 않습니다.
+             플러그인 자체 매니페스트에는 권한만 있어 앱이 직접 넣어야 합니다
+             (flutter_local_notifications README). -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+
+        <!-- 재부팅·앱 업데이트 뒤 예약을 다시 겁니다. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"

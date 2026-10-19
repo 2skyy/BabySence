@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/widgets/common_button.dart';
@@ -23,6 +25,10 @@ class PostWritePage extends StatefulWidget {
 class _PostWritePageState extends State<PostWritePage> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
+
+  /// 새 글은 '그 밖에'에서 시작합니다. 아무거나 미리 골라 두면 고르지 않은
+  /// 글이 엉뚱한 갈래에 쌓입니다.
+  late PostCategory _category;
   bool _saving = false;
 
   bool get _isEditing => widget.post != null;
@@ -32,6 +38,7 @@ class _PostWritePageState extends State<PostWritePage> {
     super.initState();
     _titleController = TextEditingController(text: widget.post?.title ?? '');
     _bodyController = TextEditingController(text: widget.post?.body ?? '');
+    _category = widget.post?.category ?? PostCategory.etc;
   }
 
   // DB의 CHECK 제약과 같은 값입니다.
@@ -61,11 +68,16 @@ class _PostWritePageState extends State<PostWritePage> {
           id: widget.post!.id,
           title: title,
           body: body,
+          category: _category,
         );
         if (!mounted) return;
         Navigator.pop(context, updated);
       } else {
-        await CommunityService.createPost(title: title, body: body);
+        await CommunityService.createPost(
+          title: title,
+          body: body,
+          category: _category,
+        );
         if (!mounted) return;
         Navigator.pop(context, true);
       }
@@ -84,16 +96,12 @@ class _PostWritePageState extends State<PostWritePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_isEditing ? '글 수정' : '글쓰기'),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-      ),
+      backgroundColor: context.colors.background,
+      appBar: CommonAppBar(title: _isEditing ? '글 수정' : '글쓰기'),
       body: SafeArea(
-        child: Padding(
+        // 키보드가 올라오면 화면이 반으로 줄어듭니다. 세로 고정 배치는 그 안에
+        // 못 들어가 넘침(노란 줄무늬)이 났습니다. 스크롤로 두면 밀려 올라갈 뿐입니다.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,29 +127,54 @@ class _PostWritePageState extends State<PostWritePage> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _titleController,
-                maxLength: titleMax,
-                decoration: const InputDecoration(
-                  labelText: '제목',
-                  filled: true,
-                  fillColor: AppColors.surface,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '어떤 이야기인가요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.colors.textSecondary,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: TextField(
-                  controller: _bodyController,
-                  maxLength: bodyMax,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  decoration: const InputDecoration(
-                    labelText: '내용',
-                    alignLabelWithHint: true,
-                    filled: true,
-                    fillColor: AppColors.surface,
-                  ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final c in PostCategory.values)
+                    ChoiceChip(
+                      label: Text(c.label),
+                      selected: c == _category,
+                      onSelected: (_) => setState(() => _category = c),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              TextField(
+                controller: _titleController,
+                maxLength: titleMax,
+                decoration: InputDecoration(
+                  labelText: '제목',
+                  filled: true,
+                  fillColor: context.colors.surface,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _bodyController,
+                maxLength: bodyMax,
+                // 스크롤 안에서는 남은 높이를 채울 수 없어 최소 줄 수로 둡니다.
+                // 글이 길어지면 칸이 따라 늘어납니다.
+                minLines: 8,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: InputDecoration(
+                  labelText: '내용',
+                  alignLabelWithHint: true,
+                  filled: true,
+                  fillColor: context.colors.surface,
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),

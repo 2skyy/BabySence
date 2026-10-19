@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../routes/app_routes.dart';
+import '../contents/content_list_page.dart';
+import '../contents/content_service.dart';
 import 'coming_soon_page.dart';
 
 /// 하단 '전체' 탭.
@@ -31,14 +35,8 @@ class MorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('전체'),
-        centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-      ),
+      backgroundColor: context.colors.background,
+      appBar: CommonAppBar(title: '전체', centerTitle: false),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
@@ -50,26 +48,29 @@ class MorePage extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             childAspectRatio: 1.2,
             children: [
-              _tile(
+              _tile(context, 
                 icon: Icons.person_outline,
                 label: '마이페이지',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.mypage),
               ),
-              _tile(
+              _tile(context, 
                 icon: Icons.settings_outlined,
                 label: '설정',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
               ),
-              _tile(
+              _tile(context, 
                 icon: Icons.menu_book_outlined,
                 label: '육아 가이드',
-                onTap: () => _openComingSoon(
+                onTap: () => Navigator.push(
                   context,
-                  '육아 가이드',
-                  '월령별 발달과 돌봄 정보를\n모아 보여줄 화면입니다.',
+                  MaterialPageRoute(
+                    builder: (_) => const ContentListPage(
+                      category: ContentCategory.guide,
+                    ),
+                  ),
                 ),
               ),
-              _tile(
+              _tile(context, 
                 icon: Icons.description_outlined,
                 label: '진료용 리포트',
                 onTap: () => _openComingSoon(
@@ -81,16 +82,18 @@ class MorePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          _listItem(
+          _listItem(context, 
             label: '공지사항',
-            onTap: () => _openComingSoon(
+            onTap: () => Navigator.push(
               context,
-              '공지사항',
-              '업데이트와 안내를 전하는 화면입니다.',
+              MaterialPageRoute(
+                builder: (_) =>
+                    const ContentListPage(category: ContentCategory.notice),
+              ),
             ),
           ),
-          _divider(),
-          _listItem(
+          _divider(context),
+          _listItem(context, 
             label: '1:1 문의하기',
             onTap: () => _openComingSoon(
               context,
@@ -106,13 +109,13 @@ class MorePage extends StatelessWidget {
     );
   }
 
-  Widget _tile({
+  Widget _tile(BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
     return Material(
-      color: AppColors.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -126,7 +129,7 @@ class MorePage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
+                  color: context.colors.primarySurface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 20, color: AppColors.primary),
@@ -137,10 +140,10 @@ class MorePage extends StatelessWidget {
                   label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
               ),
@@ -151,7 +154,7 @@ class MorePage extends StatelessWidget {
     );
   }
 
-  Widget _listItem({required String label, required VoidCallback onTap}) {
+  Widget _listItem(BuildContext context, {required String label, required VoidCallback onTap}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -166,14 +169,14 @@ class MorePage extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  size: 20, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right,
+                  size: 20, color: context.colors.textSecondary),
             ],
           ),
         ),
@@ -181,15 +184,15 @@ class MorePage extends StatelessWidget {
     );
   }
 
-  Widget _divider() => const Divider(height: 1, color: AppColors.border);
+  Widget _divider(BuildContext context) => Divider(height: 1, color: context.colors.border);
 
   /// 로그아웃은 설정 화면의 '계정'에만 둡니다. 두 곳에 두면 어느 쪽이
   /// 정식인지 헷갈리고, 한쪽만 고치는 실수가 생깁니다.
   Widget _buildFooter(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         '버전 $appVersion',
-        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
       ),
     );
   }

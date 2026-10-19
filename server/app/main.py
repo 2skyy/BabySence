@@ -1,11 +1,15 @@
 """BabySense AI 분석 서버.
 
-역할은 **추론뿐**입니다. 인증과 기록 저장은 Supabase가 앱과 직접 처리하고,
-분석 결과를 skin_analyses에 남기는 것도 앱이 합니다.
-그래서 이 서버는 DB에 붙지 않고, 사용자 JWT를 다룰 필요도 없습니다.
+역할은 **추론뿐**입니다. 기록 저장은 Supabase가 앱과 직접 처리하고,
+분석 결과를 skin_analyses에 남기는 것도 앱이 합니다. 그래서 이 서버는 DB에
+붙지 않습니다.
 
-주의: 현재 피부 모델이 준비되지 않아 **동작하는 추론 엔드포인트가 없습니다.**
-/health는 응답하지만 /api/skin/diagnose는 503을 반환합니다.
+두 엔드포인트 모두 요청마다 Claude 크레딧을 쓰므로, 앱이 보낸 Supabase 액세스
+토큰이 유효한지만 확인합니다(app/auth.py). 인가(누가 어떤 행을 볼 수 있는가)는
+여전히 Supabase의 RLS가 앱과 직접 처리합니다.
+
+**둘은 같은 API 키를 씁니다.** 곧 같은 크레딧을 나눠 쓰므로, 한쪽이 폭주하면
+다른 쪽이 멈춥니다. 그래서 횟수 상한을 기능별로 따로 셉니다.
 
 실행:
     uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -13,12 +17,17 @@
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-from . import skin
+from . import advice, auth, claude_client, skin
 from .config import settings
+from .ratelimit import SlidingWindow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,19 +41,84 @@ async def lifespan(app: FastAPI):
     # 모델은 시작할 때 한 번만 읽습니다. 요청마다 읽으면 느립니다.
     # 모델이 없어도 서버는 뜨고, 해당 엔드포인트만 503을 반환합니다.
     skin.model.load()
+    advice.client.load()
     yield
+    await auth.close()
 
 
 app = FastAPI(title="BabySense AI Server", version="0.1.0", lifespan=lifespan)
 
-# 앱(모바일)에서 직접 호출합니다. 개발 편의를 위해 열어두었고,
-# 배포 시에는 실제 출처만 남기세요.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# 모바일 앱은 Origin을 보내지 않으므로 CORS와 무관하게 동작합니다.
+# 그래서 기본값은 "아무 출처도 허용하지 않음"입니다. 브라우저에서 부를 일이
+# 생기면 CORS_ORIGINS에 그 주소만 적으세요.
+#
+# 예전에는 allow_origins=["*"] + allow_credentials=True였는데, 이 조합에서
+# Starlette은 요청이 보낸 Origin을 그대로 되돌려줍니다 — 사실상 모든 사이트를
+# 허용하는 것과 같습니다.
+if settings.cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+
+@app.middleware("http")
+async def _refuse_oversized_body(request: Request, call_next):
+    """본문을 받기 **전에** Content-Length로 거절합니다.
+
+    크기 확인이 핸들러 안에만 있으면 늦습니다. FastAPI는 multipart 본문을
+    먼저 파싱한 뒤에 의존성(`require_user`)을 풀기 때문에, 로그인하지 않은
+    요청도 본문을 끝까지 올려 보낸 다음에야 401을 받습니다 — 거절하는 비용을
+    보내는 쪽이 아니라 서버가 냅니다.
+
+    헤더는 보내는 쪽이 적는 값이라 이것만 믿지는 않습니다. 실제 크기는
+    `_read_upload`가 다시 확인합니다. 여기서 막는 것은 정직하게 큰 본문입니다.
+    """
+    length = request.headers.get("content-length")
+    if length is not None:
+        try:
+            if int(length) > settings.max_upload_bytes:
+                limit_mb = settings.max_upload_bytes // (1024 * 1024)
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"파일이 너무 큽니다. {limit_mb}MB 이하만 업로드할 수 있습니다."
+                    },
+                )
+        except ValueError:
+            # 숫자가 아니면 헤더를 믿지 않고 그냥 통과시킵니다. 실제 크기는
+            # `_read_upload`가 봅니다.
+            pass
+
+    return await call_next(request)
+
+
+#: 사용자 한 명이 부를 수 있는 횟수.
+_per_user_limit = SlidingWindow(
+    limit=settings.advice_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
+)
+
+#: 서버 전체 상한. 계정은 얼마든지 새로 만들 수 있어 사용자별 상한만으로는
+#: 총액이 막히지 않습니다.
+_global_limit = SlidingWindow(
+    limit=settings.advice_global_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
+)
+
+#: 피부 분석은 **통을 따로 씁니다.** 사진 한 장은 글자 질문보다 토큰을 훨씬
+#: 많이 먹습니다. 같은 통에 넣으면 사진 몇 장에 상담이 막히고, 반대로 상담에
+#: 맞춰 넉넉히 열면 사진 쪽이 크레딧을 다 태웁니다. 두 기능이 같은 API 키,
+#: 곧 **같은 지갑**을 쓰기 때문에 통을 나누는 것이 서로를 지키는 장치입니다.
+_skin_per_user_limit = SlidingWindow(
+    limit=settings.skin_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
+)
+_skin_global_limit = SlidingWindow(
+    limit=settings.skin_global_rate_limit,
+    window_seconds=settings.advice_rate_window_seconds,
 )
 
 
@@ -69,35 +143,250 @@ async def health() -> dict:
         "status": "ok",
         "models": {
             "skin": {"ready": skin.model.is_ready},
+            "advice": {"ready": advice.client.ready},
         },
     }
 
 
-@app.post("/api/skin/diagnose")
-async def diagnose_skin(file: UploadFile = File(...)) -> dict:
-    """피부 사진 진단.
+class ChatMessage(BaseModel):
+    """대화의 한 마디.
 
-    확률이 기준(기본 50%)에 못 미치면 진단명을 내놓지 않고 재촬영을 안내합니다.
-    조명이 나쁜 사진에 그럴듯한 병명을 붙이는 것을 막기 위한 기준입니다.
+    길이 상한이 역할마다 다릅니다. 질문은 사용자가 적는 값이라 좁게 막지만,
+    답변은 우리가 만든 값이라 같은 잣대를 댈 이유가 없습니다. 예전에는 둘 다
+    500자로 두어, 답변이 길어지는 순간 그 대화가 통째로 막혔습니다.
+    """
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=settings.max_answer_chars)
+
+
+class AdviceRequest(BaseModel):
+    """대화 한 번의 요청.
+
+    이 서버는 대화를 **저장하지 않습니다.** DB에 붙지 않고, 여러 대에 띄워도
+    같은 답을 내야 하기 때문입니다. 기억은 앱이 들고 있고 매번 전부 보냅니다.
+
+    맥락(개월 수, 성별, 최근 기록, 앱이 낸 판정)도 **앱이 조립해 보냅니다.**
+    아이 이름처럼 개인을 특정하는 값은 보내지 마세요.
+    """
+
+    messages: list[ChatMessage] = Field(min_length=1)
+    domain: str = Field(default="overall")
+    context: str | None = Field(default=None, max_length=settings.max_context_chars)
+
+
+@app.post("/api/advice")
+async def get_advice(
+    request: AdviceRequest,
+    user_id: Annotated[str, Depends(auth.require_user)],
+) -> dict:
+    """보호자의 질문에 Claude가 답합니다.
+
+    진단하지 않습니다. 앱의 규칙 기반 판정을 대신하지도 않습니다.
+    판정이 맥락으로 들어오면 그 판정을 풀어 설명하는 역할입니다.
+
+    **로그인한 사용자만 부를 수 있습니다.** 요청 한 번마다 Claude 크레딧을
+    쓰기 때문입니다. 앱은 Supabase 액세스 토큰을 Authorization 헤더에
+    실어 보냅니다.
+    """
+    if request.domain not in advice.DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"알 수 없는 영역입니다: {request.domain}",
+        )
+
+    if len(request.messages) > settings.max_chat_messages:
+        raise HTTPException(
+            status_code=413,
+            detail="대화가 너무 길어졌습니다. 새 대화를 시작해 주세요.",
+        )
+
+    # 마지막은 보호자의 말이어야 합니다. 답변으로 끝나 있으면 물어볼 것이
+    # 없는데 모델을 부르는 셈입니다.
+    if request.messages[-1].role != "user":
+        raise HTTPException(status_code=400, detail="질문이 없습니다.")
+
+    # 질문 길이는 **이번에 물은 것**에만 겁니다. 대화 전체에 걸면 앞선 답변
+    # 때문에 새 질문이 막힙니다.
+    if len(request.messages[-1].content) > settings.max_question_chars:
+        raise HTTPException(
+            status_code=400,
+            detail=f"질문은 {settings.max_question_chars}자 이하로 적어 주세요.",
+        )
+
+    # 브레이커가 열려 있으면 상한을 깎기 **전에** 거절합니다. 이 503은
+    # 벤더를 부르지 않아 비용이 없는데, 상한 한 칸을 태우면 벤더가 회복된
+    # 뒤 정작 그 사용자가 429에 막힙니다 — 즉시 오는 503은 재시도를
+    # 부르니 더 그렇습니다.
+    if claude_client.breaker.would_block():
+        raise HTTPException(status_code=503, detail=claude_client.OPEN_MESSAGE)
+
+    # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
+    # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에
+    # 막혀 거절된 요청도 앞 통을 한 칸 씁니다 — 계정 하나로 전체 상한을
+    # 채워 다른 사람을 한 시간 막을 수 있습니다.
+    if not _per_user_limit.allows(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="질문을 너무 많이 하셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
+    if not _global_limit.allow("*"):
+        logger.warning("서버 전체 상한에 걸렸습니다.")
+        raise HTTPException(
+            status_code=429,
+            detail="지금 이용이 많습니다. 잠시 후 다시 시도해 주세요.",
+            headers={"Retry-After": str(_global_limit.retry_after_seconds("*"))},
+        )
+
+    if not _per_user_limit.allow(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="질문을 너무 많이 하셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
+    try:
+        # Anthropic 클라이언트는 동기라 그대로 부르면 이벤트 루프를 막습니다.
+        # 답변 하나가 몇 초 걸리는 동안 /health도 다른 사람의 인증 확인도
+        # 줄을 서게 됩니다.
+        answer = await run_in_threadpool(
+            advice.client.ask,
+            messages=[m.model_dump() for m in request.messages],
+            domain=request.domain,
+            context=request.context,
+        )
+    except Exception as exc:  # noqa: BLE001
+        status, detail = advice.to_http_detail(exc)
+        raise HTTPException(status_code=status, detail=detail) from exc
+
+    # 고지는 서버가 붙입니다. 모델이 쓰게 두면 답변마다 문구가 달라집니다.
+    return {
+        "status": "success",
+        "answer": answer.text,
+        # 토큰 상한에 걸려 문장이 끊긴 경우. 앱이 그 사실을 밝혀 줍니다.
+        "truncated": answer.truncated,
+        "disclaimer": advice.DISCLAIMER,
+    }
+
+
+@app.post("/api/skin/diagnose")
+async def diagnose_skin(
+    user_id: Annotated[str, Depends(auth.require_user)],
+    file: UploadFile = File(...),
+    age_months: int = Form(..., ge=0, le=300),
+    has_fever: Literal["yes", "no", "unknown"] = Form("unknown"),
+) -> dict:
+    """피부 사진을 보고 지금 무엇을 하면 좋을지 안내합니다.
+
+    **진단하지 않습니다.** 병명을 붙이지 않고, 암은 다루지 않습니다.
+    보이는 것을 옮기고 단계를 정할 뿐입니다. 단계에 '정상'은 없습니다 —
+    사진 한 장으로 괜찮다고 말하는 것도 진단입니다.
+
+    **로그인한 사용자만 부를 수 있습니다.** 예전에는 열려 있었는데, 그때는
+    고정값을 돌려주는 자리라 크레딧이 나가지 않았기 때문입니다. 이제 사진
+    한 장마다 Claude를 부르므로 상담과 같은 문을 씁니다.
+
+    [age_months]는 **필수입니다.** 선택으로 두면 앱이 안 보내도 200이 나가고,
+    나이에 걸린 안전 조항(3개월 미만 발열, 아주 어린 아기의 물집, 아직 기지
+    못하는 아이의 멍)이 조용히 죽은 채로 서비스가 돕니다. 비어도 아무도
+    모르는 안전장치가 가장 나쁩니다.
+
+    [has_fever]가 **세 값인 이유**: 예/아니요 둘이면 "재보지 않았음"이
+    "아니요"로 접힙니다. 발진과 발열이 함께 있는 것은 카메라가 담지 못하는
+    가장 값진 신호라, 그것을 조용히 지우면 안 됩니다.
     """
     image = await _read_upload(file)
 
+    # 형식은 매직 바이트로 봅니다. 확장자와 Content-Type은 보내는 쪽이
+    # 마음대로 적을 수 있고, 틀리면 Anthropic이 영문 400을 내는데 그 문구가
+    # 그대로 보호자 화면에 뜹니다.
+    media_type = skin.detect_media_type(image)
+    if media_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="사진 파일만 올릴 수 있습니다. JPG나 PNG로 다시 시도해 주세요.",
+        )
+
+    # 브레이커가 열려 있으면 상한을 깎기 전에 거절합니다(위 상담과 같은 이유
+    # — 사진 상한은 시간당 몇 건뿐이라 억울한 소모가 더 아픕니다).
+    if claude_client.breaker.would_block():
+        raise HTTPException(status_code=503, detail=claude_client.OPEN_MESSAGE)
+
+    # 상한은 모델을 부르기 **전에** 봅니다. 부른 뒤에 세면 이미 돈이 나갑니다.
+    # **두 통을 소비 없이 먼저 봅니다.** 앞 통을 먼저 깎으면, 뒤 통에
+    # 막혀 거절된 요청도 앞 통을 한 칸 씁니다 — 계정 하나로 전체 상한을
+    # 채워 다른 사람을 한 시간 막을 수 있습니다.
+    if not _skin_per_user_limit.allows(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="사진을 너무 많이 보내셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_skin_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
+    if not _skin_global_limit.allow("*"):
+        logger.warning("피부 분석 서버 전체 상한에 걸렸습니다.")
+        raise HTTPException(
+            status_code=429,
+            detail="지금 이용이 많습니다. 잠시 후 다시 시도해 주세요.",
+            headers={"Retry-After": str(_skin_global_limit.retry_after_seconds("*"))},
+        )
+
+    if not _skin_per_user_limit.allow(user_id):
+        raise HTTPException(
+            status_code=429,
+            detail="사진을 너무 많이 보내셨습니다. 잠시 후 다시 시도해 주세요.",
+            headers={
+                "Retry-After": str(_skin_per_user_limit.retry_after_seconds(user_id))
+            },
+        )
+
     try:
-        disease, probability = skin.model.predict(image)
+        # Anthropic 클라이언트는 동기라 그대로 부르면 이벤트 루프를 막습니다.
+        reading = await run_in_threadpool(
+            skin.model.read, image, media_type, age_months, has_fever
+        )
     except skin.SkinModelUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        logger.exception("피부 분석 실패")
-        raise HTTPException(
-            status_code=500, detail=f"피부 상태를 분석하지 못했습니다: {exc}"
-        ) from exc
+        status, detail = advice.to_http_detail(exc)
+        raise HTTPException(status_code=status, detail=detail) from exc
 
-    if probability < settings.skin_min_probability:
+    # 피부가 아니거나 판독이 안 되는 사진. 단계를 내보내면 화면이 '정상'으로
+    # 그립니다 — 확인이 안 됐다는 사실과 정상은 다른 말입니다.
+    if not reading.is_skin:
+        message = reading.advice
+
+        # **열은 사진에 있던 것이 아닙니다.** `_settle`이 나이와 체온 기록만
+        # 보고 켠 urgent는 사진을 읽었는지와 무관합니다. 단계는 여전히
+        # 내보내지 않지만(화면이 색을 그리면 안 되므로) 이 안내까지 함께
+        # 버리면, 열이 나는 3개월 미만 아기의 발진을 흐리게 찍은 보호자가
+        # "다시 찍어 주세요"만 보고 화면을 닫습니다.
+        if reading.urgent:
+            message = f"{skin.FEVER_URGENT_NOTICE}\n\n{message}"
+
         return {
-            "status": "low_confidence",
-            "disease": disease,
-            "probability": probability,
-            "message": "정확한 판독이 어렵습니다. 깨끗한 조명에서 환부를 다시 촬영해 주세요.",
+            "status": "unreadable",
+            "message": message,
+            "disclaimer": advice.DISCLAIMER,
         }
 
-    return {"status": "success", "disease": disease, "probability": probability}
+    return {
+        "status": "success",
+        "level": reading.level,
+        "urgent": reading.urgent,
+        "observations": reading.observations,
+        # 사진으로 알 수 없는 것. 이 앱이 진단하지 않는다는 사실을 화면에서
+        # 보여주는 유일한 자리라, 앱이 접지 않고 늘 보여줍니다.
+        "unknown": reading.unknown,
+        "advice": reading.advice,
+        # 고지는 서버가 붙입니다. 모델이 쓰게 두면 결과마다 문구가 달라집니다.
+        "disclaimer": advice.DISCLAIMER,
+    }

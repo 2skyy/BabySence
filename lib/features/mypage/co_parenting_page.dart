@@ -32,8 +32,16 @@ class _CoParentingPageState extends State<CoParentingPage> {
     _load();
   }
 
+  /// 아이 정보를 못 읽었는지. 아이가 없는 것과 다릅니다 — 못 읽은 것을
+  /// '아이 없음'으로 단정하면, 아이가 있는 사람에게서 초대 코드를 만들 경로가
+  /// 통째로 사라집니다.
+  bool _loadFailed = false;
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final baby = await BabyService.loadCurrent();
       final members =
@@ -44,6 +52,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
         _members = members;
       });
     } catch (e) {
+      if (mounted) setState(() => _loadFailed = true);
       _showMessage(BabyMemberService.errorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -183,6 +192,14 @@ class _CoParentingPageState extends State<CoParentingPage> {
       if (!mounted) return;
       await _load();
       // 정책이 막으면 삭제는 0행으로 조용히 끝납니다. 목록으로 확인합니다.
+      //
+      // **다만 목록을 못 읽었으면 아무 말도 하지 않습니다.** 재조회가
+      // 실패하면 `_members`는 낡은 값 그대로라 방금 내보낸 사람이 아직
+      // 있는 것으로 보입니다. 그걸 근거로 "권한이 없다"고 말하면 성공한
+      // 내보내기를 실패라고, 그것도 틀린 원인으로 말하게 됩니다.
+      // `_load()`가 이미 통신 오류를 띄운 뒤이기도 합니다.
+      if (_loadFailed) return;
+
       final stillThere = _members.any((m) => m.userId == member.userId);
       if (stillThere) {
         _showMessage('권한이 없어 처리하지 못했습니다.');
@@ -202,7 +219,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: const CommonAppBar(title: '함께 키우기'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -210,31 +227,51 @@ class _CoParentingPageState extends State<CoParentingPage> {
               onRefresh: _load,
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                children: _baby == null ? _noBabyBody() : _sharingBody(),
+                children: _loadFailed
+                    ? _failedBody()
+                    : _baby == null
+                        ? _noBabyBody()
+                        : _sharingBody(),
               ),
             ),
     );
   }
 
+  /// 조회에 실패했을 때. '아이 없음'과 같은 화면을 쓰지 않습니다.
+  List<Widget> _failedBody() => [
+        const SizedBox(height: AppSpacing.xxl),
+        Icon(Icons.error_outline, size: 44, color: AppColors.error),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          '아이 정보를 불러오지 못했어요.\n연결을 확인하고 다시 시도해 주세요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: context.colors.textSecondary, height: 1.6),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Center(
+          child: FilledButton(onPressed: _load, child: const Text('다시 시도')),
+        ),
+      ];
+
   /// 아직 아이가 없는 사람. 초대를 받아 참여하는 길만 열어 둡니다.
   List<Widget> _noBabyBody() => [
         const SizedBox(height: AppSpacing.xxl),
-        const Icon(Icons.group_outlined, size: 44, color: AppColors.textSecondary),
+        Icon(Icons.group_outlined, size: 44, color: context.colors.textSecondary),
         const SizedBox(height: AppSpacing.lg),
-        const Text(
+        Text(
           '아직 등록된 아이가 없어요',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        const Text(
+        Text(
           '아이를 직접 등록하거나,\n먼저 등록한 보호자에게 초대 코드를 받아 참여할 수 있어요.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 14, height: 1.6, color: context.colors.textSecondary),
         ),
         const SizedBox(height: AppSpacing.xl),
         _joinButton(),
@@ -278,7 +315,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
         CircleAvatar(
           radius: 20,
           backgroundColor:
-              member.isOwner ? AppColors.brand : AppColors.primarySurface,
+              member.isOwner ? AppColors.brand : context.colors.primarySurface,
           child: Icon(
             Icons.person,
             size: 20,
@@ -296,10 +333,10 @@ class _CoParentingPageState extends State<CoParentingPage> {
                     child: Text(
                       member.name,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                     ),
                   ),
@@ -311,7 +348,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primarySurface,
+                        color: context.colors.primarySurface,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
@@ -329,9 +366,9 @@ class _CoParentingPageState extends State<CoParentingPage> {
               const SizedBox(height: 2),
               Text(
                 member.roleLabel,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],
@@ -358,14 +395,14 @@ class _CoParentingPageState extends State<CoParentingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '초대 코드를 만들어 상대에게 알려주세요.',
-              style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 14, color: context.colors.textPrimary),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '한 사람만 쓸 수 있고, 7일 뒤 만료됩니다.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
@@ -384,15 +421,15 @@ class _CoParentingPageState extends State<CoParentingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             '이 코드를 상대에게 알려주세요',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.md),
           Container(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.primarySurface,
+              color: context.colors.primarySurface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -407,9 +444,9 @@ class _CoParentingPageState extends State<CoParentingPage> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          const Text(
+          Text(
             '화면을 나가면 다시 볼 수 없어요. 필요하면 새로 만들면 됩니다.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
@@ -436,27 +473,27 @@ class _CoParentingPageState extends State<CoParentingPage> {
 
   Widget _joinButton() => _card(
         onTap: _promptJoin,
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.vpn_key_outlined, color: AppColors.primary),
             SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
                 '초대 코드 입력하기',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: context.colors.textPrimary),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(Icons.chevron_right, color: context.colors.textSecondary),
           ],
         ),
       );
 
   Widget _sectionTitle(String title) => Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: context.colors.textPrimary,
         ),
       );
 
@@ -467,7 +504,7 @@ class _CoParentingPageState extends State<CoParentingPage> {
     );
 
     return Material(
-      color: AppColors.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: onTap == null
           ? content

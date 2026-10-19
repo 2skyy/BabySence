@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_project/features/community/community_models.dart';
 import 'package:flutter_project/features/community/community_service.dart';
 
 /// 글·댓글 수정 시 서버로 보내는 값을 고정합니다.
@@ -13,14 +14,23 @@ void main() {
       final row = CommunityService.buildPostUpdate(
         title: '바뀐 제목',
         body: '바뀐 내용',
+        category: PostCategory.sleep,
       );
 
-      expect(row, {'title': '바뀐 제목', 'body': '바뀐 내용'});
+      expect(row, {
+        'title': '바뀐 제목',
+        'body': '바뀐 내용',
+        'category': 'sleep',
+      });
     });
 
     test('author_id를 보내지 않는다', () {
       // 작성자는 바꿀 이유가 없고, 보내면 RLS의 with check에 걸릴 여지만 생깁니다.
-      final row = CommunityService.buildPostUpdate(title: 'a', body: 'b');
+      final row = CommunityService.buildPostUpdate(
+        title: 'a',
+        body: 'b',
+        category: PostCategory.etc,
+      );
 
       expect(row.containsKey('author_id'), isFalse);
       expect(row.containsKey('id'), isFalse);
@@ -32,6 +42,7 @@ void main() {
       final row = CommunityService.buildPostUpdate(
         title: '  제목  ',
         body: '\n 내용 \n',
+        category: PostCategory.etc,
       );
 
       expect(row['title'], '제목');

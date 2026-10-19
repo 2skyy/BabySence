@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/missing_baby.dart';
+
+
+import 'widgets/record_save_button.dart';
+
+import '../../core/widgets/common_app_bar.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/baby_service.dart';
 import 'feeding_record_service.dart';
 import 'widgets/record_history.dart';
+import 'widgets/record_time_field.dart';
 
 class FeedingRecordPage extends StatefulWidget {
   const FeedingRecordPage({super.key});
@@ -14,19 +22,23 @@ class FeedingRecordPage extends StatefulWidget {
 
 class _FeedingRecordPageState extends State<FeedingRecordPage> {
   static const Color primaryColor = AppColors.primary;
-  static const Color backgroundColor = Color(0xFFF8F9FB);
-  static const Color surfaceColor = Colors.white;
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color textColor = Color(0xFF1F2937);
-  static const Color secondaryTextColor = Color(0xFF6B7280);
+  Color get backgroundColor => context.colors.background;
+  Color get surfaceColor => context.colors.surface;
+  Color get borderColor => context.colors.border;
+  Color get textColor => context.colors.textPrimary;
+  Color get secondaryTextColor => context.colors.textSecondary;
 
   final TextEditingController feedingAmountController = TextEditingController();
 
-  String selectedFeedingType = '분유';
+  String selectedFeedingType = FeedingType.formula.label;
+
+  /// 화면을 연 시각으로 시작합니다. 나중에 몰아서 적을 때는 직접 고칩니다.
+  final _time = RecordTimeController.now();
 
   @override
   void dispose() {
     feedingAmountController.dispose();
+    _time.dispose();
     super.dispose();
   }
 
@@ -89,32 +101,46 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
     final type = FeedingType.fromLabel(selectedFeedingType);
     final amount = int.tryParse(feedingAmountController.text);
 
-    // 모유(직수)는 계량이 불가능해 수유량을 받지 않습니다(테이블도 NULL 허용).
-    if (type.allowsAmount) {
-      if (amount == null) {
-        _showMessage('수유량을 입력해주세요.');
-        return;
-      }
-      // amount_ml의 CHECK 제약(0~2000)과 같은 범위입니다.
-      if (amount < 0 || amount > 2000) {
-        _showMessage('수유량은 0~2000ml 사이로 입력해주세요.');
-        return;
-      }
+    // 분유·이유식은 수유량이 필수, 모유(직수)는 선택입니다(잰 경우만 적고,
+    // 비우면 NULL). 적었다면 종류와 상관없이 범위를 봅니다.
+    if (type.requiresAmount && amount == null) {
+      _showMessage('수유량을 입력해주세요.');
+      return;
+    }
+    // amount_ml의 CHECK 제약(0~2000)과 같은 범위입니다.
+    if (amount != null && (amount < 0 || amount > 2000)) {
+      _showMessage('수유량은 0~2000ml 사이로 입력해주세요.');
+      return;
+    }
+
+    final fedAt = _time.toDateTime();
+    if (fedAt == null) {
+      _showMessage('시간을 1~12시, 0~59분으로 입력해주세요.');
+      return;
     }
 
     setState(() => isSaving = true);
     try {
-      // 이력을 불러올 때 이미 조회했으므로 재사용합니다.
-      final baby = _baby ?? await BabyService.loadCurrent();
+      // 화면을 열 때 잡은 아이에만 저장합니다. 저장 순간에 다시 고르면,
+      // 화면을 열 때 조회가 실패했을 경우 다른 아이가 뽑힐 수 있습니다.
+      final baby = _baby;
       if (baby == null) {
-        _showMessage('먼저 아이 정보를 등록해주세요.');
+        // 조회가 실패한 것과 아이가 아직 없는 것을 구별합니다.
+        // 뒤쪽이라면 화면을 다시 열어도 소용없고, 등록으로 보내야 합니다.
+        notifyMissingBaby(context,
+            state: _loadingHistory
+                ? BabyLookup.loading
+                : _historyError != null
+                    ? BabyLookup.failed
+                    : BabyLookup.none,
+            onRegistered: _loadHistory);
         return;
       }
 
       await FeedingRecordService.save(
         babyId: baby.id,
         type: type,
-        fedAt: DateTime.now(),
+        fedAt: fedAt,
         amountMl: amount,
       );
 
@@ -139,23 +165,8 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: textColor),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          '수유 기록',
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      appBar: const CommonAppBar(
+        title: '수유 기록',
       ),
       body: SafeArea(
         // ★ 수정: 키보드가 켜져도 화면이 터지지 않고 부드럽게 스크롤되도록 설정
@@ -164,7 +175,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '수유 방식과 수유량을\n기록해주세요',
                 style: TextStyle(
                   fontSize: 28,
@@ -174,7 +185,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 '기록된 데이터는 AI 분석에 활용됩니다.',
                 style: TextStyle(
                   fontSize: 14,
@@ -182,7 +193,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text(
+              Text(
                 '수유 형태',
                 style: TextStyle(
                   fontSize: 15,
@@ -193,16 +204,19 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _buildFeedingTypeButton('분유')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.formula.label)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFeedingTypeButton('모유(직수)')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.breast.label)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFeedingTypeButton('이유식')),
+                  Expanded(child: _buildFeedingTypeButton(FeedingType.solid.label)),
                 ],
               ),
               const SizedBox(height: 32),
-              const Text(
-                '수유량 (ml)',
+              Text(
+                // 직수는 대개 잴 수 없으니 비워도 된다는 것을 라벨에서 알립니다.
+                FeedingType.fromLabel(selectedFeedingType).requiresAmount
+                    ? '수유량 (ml)'
+                    : '수유량 (ml) · 잰 경우만',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -225,15 +239,13 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                 ),
                 child: TextField(
                   controller: feedingAmountController,
-                  // 모유(직수)는 계량이 불가능해 입력을 막습니다.
-                  enabled: FeedingType.fromLabel(selectedFeedingType).allowsAmount,
                   keyboardType: TextInputType.number,
                   // ✅ 숫자만 입력 가능
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
                   ],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -249,38 +261,17 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: 32),
+              RecordTimeField(
+                label: '수유 시간',
+                controller: _time,
+                onChanged: () => setState(() {}),
+              ),
               // ★ 수정: 스크롤뷰 내부에선 무한 확장을 시도하는 Spacer() 대신 고정 공백(SizedBox)을 줍니다.
               const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: isSaving ? null : handleAnalyzeButtonTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          '기록하기',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
+              RecordSaveButton(
+                onPressed: handleAnalyzeButtonTap,
+                saving: isSaving,
               ),
               const SizedBox(height: 36),
               RecordHistorySection(
@@ -316,7 +307,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
         decoration: BoxDecoration(
           color: isSelected
               ? primaryColor.withValues(alpha: 0.1)
-              : Colors.white,
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? primaryColor : borderColor,

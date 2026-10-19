@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/confirm_dialog.dart';
+
+import '../../../core/constants/app_colors.dart';
+
 /// 기록 이력 목록의 한 줄.
 class RecordHistoryEntry {
   /// 삭제에 사용할 행 id.
@@ -48,10 +52,6 @@ class RecordHistorySection extends StatelessWidget {
     this.emptyText = '아직 기록이 없습니다.',
   });
 
-  static const Color _textColor = Color(0xFF1F2937);
-  static const Color _secondaryTextColor = Color(0xFF6B7280);
-  static const Color _borderColor = Color(0xFFE5E7EB);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -59,10 +59,10 @@ class RecordHistorySection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: _textColor,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: 12),
@@ -79,7 +79,7 @@ class RecordHistorySection extends StatelessWidget {
               children: [
                 Text(
                   error!,
-                  style: const TextStyle(color: _secondaryTextColor, fontSize: 13),
+                  style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
                 ),
                 if (onRetry != null)
                   TextButton(
@@ -94,23 +94,23 @@ class RecordHistorySection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               emptyText,
-              style: const TextStyle(color: _secondaryTextColor, fontSize: 13),
+              style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
             ),
           )
         else
-          ...entries.map(_buildTile),
+          ...entries.map((e) => _buildTile(context, e)),
       ],
     );
   }
 
-  Widget _buildTile(RecordHistoryEntry entry) {
+  Widget _buildTile(BuildContext context, RecordHistoryEntry entry) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _borderColor),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         children: [
@@ -120,18 +120,18 @@ class RecordHistorySection extends StatelessWidget {
               children: [
                 Text(
                   entry.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: _textColor,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   entry.subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: _secondaryTextColor,
+                    color: context.colors.textSecondary,
                   ),
                 ),
               ],
@@ -139,8 +139,19 @@ class RecordHistorySection extends StatelessWidget {
           ),
           if (onDelete != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: _secondaryTextColor),
-              onPressed: () => onDelete!(entry.id),
+              icon: Icon(Icons.delete_outline, color: context.colors.textSecondary),
+              // **한 번 묻고 지웁니다.** 이 목록의 기록은 다시 만들 수
+              // 없습니다. 예전에는 곧바로 지웠고, 실행 취소 수단이 앱
+              // 어디에도 없었습니다. 확인 창을 여기 한 곳에 두면 이 위젯을
+              // 쓰는 다섯 화면(체온·수유·수면·배변·약/병원)이 함께 덮입니다.
+              onPressed: () async {
+                final ok = await confirmDestructive(
+                  context,
+                  title: '이 기록을 지울까요?',
+                  body: '${entry.title}\n${entry.subtitle}\n\n지운 기록은 되돌릴 수 없습니다.',
+                );
+                if (ok) await onDelete!(entry.id);
+              },
             ),
         ],
       ),

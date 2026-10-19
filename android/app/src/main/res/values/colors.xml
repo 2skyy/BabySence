@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 시작 화면 배경. 로고의 연초록과 같은 색이라 OS가 그리는 첫 화면과
+         Flutter 로딩 화면(brand_splash)이 한 장면처럼 이어집니다. -->
+    <color name="launch_background">#A6ECC0</color>
+</resources>

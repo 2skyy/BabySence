@@ -42,7 +42,6 @@ class TemperaturePicker extends StatelessWidget {
   static const Color cautionColor = Color(0xFFF59E0B);
   static const Color consultColor = Color(0xFFDC2626);
   static const Color lowColor = Color(0xFF60A5FA);
-  static const Color _textColor = Color(0xFF1F2937);
 
   static Color colorFor(AssessmentLevel level) => switch (level) {
         AssessmentLevel.normal => normalColor,
@@ -67,7 +66,7 @@ class TemperaturePicker extends StatelessWidget {
     final consultAt =
         months == null ? null : TemperatureRules.consultThreshold(months);
     final accent =
-        assessment == null ? _textColor : colorFor(assessment.level);
+        assessment == null ? context.colors.textPrimary : colorFor(assessment.level);
 
     return Column(
       children: [
@@ -83,12 +82,12 @@ class TemperaturePicker extends StatelessWidget {
         SizedBox(
           height: 22,
           child: assessment == null
-              ? const Text(
+              ? Text(
                   '아이 정보를 등록하면 판정을 함께 보여드려요',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: TextStyle(fontSize: 13, color: context.colors.textSecondary),
                 )
               : Text(
-                  assessment.level.label,
+                  assessment.levelLabel,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -97,7 +96,7 @@ class TemperaturePicker extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 16),
-        _buildBandBar(consultAt),
+        _buildBandBar(context, consultAt),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 2,
@@ -115,15 +114,15 @@ class TemperaturePicker extends StatelessWidget {
             onChanged: (raw) => onChanged(snap(raw)),
           ),
         ),
-        _buildScaleLabels(consultAt),
+        _buildScaleLabels(context, consultAt),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildStepButton(
+            _buildStepButton(context, 
                 Icons.remove, () => onChanged(snap(value - 0.1))),
             const SizedBox(width: 20),
-            _buildStepButton(Icons.add, () => onChanged(snap(value + 0.1))),
+            _buildStepButton(context, Icons.add, () => onChanged(snap(value + 0.1))),
           ],
         ),
       ],
@@ -131,7 +130,7 @@ class TemperaturePicker extends StatelessWidget {
   }
 
   /// 슬라이더 아래에 깔리는 구간 색상 막대.
-  Widget _buildBandBar(double? consultAt) {
+  Widget _buildBandBar(BuildContext context, double? consultAt) {
     // 폭은 온도 범위에 비례합니다. 0.1℃ 단위를 정수 flex로 씁니다.
     int span(double from, double to) => ((to - from) * 10).round();
 
@@ -150,7 +149,7 @@ class TemperaturePicker extends StatelessWidget {
     if (consultAt == null) {
       children.add(Expanded(
         flex: span(TemperatureRules.normalHigh, maxTemp),
-        child: _bandSegment(AppColors.border, isLast: true),
+        child: _bandSegment(context.colors.border, isLast: true),
       ));
     } else {
       children.add(Expanded(
@@ -183,8 +182,8 @@ class TemperaturePicker extends StatelessWidget {
   }
 
   /// 구간 경계 눈금. 나이를 알 때만 상담 권장 경계를 표시합니다.
-  Widget _buildScaleLabels(double? consultAt) {
-    const style = TextStyle(fontSize: 11, color: AppColors.textSecondary);
+  Widget _buildScaleLabels(BuildContext context, double? consultAt) {
+    final style = TextStyle(fontSize: 11, color: context.colors.textSecondary);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -203,16 +202,16 @@ class TemperaturePicker extends StatelessWidget {
     );
   }
 
-  Widget _buildStepButton(IconData icon, VoidCallback onTap) {
+  Widget _buildStepButton(BuildContext context, IconData icon, VoidCallback onTap) {
     return Material(
-      color: Colors.white,
-      shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+      color: context.colors.surface,
+      shape: CircleBorder(side: BorderSide(color: context.colors.border)),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: _textColor),
+          child: Icon(icon, size: 22, color: context.colors.textPrimary),
         ),
       ),
     );

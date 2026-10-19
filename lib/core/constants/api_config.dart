@@ -29,4 +29,8 @@ class ApiConfig {
 
   /// 피부 사진 진단. multipart 필드명은 file.
   static String get skinDiagnose => '$baseUrl/api/skin/diagnose';
+
+  /// 육아 질문 답변(Claude). 서버가 API 키를 들고 있습니다.
+  /// 앱에 키를 넣으면 패키지를 뜯어 꺼낼 수 있으므로 반드시 서버를 거칩니다.
+  static String get advice => '$baseUrl/api/advice';
 }

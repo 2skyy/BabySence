@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// 수유 방식. enum 이름이 feeding_records.feeding_type의 CHECK 제약
 /// (`formula` / `breast` / `solid`)과 그대로 일치해야 합니다.
 enum FeedingType {
@@ -18,9 +20,13 @@ enum FeedingType {
         orElse: () => FeedingType.formula,
       );
 
-  /// 모유(직수)는 계량이 불가능해 amount_ml을 NULL로 둡니다.
-  /// 테이블 주석에 명시된 규칙입니다.
-  bool get allowsAmount => this != FeedingType.breast;
+  /// 수유량을 반드시 받아야 하는지.
+  ///
+  /// 분유·이유식은 양을 알 수 있으니 받습니다. 모유(직수)는 대개 잴 수 없어
+  /// **선택**입니다 — 유축해서 먹였거나 체중법으로 잰 보호자는 적을 수 있고,
+  /// 비워 두면 NULL로 남습니다(테이블 주석의 "NULL 허용"이 그 뜻입니다).
+  /// 예전에는 입력칸 자체를 막았는데, 잰 사람은 적을 곳이 없었습니다.
+  bool get requiresAmount => this != FeedingType.breast;
 }
 
 /// feeding_records 테이블의 한 행.
@@ -54,14 +60,28 @@ class FeedingRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
   /// 최근 기록을 최신순으로 가져옵니다.
-  static Future<List<FeedingRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('feeding_records')
-        .select()
-        .eq('baby_id', babyId)
-        .order('fed_at', ascending: false)
-        .limit(limit);
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 7일"이라 적어 두고
+  /// 실제로는 최신 N건만 세게 됩니다. 신생아기처럼 하루에 열 번 넘게
+  /// 기록하는 시기에는 그 창의 앞쪽이 통째로 빠지는데, 화면에는 잘렸다는
+  /// 표시가 없습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
+  static Future<List<FeedingRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+    DateTime? until,
+  }) async {
+    var query = _client.from('feeding_records').select().eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('fed_at', toDbTime(since));
+    if (until != null) query = query.lt('fed_at', toDbTime(until));
+
+    final rows =
+        await query.order('fed_at', ascending: false).limit(limit);
 
     return rows.map(FeedingRecord.fromMap).toList();
   }
@@ -83,9 +103,11 @@ class FeedingRecordService {
     return {
       'baby_id': babyId,
       'feeding_type': type.name,
-      // 모유(직수)는 수량을 받지 않으므로 값이 들어와도 무시합니다.
-      'amount_ml': type.allowsAmount ? amountMl : null,
-      'fed_at': fedAt.toIso8601String(),
+      // 모유(직수)도 적은 값은 그대로 보냅니다. 유축·체중법으로 잰
+      // 보호자가 있어서입니다. 비우면 NULL — DB 주석의 'NULL 허용'은
+      // 강제가 아니라 허용입니다.
+      'amount_ml': amountMl,
+      'fed_at': toDbTime(fedAt),
     };
   }
 

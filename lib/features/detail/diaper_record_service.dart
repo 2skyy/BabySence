@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/db_time.dart';
+
 /// 배변 종류. enum 이름이 diaper_records.diaper_type의 CHECK 제약
 /// (`urine` / `stool` / `mixed`)과 그대로 일치해야 합니다.
 enum DiaperType {
@@ -71,14 +73,28 @@ class DiaperRecord {
 class DiaperRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
-  static Future<List<DiaperRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('diaper_records')
-        .select()
-        .eq('baby_id', babyId)
-        .order('recorded_at', ascending: false)
-        .limit(limit);
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 7일"이라 적어 두고
+  /// 실제로는 최신 N건만 세게 됩니다. 신생아기처럼 하루에 열 번 넘게
+  /// 기록하는 시기에는 그 창의 앞쪽이 통째로 빠지는데, 화면에는 잘렸다는
+  /// 표시가 없습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
+  static Future<List<DiaperRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+    DateTime? until,
+  }) async {
+    var query = _client.from('diaper_records').select().eq('baby_id', babyId);
+
+    if (since != null) query = query.gte('recorded_at', toDbTime(since));
+    if (until != null) query = query.lt('recorded_at', toDbTime(until));
+
+    final rows =
+        await query.order('recorded_at', ascending: false).limit(limit);
 
     return rows.map(DiaperRecord.fromMap).toList();
   }
@@ -100,7 +116,7 @@ class DiaperRecordService {
       // 소변이면 반드시 NULL, 그 외에는 반드시 값이 있어야 합니다(CHECK 제약).
       'stool_state':
           type.needsStoolState ? (stoolState ?? StoolState.golden).name : null,
-      'recorded_at': recordedAt.toIso8601String(),
+      'recorded_at': toDbTime(recordedAt),
     };
   }
 

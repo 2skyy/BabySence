@@ -14,7 +14,6 @@
 --
 -- drop table if exists public.temperature_symptoms  cascade;
 -- drop table if exists public.temperature_records   cascade;
--- drop table if exists public.sleep_noise_logs      cascade;
 -- drop table if exists public.sleep_records         cascade;
 -- drop table if exists public.diaper_records        cascade;
 -- drop table if exists public.feeding_records       cascade;
@@ -30,7 +29,6 @@
 -- drop table if exists public.profiles              cascade;
 -- drop function if exists public.handle_new_user()          cascade;
 -- drop function if exists public.owns_baby(uuid)            cascade;
--- drop function if exists public.owns_sleep_record(uuid)    cascade;
 -- drop function if exists public.owns_temp_record(uuid)     cascade;
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -200,24 +198,17 @@ create table public.sleep_records (
   constraint sleep_period_valid check (ended_at is null or ended_at > started_at)
 );
 
+comment on table  public.sleep_records is
+  '수면 구간. 소음 수치는 여기에 저장하지 않는다 — 재는 동안 화면에 실시간으로
+   보여주고, 끝나면 앱이 메모리에서 집계해 판정(assessments.inputs)에만 남긴다.
+   한때 sleep_noise_logs에 1초마다 한 행씩 쌓았고(하룻밤 28,800행), 잠시
+   average_db/max_db/sample_count를 이 표에 두기도 했다. 판정이 이미 같은
+   숫자를 들고 있어 둘 다 걷어냈다(011).';
 comment on column public.sleep_records.sleep_type is 'night=밤잠, nap=낮잠';
 comment on column public.sleep_records.ended_at   is 'NULL이면 측정 진행 중. 수면 시간은 저장하지 않고 조회 시 계산';
 
 
--- 2.7 수면 중 소음 로그 ------------------------------------------------------
--- 건수가 가장 많은 테이블입니다(NoiseTracker가 30건씩 배치 전송).
--- 저장 공간과 인덱스 효율을 위해 유일하게 bigint PK를 사용합니다.
-create table public.sleep_noise_logs (
-  id               bigint       primary key generated always as identity,
-  sleep_record_id  uuid         not null references public.sleep_records (id) on delete cascade,
-  measured_at      timestamptz  not null,
-  decibel          numeric(5,2) not null check (decibel between 0 and 200)
-);
-
-comment on column public.sleep_noise_logs.decibel is 'NoiseTracker에서 보정(-8dB) 및 이동평균 처리를 마친 최종 값';
-
-
--- 2.8 체온 기록 --------------------------------------------------------------
+-- 2.7 체온 기록 --------------------------------------------------------------
 create table public.temperature_records (
   id             uuid         primary key default gen_random_uuid(),
   baby_id        uuid         not null references public.babies (id) on delete cascade,
@@ -238,7 +229,7 @@ comment on table  public.temperature_symptoms         is 'UI의 ''없음''은 �
 comment on column public.temperature_symptoms.symptom is 'cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사';
 
 
--- 2.9 예방접종 ---------------------------------------------------------------
+-- 2.8 예방접종 ---------------------------------------------------------------
 -- 국가 표준 접종 일정. 모든 사용자가 공유하는 읽기 전용 참조 데이터입니다.
 create table public.vaccines (
   id                     smallint primary key generated always as identity,
@@ -269,22 +260,34 @@ comment on column public.vaccination_records.scheduled_on  is '예정일. FCM �
 comment on column public.vaccination_records.vaccinated_on is 'NULL이면 미접종(예정), 값이 있으면 완료';
 
 
--- 2.10 AI 분석 이력 ----------------------------------------------------------
+-- 2.9 AI 분석 이력 ----------------------------------------------------------
 -- 파이썬 AI 서버가 반환한 원본 라벨을 그대로 저장합니다.
 -- 한글 변환은 앱에서 처리해야 모델을 교체해도 과거 이력이 깨지지 않습니다.
 create table public.skin_analyses (
-  id              uuid         primary key default gen_random_uuid(),
-  baby_id         uuid         not null references public.babies (id) on delete cascade,
-  image_path      text         not null,
-  disease_result  text         not null,
-  probability     numeric(5,2) not null check (probability between 0 and 100),
-  analyzed_at     timestamptz  not null default now()
+  id            uuid        primary key default gen_random_uuid(),
+  baby_id       uuid        not null references public.babies (id) on delete cascade,
+  image_path    text        not null,
+  level         text        not null default 'caution'
+                            check (level in ('caution', 'consult')),
+  urgent        boolean     not null default false,
+  observations  text[]      not null default '{}',
+  unknown_note  text        not null default '',
+  advice        text        not null default '',
+  analyzed_at   timestamptz not null default now()
 );
 
 comment on column public.skin_analyses.image_path is 'Storage 경로. 형식: {user_id}/{baby_id}/{파일명}';
+comment on column public.skin_analyses.level is
+  '진료 권유 단계. normal은 없다 — 사진으로 정상을 말하는 것도 진단이다';
+comment on column public.skin_analyses.urgent is
+  '오늘 안에 진료가 필요해 보이는 경우';
+comment on column public.skin_analyses.observations is
+  '사진에서 보이는 것을 옮긴 문장. 병명은 들어가지 않는다';
+comment on column public.skin_analyses.unknown_note is
+  '사진으로는 알 수 없는 것. 화면에서 접지 않고 늘 보여준다';
 
 
--- 2.11 판정 결과 -------------------------------------------------------------
+-- 2.10 판정 결과 -------------------------------------------------------------
 -- 규칙 엔진의 '정상 / 주의 / 상담 권장' 3단계 판정과 행동 가이드를 보관한다.
 --
 -- 일별 집계에 종속시키지 않고 아기를 직접 참조한다. 체온이나 소음처럼 입력
@@ -309,7 +312,7 @@ comment on column public.assessments.inputs       is '판정 시점의 입력값
 comment on column public.assessments.rule_version is '적용된 임계값 규칙의 버전. 판단 근거의 추적에 사용';
 
 
--- 2.12 FCM 토큰 --------------------------------------------------------------
+-- 2.11 FCM 토큰 --------------------------------------------------------------
 create table public.device_tokens (
   id          uuid        primary key default gen_random_uuid(),
   user_id     uuid        not null references auth.users (id) on delete cascade,
@@ -338,7 +341,6 @@ create index idx_assessments_baby_time    on public.assessments         (baby_id
 create index idx_device_tokens_user       on public.device_tokens       (user_id);
 
 -- 소음 그래프는 시간 오름차순으로 그리므로 desc를 붙이지 않습니다.
-create index idx_noise_record_time        on public.sleep_noise_logs    (sleep_record_id, measured_at);
 
 
 -- ============================================================================
@@ -389,22 +391,6 @@ as $$
   );
 $$;
 
-create or replace function public.owns_sleep_record(p_sleep_record_id uuid)
-returns boolean
-language sql
-security definer
-stable
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.sleep_records s
-    join public.babies b on b.id = s.baby_id
-    where s.id = p_sleep_record_id
-      and b.user_id = auth.uid()
-  );
-$$;
-
 create or replace function public.owns_temp_record(p_temperature_record_id uuid)
 returns boolean
 language sql
@@ -415,9 +401,8 @@ as $$
   select exists (
     select 1
     from public.temperature_records t
-    join public.babies b on b.id = t.baby_id
     where t.id = p_temperature_record_id
-      and b.user_id = auth.uid()
+      and public.owns_baby(t.baby_id)
   );
 $$;
 
@@ -430,7 +415,6 @@ alter table public.growth_records        enable row level security;
 alter table public.feeding_records       enable row level security;
 alter table public.diaper_records        enable row level security;
 alter table public.sleep_records         enable row level security;
-alter table public.sleep_noise_logs      enable row level security;
 alter table public.temperature_records   enable row level security;
 alter table public.temperature_symptoms  enable row level security;
 alter table public.vaccines              enable row level security;
@@ -447,9 +431,14 @@ create policy profiles_own on public.profiles
   with check (auth.uid() = id);
 
 -- 아이는 '만든 사람'이 아니라 '구성원'이 봅니다(함께 키우기).
+--
+-- `user_id = auth.uid()`를 함께 두는 이유는 `insert ... returning` 때문입니다.
+-- RETURNING으로 나가는 행에도 이 정책이 걸리는데, 구성원을 등록하는
+-- on_baby_created는 AFTER 트리거라 그 시점에 아직 실행되지 않았습니다.
+-- 이 조건이 없으면 아이 등록이 통째로 실패합니다(migrations/005 참고).
 create policy babies_select on public.babies
   for select to authenticated
-  using (public.owns_baby(id));
+  using (public.owns_baby(id) or user_id = auth.uid());
 
 create policy babies_insert on public.babies
   for insert to authenticated
@@ -514,11 +503,6 @@ create policy assessments_own on public.assessments
 
 
 -- 4.4 2단계 경유 -------------------------------------------------------------
-create policy noise_own on public.sleep_noise_logs
-  for all to authenticated
-  using (public.owns_sleep_record(sleep_record_id))
-  with check (public.owns_sleep_record(sleep_record_id));
-
 create policy temperature_symptoms_own on public.temperature_symptoms
   for all to authenticated
   using (public.owns_temp_record(temperature_record_id))
@@ -780,3 +764,209 @@ as $$
     and public.owns_baby(p_baby_id)   -- 구성원이 아니면 아무것도 돌려주지 않습니다
   order by (m.role = 'owner') desc, m.joined_at;
 $$;
+
+-- ============================================================================
+-- 6. 마이그레이션에서 옮겨 온 표
+-- ============================================================================
+-- 이 파일 하나로 새 DB를 만들 수 있어야 하므로, 나중에 추가된 표도 여기에
+-- 함께 둡니다. 이미 돌아가는 DB에는 supabase/migrations/의 해당 파일을
+-- 실행하세요(이 절과 같은 내용입니다).
+--
+-- 앞 절에서 owns_baby()가 이미 정의돼 있어야 하므로 맨 뒤에 둡니다.
+
+
+-- ── 6.1 커뮤니티 (migrations/003) ───────────────────────────────────────────
+-- ⚠️ 이 두 표는 다른 표와 RLS 방향이 반대입니다. 육아 기록은 "본인 것만
+--    읽기"이지만, 커뮤니티는 "모두 읽기 · 본인 것만 쓰기"입니다.
+
+-- 1. 게시글 ------------------------------------------------------------------
+create table if not exists public.posts (
+  id          uuid        primary key default gen_random_uuid(),
+  author_id   uuid        not null references auth.users (id) on delete cascade,
+  title       text        not null check (char_length(btrim(title)) between 1 and 100),
+  body        text        not null check (char_length(btrim(body)) between 1 and 2000),
+  -- 갈래는 앱의 기록 기능과 맞춥니다. enum이 아니라 CHECK인 이유는 다른 표와
+  -- 같습니다 — 갈래를 늘릴 때 ALTER TABLE 하나면 됩니다.
+  category    text        not null default 'etc'
+    check (category in ('feeding', 'sleep', 'diaper', 'health', 'growth', 'etc')),
+  created_at  timestamptz not null default now()
+);
+
+comment on table  public.posts           is '커뮤니티 게시글. 작성자는 화면에서 익명으로 표시된다';
+comment on column public.posts.author_id is '수정·삭제 권한 확인용. 화면에는 노출하지 않는다';
+comment on column public.posts.category  is 'feeding=수유, sleep=수면(소음 포함), diaper=배변, health=체온·약·병원·예방접종·피부, growth=성장, etc=그 밖에';
+
+-- 2. 댓글 --------------------------------------------------------------------
+create table if not exists public.comments (
+  id          uuid        primary key default gen_random_uuid(),
+  post_id     uuid        not null references public.posts (id) on delete cascade,
+  author_id   uuid        not null references auth.users (id) on delete cascade,
+  body        text        not null check (char_length(btrim(body)) between 1 and 500),
+  created_at  timestamptz not null default now()
+);
+
+-- 3. 인덱스 ------------------------------------------------------------------
+-- 목록은 최신순, 댓글은 오래된 순으로 봅니다.
+create index if not exists idx_posts_created     on public.posts    (created_at desc);
+create index if not exists idx_posts_category    on public.posts    (category, created_at desc);
+create index if not exists idx_comments_post     on public.comments (post_id, created_at);
+create index if not exists idx_posts_author      on public.posts    (author_id);
+create index if not exists idx_comments_author   on public.comments (author_id);
+
+-- 4. RLS ---------------------------------------------------------------------
+alter table public.posts    enable row level security;
+alter table public.comments enable row level security;
+
+-- 읽기는 로그인한 사용자 전체에게 엽니다.
+drop policy if exists posts_read on public.posts;
+create policy posts_read on public.posts
+  for select to authenticated
+  using (true);
+
+drop policy if exists comments_read on public.comments;
+create policy comments_read on public.comments
+  for select to authenticated
+  using (true);
+
+-- 쓰기·수정·삭제는 작성자 본인만.
+-- with check 를 빠뜨리면 남의 이름으로 글을 쓸 수 있습니다.
+drop policy if exists posts_insert on public.posts;
+create policy posts_insert on public.posts
+  for insert to authenticated
+  with check (auth.uid() = author_id);
+
+drop policy if exists posts_update on public.posts;
+create policy posts_update on public.posts
+  for update to authenticated
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+drop policy if exists posts_delete on public.posts;
+create policy posts_delete on public.posts
+  for delete to authenticated
+  using (auth.uid() = author_id);
+
+drop policy if exists comments_insert on public.comments;
+create policy comments_insert on public.comments
+  for insert to authenticated
+  with check (auth.uid() = author_id);
+
+drop policy if exists comments_update on public.comments;
+create policy comments_update on public.comments
+  for update to authenticated
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+drop policy if exists comments_delete on public.comments;
+create policy comments_delete on public.comments
+  for delete to authenticated
+  using (auth.uid() = author_id);
+
+
+-- ── 6.2 약 복용 · 병원 방문 (migrations/006) ────────────────────────────────
+
+-- ── 1. 약 복용 ──────────────────────────────────────────────────────────────
+create table public.medication_records (
+  id         uuid        primary key default gen_random_uuid(),
+  baby_id    uuid        not null references public.babies (id) on delete cascade,
+
+  -- 약 이름. 처방약 이름은 종류가 끝이 없어 고정 목록을 만들 수 없습니다.
+  name       text        not null check (length(trim(name)) between 1 and 100),
+
+  -- 용량. 'ml', '포', '알'처럼 단위가 제각각이라 숫자로 쪼개지 않습니다.
+  dose       text        check (length(dose) <= 50),
+
+  -- 왜 먹였는가. 반복 여부를 세는 기준입니다.
+  reason     text        not null check (reason in (
+                 'fever', 'cough', 'runny_nose', 'rash', 'vomit',
+                 'diarrhea', 'prescription', 'other')),
+
+  taken_at   timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+comment on column public.medication_records.reason is
+  'fever=발열, cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사, prescription=처방약 복용, other=기타';
+
+create index medication_records_baby_taken_idx
+  on public.medication_records (baby_id, taken_at desc);
+
+
+-- ── 2. 병원 방문 ────────────────────────────────────────────────────────────
+create table public.hospital_visits (
+  id            uuid        primary key default gen_random_uuid(),
+  baby_id       uuid        not null references public.babies (id) on delete cascade,
+
+  hospital_name text        check (length(hospital_name) <= 100),
+
+  reason        text        not null check (reason in (
+                    'fever', 'cough', 'runny_nose', 'rash', 'vomit',
+                    'diarrhea', 'checkup', 'vaccination', 'other')),
+
+  -- 진료실에서 들은 이야기를 보호자가 적는 칸입니다.
+  -- `diagnosis`라 부르지 않는 이유는, 이 앱이 진단을 다룬다는 인상을 주지
+  -- 않기 위해서입니다. 이 앱은 의료기기가 아닙니다.
+  note          text        check (length(note) <= 500),
+
+  visited_at    timestamptz not null,
+  created_at    timestamptz not null default now()
+);
+
+comment on column public.hospital_visits.reason is
+  'fever=발열, cough=기침, runny_nose=콧물, rash=발진, vomit=구토, diarrhea=설사, checkup=정기검진, vaccination=예방접종, other=기타';
+comment on column public.hospital_visits.note is
+  '보호자가 적는 진료 메모. 앱이 만들어 내는 진단이 아닙니다.';
+
+create index hospital_visits_baby_visited_idx
+  on public.hospital_visits (baby_id, visited_at desc);
+
+
+-- ── 3. RLS ──────────────────────────────────────────────────────────────────
+-- 다른 기록 표와 같습니다. owns_baby() 하나가 판정 근거이므로, 함께 키우기로
+-- 초대받은 구성원도 같은 규칙으로 보고 씁니다.
+alter table public.medication_records enable row level security;
+alter table public.hospital_visits    enable row level security;
+
+create policy medication_own on public.medication_records
+  for all to authenticated
+  using (public.owns_baby(baby_id))
+  with check (public.owns_baby(baby_id));
+
+create policy hospital_visit_own on public.hospital_visits
+  for all to authenticated
+  using (public.owns_baby(baby_id))
+  with check (public.owns_baby(baby_id));
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 앱이 그리는 콘텐츠 (012에서 옮겨 옴)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 공지사항·육아 가이드를 코드가 아니라 데이터로 둔다. blocks의 블록 배열을
+-- 앱의 렌더러가 type→위젯으로 옮겨 그리므로, 글을 바꾸는 일은 행을 바꾸는
+-- 일이 되고 이미 설치된 앱에 스토어 심사 없이 반영된다. 모르는 type은 앱이
+-- 조용히 건너뛴다 — 구버전 앱이 신버전 콘텐츠에 죽지 않는다.
+
+create table if not exists public.contents (
+  id           uuid        primary key default gen_random_uuid(),
+  category     text        not null check (category in ('notice', 'guide')),
+  title        text        not null check (char_length(title) between 1 and 200),
+  blocks       jsonb       not null default '[]'::jsonb,
+  -- NULL이면 아직 발행 전(초안). 앱은 발행된 것만 읽는다.
+  published_at timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+comment on table  public.contents          is '앱이 그리는 콘텐츠. blocks의 블록 배열을 앱의 렌더러가 위젯으로 옮긴다';
+comment on column public.contents.category is 'notice=공지사항, guide=육아 가이드';
+comment on column public.contents.blocks   is '[{"type": "...", "props": {...}}] — type은 앱에 등록된 것만 그려지고, 모르는 type은 건너뛴다';
+
+alter table public.contents enable row level security;
+
+-- 읽기 전용. 발행 전(초안)은 쿼리가 아니라 정책이 막는다 — 앱이 조건을
+-- 빠뜨려도 초안이 새지 않는다. 쓰기 정책은 없다(발행은 운영자가 SQL로).
+create policy contents_read on public.contents
+  for select to authenticated
+  using (published_at is not null and published_at <= now());
+
+create index if not exists idx_contents_category
+  on public.contents (category, published_at desc);

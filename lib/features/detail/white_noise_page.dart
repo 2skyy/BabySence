@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../core/constants/app_colors.dart';
+import '../../core/widgets/common_app_bar.dart';
 // 방금 만든 백색소음 서비스 import (경로에 맞게 수정해 주세요)
 import 'white_noise_service.dart';
 
@@ -30,7 +33,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
   final List<WhiteNoiseItem> _noiseList = [
     WhiteNoiseItem(
       id: 'womb',
-      title: '포근한 자궁소리',
+      title: '포근한 심장소리',
       assetPath: 'audio/womb.mp3',
       icon: Icons.child_care_rounded,
     ),
@@ -76,31 +79,29 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
       assetPath: 'audio/nature.mp3',
       icon: Icons.park_rounded,
     ),
+    WhiteNoiseItem(
+      id: 'shush',
+      title: '쉬~ 달래는 소리',
+      assetPath: 'audio/shush.mp3',
+      icon: Icons.volume_down_rounded,
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text(
-          '아기 안심 백색소음',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        centerTitle: true,
-      ),
+      backgroundColor: context.colors.background,
+      appBar: const CommonAppBar(title: '아기 안심 백색소음'),
       body: Column(
         children: [
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.3,
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.95,
               ),
               itemCount: _noiseList.length,
               itemBuilder: (context, index) {
@@ -118,10 +119,12 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : context.colors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF1A73E8) : Colors.grey.shade200,
+                        color: isSelected ? AppColors.primary : context.colors.border,
                         width: isSelected ? 2 : 1,
                       ),
                       boxShadow: [
@@ -137,17 +140,24 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                       children: [
                         Icon(
                           isSelected ? Icons.pause_circle_filled_rounded : item.icon,
-                          size: 40,
-                          color: isSelected ? const Color(0xFF1A73E8) : Colors.grey.shade700,
+                          size: 32,
+                          color: isSelected ? AppColors.primary : context.colors.textSecondary,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          item.title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? const Color(0xFF1A73E8) : Colors.black87,
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            item.title,
+                            textAlign: TextAlign.center,
+                            // 3열이라 칸이 좁습니다. 긴 이름은 두 줄까지만 씁니다.
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.25,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? AppColors.primary : context.colors.textPrimary,
+                            ),
                           ),
                         ),
                       ],
@@ -161,7 +171,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.colors.surface,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
@@ -174,7 +184,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                 children: [
                   Icon(
                     _noiseService.isPlaying ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    color: const Color(0xFF1A73E8),
+                    color: AppColors.primary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -195,7 +205,7 @@ class _WhiteNoisePageState extends State<WhiteNoisePage> {
                       );
                     },
                     icon: Icon(_noiseService.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                    color: const Color(0xFF1A73E8),
+                    color: AppColors.primary,
                   ),
                   IconButton(
                     onPressed: () {

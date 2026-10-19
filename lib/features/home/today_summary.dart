@@ -1,4 +1,5 @@
 import '../detail/diaper_record_service.dart';
+import '../../core/services/duration_text.dart';
 import '../detail/feeding_record_service.dart';
 import '../detail/sleep_record_service.dart';
 import '../detail/temperature_record_service.dart';
@@ -66,7 +67,7 @@ class TodaySummary {
   /// 타일에 쓸 문구. 기록이 없으면 null을 돌려주고 화면이 '기록 없음'을 씁니다.
   String? get feedingLabel => feeding?.summary;
   String? get temperatureLabel =>
-      temperature == null ? null : '${temperature!.temperatureC.toStringAsFixed(1)}°C';
+      temperature == null ? null : '${temperature!.temperatureC.toStringAsFixed(1)}℃';
   String? get diaperLabel => diaper?.summary;
 
   String? get sleepLabel {
@@ -74,7 +75,7 @@ class TodaySummary {
     if (s == null) return null;
     if (s.endedAt == null) return '${s.type.label} 측정 중';
     final d = s.duration!;
-    return '${s.type.label} ${d.inHours}시간 ${d.inMinutes % 60}분';
+    return '${s.type.label} ${formatDuration(d)}';
   }
 
   /// 오늘 기록이 하나라도 있는지. 없으면 홈의 요약 카드를 숨깁니다.

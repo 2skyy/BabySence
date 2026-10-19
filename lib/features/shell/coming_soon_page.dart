@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/common_app_bar.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 
@@ -20,42 +22,36 @@ class ComingSoonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(title),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-      ),
+      backgroundColor: context.colors.background,
+      appBar: CommonAppBar(title: title),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.construction_outlined,
                 size: 44,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Text(
+              Text(
                 '준비 중입니다',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 description,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.6,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],

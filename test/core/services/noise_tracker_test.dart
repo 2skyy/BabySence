@@ -1,0 +1,318 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:flutter_project/core/services/noise_tracker.dart';
+import 'package:flutter_project/core/services/sleep_type.dart';
+import 'package:flutter_project/features/detail/sleep_record_service.dart';
+
+/// 소음 집계를 고정합니다.
+///
+/// 이 테스트는 **Supabase를 초기화하지 않은 채** 돌립니다. 그러면 저장이
+/// 반드시 실패하므로, 망이 끊긴 밤을 따로 흉내 낼 필요가 없습니다. 그리고
+/// 그 상태에서도 결과가 나온다는 것이 이 설계의 핵심입니다 — 예전에는
+/// 로그를 서버에 넣고 서버에서 다시 읽어야 판정이 나왔고, 밤새 망이 끊기면
+/// 8시간을 재고도 "측정값이 하나도 저장되지 않았습니다"로 끝났습니다.
+void main() {
+  /// 창을 0으로 두어 값 하나가 표본 하나가 되게 합니다.
+  NoiseTracker tracker() => NoiseTracker(sampleInterval: Duration.zero);
+
+  /// 표본이 [values.length]개가 되도록 값을 넣습니다.
+  ///
+  /// 값 하나는 창을 여는 데 쓰이고 다음 값이 와야 표본이 됩니다. 마지막
+  /// 창은 [NoiseTracker.finish]가 닫습니다.
+  void feed(NoiseTracker target, List<double> values) {
+    for (final v in values) {
+      target.onNoiseLevelChanged(v);
+    }
+  }
+
+  test('망이 끊겨 있어도 집계가 나온다', () async {
+    // 이 테스트가 도는 환경에는 Supabase가 없습니다. 저장은 전부 실패합니다.
+    final t = tracker();
+    t.beginSession(SleepType.night);
+    feed(t, [40, 50, 60]);
+
+    final stats = (await t.finish()).stats;
+
+    expect(stats, isNotNull);
+    expect(stats!.sampleCount, 3);
+  });
+
+  test('평균과 최대가 표본과 같다', () async {
+    // 측정 경로의 계산이 SleepNoiseStats.fromDecibels와 같은 식이어야
+    // 합니다. 다르면 지난 밤을 다시 볼 때 숫자가 어긋납니다.
+    const values = [30.0, 45.0, 60.0, 35.0];
+
+    final t = tracker();
+    t.beginSession(SleepType.night);
+    feed(t, values);
+
+    final stats = (await t.finish()).stats;
+    final expected = SleepNoiseStats.fromDecibels(values);
+
+    expect(stats!.averageDb, closeTo(expected.averageDb, 0.0001));
+    expect(stats.maxDb, expected.maxDb);
+    expect(stats.sampleCount, expected.sampleCount);
+  });
+
+  test('마지막 창을 버리지 않는다', () async {
+    // 안 그러면 짧은 측정이 통째로 0건이 됩니다.
+    final t = tracker();
+    t.beginSession(SleepType.night);
+    t.onNoiseLevelChanged(42.0);
+
+    final stats = (await t.finish()).stats;
+
+    expect(stats!.sampleCount, 1);
+    expect(stats.maxDb, 42.0);
+  });
+
+  test('소리를 하나도 못 받으면 null', () async {
+    // 0으로 채운 집계를 돌려주면 화면이 '아주 조용한 밤'으로 그립니다.
+    final t = tracker();
+    t.beginSession(SleepType.night);
+
+    expect((await t.finish()).stats, isNull);
+  });
+
+  test('지난 측정이 다음 측정으로 넘어오지 않는다', () async {
+    // 이 인스턴스는 백그라운드 서비스가 사는 동안 재사용됩니다(main.dart).
+    // 넘어오면 어젯밤 소음이 오늘 낮잠 집계에 섞입니다.
+    final t = tracker();
+
+    t.beginSession(SleepType.night);
+    feed(t, [80, 90, 100]);
+    await t.finish();
+
+    t.beginSession(SleepType.nap);
+    feed(t, [30, 30]);
+
+    final stats = (await t.finish()).stats;
+
+    expect(stats!.sampleCount, 2);
+    expect(stats.maxDb, 30.0, reason: '어젯밤 100dB가 남아 있으면 안 됩니다');
+  });
+
+  test('finish 뒤에는 표본이 비어 있다', () async {
+    final t = tracker();
+    t.beginSession(SleepType.night);
+    feed(t, [40, 40, 40]);
+    await t.finish();
+
+    expect(t.sampleCount, 0);
+  });
+
+  group('이상한 값', () {
+    test('유한하지 않은 값은 세지 않는다', () async {
+      // 예전에는 insert 하나를 막는 문제였지만, 지금은 **더 나쁩니다** —
+      // NaN 하나가 합을 오염시켜 밤 전체의 평균을 망칩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(double.nan);
+      t.onNoiseLevelChanged(double.infinity);
+
+      expect((await t.finish()).stats, isNull);
+    });
+
+    test('NaN이 섞여도 나머지 평균이 살아남는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, double.nan, 60]);
+
+      final stats = (await t.finish()).stats;
+
+      expect(stats!.sampleCount, 2);
+      expect(stats.averageDb, closeTo(50.0, 0.0001));
+    });
+
+    test('범위를 벗어난 값은 잘라서 센다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [-10, 500]);
+
+      final stats = (await t.finish()).stats;
+
+      expect(stats!.maxDb, 200.0);
+      expect(stats.averageDb, closeTo(100.0, 0.0001));
+    });
+  });
+
+  group('저장 실패를 성공으로 보여주지 않는다', () {
+    test('저장이 실패하면 saved가 false다', () async {
+      // 여기에는 Supabase가 없어 저장이 반드시 실패합니다. 그래도 집계는
+      // 나오지만, "저장까지 됐다"고 말하면 안 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50]);
+
+      final result = await t.finish();
+
+      expect(result.stats, isNotNull, reason: '결과는 보여줄 수 있어야 합니다');
+      expect(result.saved, isFalse);
+    });
+
+    test('소리를 못 받으면 수면 기록도 남기지 않는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+
+      final result = await t.finish();
+
+      expect(result.stats, isNull);
+      expect(result.recordId, isNull);
+    });
+  });
+
+  group('가장 컸던 소리는 평활 전 값에서 센다', () {
+    // 화면이 "측정 중 가장 컸던 소리는 …dB"라고 말하는 값입니다.
+    // 평활된 값에서 세면 배경 40dB에 90dB가 한 번 들어와도 45.25dB까지만
+    // 올라가, 아이를 깨운 그 소리를 놓칩니다.
+
+    test('순간 소리를 평활된 값이 아니라 원본에서 잡는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+
+      // 배경 40dB에 90dB가 한 번. 평활된 값은 45.25까지만 오릅니다.
+      t.onNoiseLevelChanged(40, peak: 40);
+      t.onNoiseLevelChanged(45.25, peak: 90);
+      t.onNoiseLevelChanged(40, peak: 40);
+
+      final stats = (await t.finish()).stats!;
+
+      expect(stats.maxDb, 90.0);
+      expect(stats.averageDb, lessThan(50),
+          reason: '평균은 그대로 평활된 값에서 나와야 합니다');
+    });
+
+    test('평균은 평활된 값으로 낸다', () async {
+      // 뜻이 다른 두 값을 섞으면 안 됩니다. 평균은 지속되는 배경 수준,
+      // 최댓값은 순간 사건입니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(30, peak: 100);
+      t.onNoiseLevelChanged(30, peak: 100);
+
+      final stats = (await t.finish()).stats!;
+
+      expect(stats.averageDb, closeTo(30.0, 0.0001));
+      expect(stats.maxDb, 100.0);
+    });
+
+    test('안 주면 같은 값으로 본다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 60, 40]);
+
+      expect((await t.finish()).stats!.maxDb, 60.0);
+    });
+
+    test('창 안에서 묻히지 않는다', () async {
+      // 순간 최댓값은 1초 창과 무관합니다. 창이 열려 있는 동안 들어온
+      // 큰 소리도 그대로 남아야 합니다.
+      final t = NoiseTracker(sampleInterval: const Duration(seconds: 30));
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(40, peak: 40);
+      t.onNoiseLevelChanged(41, peak: 95);
+
+      expect((await t.finish()).stats!.maxDb, 95.0);
+    });
+
+    test('이상한 순간값은 세지 않는다', () async {
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      t.onNoiseLevelChanged(40, peak: double.nan);
+      t.onNoiseLevelChanged(40, peak: double.infinity);
+      t.onNoiseLevelChanged(40, peak: 500);
+
+      expect((await t.finish()).stats!.maxDb, 200.0, reason: '잘라서 씁니다');
+    });
+  });
+
+  group('끝맺기가 겹쳐도 한 번만 돈다', () {
+    test('동시에 두 번 부르면 같은 결과를 돌려준다', () async {
+      // 끝맺는 길이 둘입니다 — 중지, 그리고 '완전히 끄기'. 중지를 누른 직후
+      // 완전히 끄기를 누르면 겹칩니다. 막지 않으면 같은 집계로 행이 두 번
+      // 만들어지고, 한 행은 종료 시각 없이 남아 영영 '측정 중'이 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50, 60]);
+
+      final both = await Future.wait([t.finish(), t.finish()]);
+
+      expect(identical(both[0], both[1]), isTrue,
+          reason: '두 번째는 진행 중인 것을 그대로 기다려야 합니다');
+      expect(both[0].stats!.sampleCount, 3);
+    });
+
+    test('끝난 뒤 다시 부르면 새로 센다', () async {
+      // 재진입 방어가 끝난 마무리까지 붙들고 있으면 안 됩니다.
+      final t = tracker();
+      t.beginSession(SleepType.night);
+      feed(t, [40, 50]);
+      await t.finish();
+
+      final again = await t.finish();
+      expect(again.stats, isNull, reason: '이미 비웠으므로 표본이 없습니다');
+    });
+  });
+
+  test('세션을 새로 열면 번호가 올라간다', () async {
+    // 상한에 걸려 포기해도 요청 자체는 살아 있습니다. 늦게 돌아온 insert가
+    // 다음 세션의 행 id를 어젯밤 것으로 덮으면, 오늘 낮잠의 종료 시각이
+    // 어젯밤 행에 찍힙니다. 번호가 그걸 가릅니다.
+    final source = File('lib/core/services/noise_tracker.dart').readAsStringSync();
+    expect(source.contains('final session = _session;'), isTrue);
+    expect(source.contains('if (session == _session) _sleepRecordId = id;'), isTrue);
+  });
+
+  group('마무리 상한', () {
+    final source =
+        File('lib/core/services/noise_tracker.dart').readAsStringSync();
+    final page =
+        File('lib/features/detail/noise_test_page.dart').readAsStringSync();
+
+    test('예산이 하나다', () {
+      // 단계마다 8초씩 걸었더니 합이 24초가 되어, 화면의 15초 대기를
+      // 넘겼습니다. 주석은 "화면보다 짧아야 한다"고 적어 두고 코드는
+      // 아니었습니다.
+      expect(source.contains('_finishBudget'), isTrue);
+      expect(source.contains('_saveTimeout'), isFalse,
+          reason: '단계별 상한을 다시 두지 마세요');
+      expect(source.contains('Duration remaining()'), isTrue);
+      expect(source.contains('.timeout(remaining())'), isTrue);
+    });
+
+    test('예산이 화면 대기보다 짧다', () {
+      final budget = RegExp(r'_finishBudget = Duration\(seconds: (\d+)\)')
+          .firstMatch(source);
+      final wait = RegExp(r'timeout\(const Duration\(seconds: (\d+)\)')
+          .firstMatch(page);
+      expect(budget, isNotNull);
+      expect(wait, isNotNull);
+      expect(
+        int.parse(budget!.group(1)!) < int.parse(wait!.group(1)!),
+        isTrue,
+        reason: '백그라운드가 먼저 포기해야 화면이 결과를 받습니다',
+      );
+    });
+
+    test('0행 갱신을 성공으로 세지 않는다', () {
+      // postgrest는 0행 UPDATE에 204를 주고 예외를 던지지 않습니다.
+      // 재는 도중에 그 수면 기록을 지웠으면 아무 일도 안 일어나는데
+      // 화면은 "저장됐다"고 말했습니다.
+      expect(source.contains('.select()'), isTrue);
+      expect(source.contains('if (updated.isEmpty)'), isTrue);
+    });
+  });
+
+  test('집계를 isolate 사이로 실어 보낼 수 있다', () {
+    // 백그라운드가 UI에 넘기는 길입니다. isolate 사이는 값만 오갑니다.
+    const stats =
+        SleepNoiseStats(averageDb: 41.25, maxDb: 63.5, sampleCount: 120);
+    final restored = SleepNoiseStats.fromPayload(stats.toMap());
+
+    expect(restored.averageDb, stats.averageDb);
+    expect(restored.maxDb, stats.maxDb);
+    expect(restored.sampleCount, stats.sampleCount);
+  });
+}

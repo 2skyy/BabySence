@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/stale_notice.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/services/baby_service.dart';
 import '../../../core/services/growth_calculator.dart';
 import '../../../core/widgets/common_app_bar.dart';
 import '../../../core/widgets/common_button.dart';
+import '../../../core/widgets/medical_disclaimer.dart';
 import '../../../routes/app_routes.dart';
+import '../assessment/assessment.dart';
+import '../assessment/assessment_service.dart';
+import '../assessment/growth_rules.dart';
+import 'growth_chart_axis.dart';
 import 'growth_record.dart';
 import 'growth_repository.dart';
 
@@ -70,16 +78,27 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CommonAppBar(title: '성장 기록'),
-      body: _loading
+      appBar: CommonAppBar(
+        title: '성장 기록',
+      ),
+      // 저장은 됐는데 이어지는 재조회가 실패하면, 예전에는 화면 전체가
+      // 오류로 바뀌어 입력 폼도 방금 세운 판정 카드도 기록 이력도 전부
+      // 사라졌습니다. 손에 든 것이 있으면 그대로 두고 띠만 얹습니다
+      // (records_page·analysis_page와 같은 형태).
+      body: _loading && _baby == null
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _error != null && _baby == null
               ? _buildError(_error!)
               : _baby == null
                   ? _buildProfileSetup()
                   : _buildContent(_baby!),
     );
   }
+
+  /// 낡았을 수 있다는 띠. 손에 든 값은 그대로 둡니다.
+  Widget _buildStale() => _error == null
+      ? const SizedBox.shrink()
+      : StaleNotice(message: _error!, onRetry: _load);
 
   Widget _buildError(String message) {
     return Padding(
@@ -134,6 +153,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildStale(),
           _buildAddRecordCard(baby),
           const SizedBox(height: AppSpacing.xxl),
           Text('몸무게 (kg)', style: Theme.of(context).textTheme.titleMedium),
@@ -156,9 +176,9 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: context.colors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,12 +221,68 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
             isLoading: _savingRecord,
             onPressed: () => _handleAddRecord(baby),
           ),
+          if (_lastAssessment != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _buildAssessmentCard(_lastAssessment!),
+            const SizedBox(height: AppSpacing.md),
+            // 판정을 보여주는 자리에는 반드시 함께 둡니다.
+            const MedicalDisclaimer(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// WHO 성장 표준 판정 결과.
+  Widget _buildAssessmentCard(Assessment assessment) {
+    final color = switch (assessment.level) {
+      AssessmentLevel.normal => AppColors.primary,
+      AssessmentLevel.caution => Colors.orange.shade700,
+      AssessmentLevel.consult => AppColors.error,
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            assessment.levelLabel,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            assessment.guideText,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.7,
+              color: context.colors.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
   bool _savingRecord = false;
+
+  /// 방금 저장한 기록의 판정. 없으면 아직 판정하지 않은 상태입니다.
+  Assessment? _lastAssessment;
+
+  void _notify(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _handleAddRecord(Baby baby) async {
     final height = double.tryParse(_heightController.text);
@@ -218,6 +294,18 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
       return;
     }
 
+    // growth_records의 CHECK 제약과 같은 범위입니다. 여기서 안 막으면
+    // `numeric field overflow` 영문 예외가 그대로 스낵바에 뜹니다 —
+    // 온보딩은 같은 값에 한국어로 안내하고 있어 화면마다 말이 달랐습니다.
+    if (height != null && (height < 20 || height > 150)) {
+      _notify('키는 20~150cm 사이로 입력해주세요.');
+      return;
+    }
+    if (weight != null && (weight < 0.5 || weight > 40)) {
+      _notify('몸무게는 0.5~40kg 사이로 입력해주세요.');
+      return;
+    }
+
     setState(() => _savingRecord = true);
     try {
       await widget.repository.saveRecord(
@@ -226,8 +314,52 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         heightCm: height,
         weightKg: weight,
       );
+
+      // WHO 성장 표준으로 판정하고 결과를 남깁니다.
+      // 판정은 앱에서 계산하므로 저장이 실패해도 안내는 보여줄 수 있습니다.
+      final assessment = GrowthRules.assess(
+        sex: baby.sex,
+        // 차트와 같은 값을 씁니다. 만 개월로 내리면 판정이 한 달 어린
+        // 기준으로 계산됩니다.
+        ageInMonths: _ageInMonths(baby.birthDate, _recordDate),
+        weightKg: weight,
+        heightCm: height,
+      );
+
+      // ⑨ 판정 저장 실패를 삼키지 않습니다. 예전에는 debugPrint만 하고
+      // 판정 카드를 정상적으로 띄워, 분석 탭에 없는 것을 저장된 줄
+      // 알게 했습니다.
+      String? assessmentFailure;
+      if (assessment != null) {
+        try {
+          await AssessmentService.save(babyId: baby.id, assessment: assessment);
+        } catch (e) {
+          debugPrint('성장 판정 저장 실패: $e');
+          assessmentFailure = '판정을 기록에 남기지 못했습니다.';
+        }
+      }
+
       _heightController.clear();
       _weightController.clear();
+      if (mounted) {
+        setState(() {
+          _lastAssessment = assessment;
+          // ④ **측정일을 오늘로 되돌립니다.**
+          //
+          // 안 되돌리면 버튼에 지난 날짜가 남아 있고, 다음 저장이 같은
+          // 날짜로 갑니다. saveRecord는 (baby_id, recorded_on) upsert라
+          // **앞 측정값을 확인 없이 덮어씁니다.** 같은 화면의 삭제는
+          // '되돌릴 수 없습니다' 확인 창을 띄우는데 이쪽은 조용했습니다.
+          _recordDate = DateTime.now();
+        });
+
+        // 저장됐다는 신호가 화면에 하나도 없었습니다.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(assessmentFailure == null
+              ? '기록했습니다.'
+              : '기록했습니다. 다만 $assessmentFailure'),
+        ));
+      }
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -248,8 +380,16 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
         if (record.weightKg != null) '몸무게 ${record.weightKg!.toStringAsFixed(1)}kg',
       ].join(' · ')),
       trailing: IconButton(
-        icon: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
+        icon: Icon(Icons.delete_outline, color: context.colors.textSecondary),
         onPressed: () async {
+          // 성장 기록은 하루 한 건이라 지우면 그날 측정이 통째로 사라집니다.
+          final ok = await confirmDestructive(
+            context,
+            title: '이 기록을 지울까요?',
+            body: '${_formatDate(record.date)}\n\n지운 기록은 되돌릴 수 없습니다.',
+          );
+          if (!ok) return;
+
           try {
             await widget.repository.deleteRecord(record.id);
             await _load();
@@ -278,23 +418,80 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           .toList();
     }
 
-    final childSpots = _records
+    // 표가 0~24개월이라 그 밖은 견줄 기준이 없습니다.
+    //
+    // 예전에는 clamp(0, 24)로 24개월 눈금 위에 얹었습니다. 30개월 아이의
+    // 점이 24개월 자리에 찍히고, 기록이 여러 건이면 같은 x에 겹쳐 수직선이
+    // 됐습니다. 곡선과 견준 것처럼 보이지만 견준 적이 없습니다.
+    final all = _records
         .where((r) => isWeight ? r.weightKg != null : r.heightCm != null)
-        .map((r) => FlSpot(
-              _ageInMonths(baby.birthDate, r.date).clamp(0, 24),
-              (isWeight ? r.weightKg : r.heightCm)!,
+        .map((r) => (
+              months: _ageInMonths(baby.birthDate, r.date),
+              value: (isWeight ? r.weightKg : r.heightCm)!,
             ))
+        .toList();
+
+    final beyondTable = all.where((r) => r.months > 24).length;
+
+    final childSpots = all
+        .where((r) => r.months >= 0 && r.months <= 24)
+        .map((r) => FlSpot(r.months, r.value))
         .toList()
       ..sort((a, b) => a.x.compareTo(b.x));
 
-    Color bandColor(double z) => z == 0 ? AppColors.textSecondary : AppColors.border;
+    Color bandColor(double z) => z == 0 ? context.colors.textSecondary : context.colors.border;
 
-    return SizedBox(
+    // 세로축. 몸무게는 kg, 키는 cm라 눈금 간격이 다릅니다.
+    final axis = ChartAxis.fit(
+      [
+        for (final z in GrowthPercentiles.standard)
+          ...percentileLine(z).map((s) => s.y),
+        ...childSpots.map((s) => s.y),
+      ],
+      step: isWeight ? 3.0 : 10.0,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (beyondTable > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Text(
+              'WHO 표준과 견줄 수 있는 것은 만 24개월까지입니다. '
+              '그 이후 기록 $beyondTable건은 곡선에 넣지 않았습니다.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: context.colors.textSecondary,
+              ),
+            ),
+          ),
+        SizedBox(
       height: 220,
       child: LineChart(
         LineChartData(
           minX: 0,
           maxX: 24,
+          minY: axis.min,
+          maxY: axis.max,
+          // 점을 누르면 뜨는 값. 기본 툴팁은 실수를 그대로 찍어 백분위 곡선의
+          // 보간값이 소수점 열 자리로 나왔습니다. 기록·곡선 모두 한 자리로 맞춥니다.
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (spots) => [
+                for (final s in spots)
+                  LineTooltipItem(
+                    '${s.y.toStringAsFixed(1)}${isWeight ? 'kg' : 'cm'}',
+                    TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: s.bar.color ?? context.colors.textPrimary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -302,12 +499,40 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 6,
-                getTitlesWidget: (value, meta) => Text('${value.toInt()}개월', style: const TextStyle(fontSize: 10)),
+                reservedSize: 24,
+                getTitlesWidget: (value, meta) => SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  // 0개월과 24개월 라벨이 양 끝에서 잘리지 않게 띄웁니다.
+                  space: 6,
+                  child: Text(
+                    '${value.toInt()}개월',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
               ),
             ),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 34,
+                interval: axis.step,
+                // 소수점이 딸린 실수를 그대로 찍지 않습니다.
+                getTitlesWidget: (value, meta) => SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  space: 6,
+                  child: Text(
+                    axis.label(value),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ),
+              ),
+            ),
           ),
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: axis.step,
+          ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
             for (final z in GrowthPercentiles.standard)
@@ -328,6 +553,8 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
           ],
         ),
       ),
+        ),
+      ],
     );
   }
 

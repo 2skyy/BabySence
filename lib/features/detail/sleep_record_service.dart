@@ -1,5 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/services/duration_text.dart';
+
+import '../../core/services/db_time.dart';
+
 import '../../core/services/sleep_type.dart';
 
 /// sleep_records 테이블 접근 (수동 입력용).
@@ -39,11 +43,16 @@ class SleepRecord {
   String get summary {
     final d = duration;
     if (d == null) return '${type.label} · 측정 중';
-    return '${type.label} · ${d.inHours}시간 ${d.inMinutes % 60}분';
+    return '${type.label} · ${formatDuration(d)}';
   }
 }
 
-/// 한 수면 구간의 소음 통계. WHO 기준과 비교하기 위한 값입니다.
+/// 한 번의 측정에서 나온 소음 집계. WHO 기준과 비교하기 위한 값입니다.
+///
+/// **어느 표에도 이 모양으로 저장되지 않습니다.** 측정하는 동안에는
+/// 백그라운드의 메모리에만 있고, 끝나면 판정 한 행의 근거로 들어갑니다
+/// (`assessments.inputs`의 average_db·max_db·sample_count). 분석 화면이 지난
+/// 밤을 보여줄 때 읽는 것도 그 판정입니다.
 class SleepNoiseStats {
   /// 구간 평균 데시벨. WHO의 LAeq에 대응합니다.
   final double averageDb;
@@ -62,10 +71,26 @@ class SleepNoiseStats {
   static const empty =
       SleepNoiseStats(averageDb: 0, maxDb: 0, sampleCount: 0);
 
-  /// 로그 행들에서 통계를 계산합니다.
+  /// 백그라운드가 보낸 집계에서 만듭니다.
   ///
-  /// 집계를 앱에서 하는 이유: Supabase REST로는 avg/max 집계를 바로 쓸 수 없고,
-  /// 한 수면 구간의 로그는 많아도 수천 건이라 클라이언트에서 계산해도 충분합니다.
+  /// isolate 사이는 값만 오갈 수 있어 Map으로 주고받습니다([toMap]).
+  factory SleepNoiseStats.fromPayload(Map<dynamic, dynamic> payload) =>
+      SleepNoiseStats(
+        averageDb: (payload['averageDb'] as num? ?? 0).toDouble(),
+        maxDb: (payload['maxDb'] as num? ?? 0).toDouble(),
+        sampleCount: (payload['sampleCount'] as num? ?? 0).toInt(),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'averageDb': averageDb,
+        'maxDb': maxDb,
+        'sampleCount': sampleCount,
+      };
+
+  /// 표본 값들에서 직접 계산합니다.
+  ///
+  /// 측정 경로가 하는 계산과 **같은 식**이어야 합니다. 그것을 테스트가
+  /// 이 생성자로 확인합니다.
   factory SleepNoiseStats.fromDecibels(List<double> decibels) {
     if (decibels.isEmpty) return empty;
 
@@ -87,32 +112,33 @@ class SleepNoiseStats {
 class SleepRecordService {
   static SupabaseClient get _client => Supabase.instance.client;
 
-  /// 한 수면 구간에 쌓인 소음 로그의 평균·최대를 구합니다.
-  static Future<SleepNoiseStats> loadNoiseStats(String sleepRecordId) async {
-    final rows = await _client
-        .from('sleep_noise_logs')
-        .select('decibel')
-        .eq('sleep_record_id', sleepRecordId);
+  /// [since]를 주면 그 시각 이후만 읽습니다. **기간을 말하는 화면은 반드시
+  /// 이걸 써야 합니다** — 기본 [limit]에만 기대면 "최근 7일"이라 적어 두고
+  /// 실제로는 최신 N건만 세게 됩니다. 신생아기처럼 하루에 열 번 넘게
+  /// 기록하는 시기에는 그 창의 앞쪽이 통째로 빠지는데, 화면에는 잘렸다는
+  /// 표시가 없습니다.
+  ///
+  /// [until]을 주면 그 시각 **앞**까지만 읽습니다. 상한이 없으면 [limit]이
+  /// 오늘 쪽부터 채워져, 지난 기간을 펴 본 화면에는 그 기간 기록이 한 건도
+  /// 오지 않습니다 — 화면은 그것을 '기록 없음'으로 읽습니다.
+  static Future<List<SleepRecord>> loadRecent(
+    String babyId, {
+    int limit = 20,
+    DateTime? since,
+    DateTime? until,
+  }) async {
+    var query = _client.from('sleep_records').select().eq('baby_id', babyId);
 
-    return SleepNoiseStats.fromDecibels([
-      for (final row in rows) (row['decibel'] as num).toDouble(),
-    ]);
-  }
+    if (since != null) query = query.gte('started_at', toDbTime(since));
+    if (until != null) query = query.lt('started_at', toDbTime(until));
 
-  static Future<List<SleepRecord>> loadRecent(String babyId,
-      {int limit = 20}) async {
-    final rows = await _client
-        .from('sleep_records')
-        .select()
-        .eq('baby_id', babyId)
-        .order('started_at', ascending: false)
-        .limit(limit);
+    final rows =
+        await query.order('started_at', ascending: false).limit(limit);
 
     return rows.map(SleepRecord.fromMap).toList();
   }
 
   static Future<void> delete(String id) async {
-    // sleep_noise_logs는 ON DELETE CASCADE라 함께 지워집니다.
     await _client.from('sleep_records').delete().eq('id', id);
   }
 
@@ -121,6 +147,14 @@ class SleepRecordService {
   /// DB의 sleep_period_valid 제약이 `ended_at > started_at`을 요구합니다.
   /// 밤잠(오후 8시 취침 → 오전 6시 기상)은 자정을 넘기는 것이 정상이므로
   /// 기상이 취침보다 이르면 하루를 더합니다.
+  /// 취침과 기상이 같은 시각이면 자정 넘김이 아닙니다.
+  ///
+  /// 예전에는 여기서도 하루를 더해 **24시간짜리 수면**으로 저장했습니다.
+  /// 같은 화면의 미리보기는 '0시간 0분'을 보여주고 있었으니, 사용자가 본
+  /// 값과 저장된 값이 정반대였습니다.
+  static bool isZeroLength(DateTime startedAt, DateTime endedAt) =>
+      startedAt.isAtSameMomentAs(endedAt);
+
   static DateTime resolveEnd(DateTime startedAt, DateTime endedAt) {
     return endedAt.isAfter(startedAt)
         ? endedAt
@@ -137,8 +171,8 @@ class SleepRecordService {
     return {
       'baby_id': babyId,
       'sleep_type': type.name,
-      'started_at': startedAt.toIso8601String(),
-      'ended_at': resolveEnd(startedAt, endedAt).toIso8601String(),
+      'started_at': toDbTime(startedAt),
+      'ended_at': toDbTime(resolveEnd(startedAt, endedAt)),
     };
   }
 

@@ -4,27 +4,61 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 스키마는 [supabase/schema.sql](../supabase/schema.sql)에 있고, 이후 변경은
 [supabase/migrations/](../supabase/migrations/)에 쌓습니다.
 
-## 지금 당장 해야 할 것
+## 마이그레이션 적용 현황
 
-**운영 Supabase 대시보드에서 [004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)을 실행하세요.**
+**009까지 모두 운영 DB에 들어가 있습니다.**
 
-2026-08-06 확인 결과 아직 적용되지 않았습니다. `list_baby_members` RPC를 부르면
-`PGRST202`(함수 없음)가 돌아옵니다. 적용 전까지 함께 키우기 화면은 동작하지 않습니다.
-로컬 PostgreSQL에서 18개 시나리오를 검증했으므로 그대로 붙여넣어 실행하면 됩니다.
+| | 적용일 | 내용 |
+|---|---|---|
+| 001–003 | — | 판정 · cry_analyses 제거 · 커뮤니티 |
+| 004 | 2026-08-11 | 함께 키우기(`owns_baby`) |
+| 005 | 2026-08-12 | 아이 등록 실패(`insert ... returning`) 수정 |
+| 006 | 2026-08-12 | 약 복용 · 병원 방문 표 |
+| 007 | 2026-08-12 | 커뮤니티 글 갈래(`posts.category`) |
+| 008 | 2026-08-12 | `owns_sleep_record`·`owns_temp_record`를 `owns_baby` 경유로. 없으면 함께 키우는 보호자에게 체온 증상과 소음 로그가 막힙니다 |
+| 009 | 2026-08-12 | `sleep_noise_stats` 집계 함수. 없으면 소음 통계가 측정 시작 직후만 반영합니다 (011에서 다시 제거) |
+| 010 | 2026-08-13 | `skin_analyses`에서 `disease_result`·`probability` 제거. 피부는 진단하지 않습니다 |
+| 011 | 2026-08-13 | `sleep_noise_logs`·`sleep_noise_stats()`·`owns_sleep_record()` 제거. 소음 수치는 판정에만 남깁니다 |
+
+006·007은 적용 뒤 운영 DB에 실제 계정 두 개로 왕복시켜 확인했습니다.
+
+- 투약·병원 방문 저장/조회, 잘못된 `reason` 거부(400)
+- **RLS** — 다른 사용자에게 0건, 다른 사용자의 저장 거부(403)
+- 갈래 붙여 글 작성, 갈래 없이 쓰면 `etc`, 갈래로 거르기, 없는 갈래 거부(400)
+- 아이를 지우면 기록이 함께 사라지는지(FK cascade)
+
+## 함께 키우기 — 확인 완료 (2026-08-12)
+
+004 적용 이후 미뤄져 있던 **계정 두 개 왕복**을 운영 DB에서 마쳤습니다.
+008을 넣은 직후라 그 효과까지 함께 확인됩니다.
+
+```
+소유자 A: 아이 등록 → 체온 기록 → 증상 저장
+A: 초대 코드 발급 → B: 수락
+구성원 B: 아이 ✔ · 체온 ✔ · 증상 1건 ✔ · 증상 저장 ✔
+소음 집계: A·B 모두 평균 40 · 최대 50 · 2건 ✔
+아이 삭제 → 기록 0건 (cascade) ✔
+```
+
+**`B가 증상을 본다 → 1건`이 008의 증거입니다.** 008 전에는 0건이었고,
+화면에서는 "증상 없음"과 구별되지 않았습니다.
+
+남은 것은 **앱 화면으로** 같은 흐름을 밟아 보는 것입니다. 위는 REST로 직접
+확인한 것이라 화면의 초대 발급·입력 UI는 아직 눌러 보지 않았습니다.
 
 ## 현재 상태
 
-테이블 16개 중 앱이 실제로 읽고 쓰는 것은 **13개**입니다. (`baby_members`,
-`baby_invites`는 004 적용 후)
+테이블 **20개** 중 앱이 실제로 읽고 쓰는 것은 **17개**입니다.
+앱이 건드리지 않는 것은 `profiles`(트리거가 채움), `baby_invites`(RPC 경유),
+`skin_analyses`·`device_tokens`(각각 모델·FCM 미비) 4개입니다.
 
 | 테이블 | 상태 | 담당 코드 |
 |---|---|---|
 | `babies` | 연동됨 | `lib/core/services/baby_service.dart` |
-| `baby_members` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
-| `baby_invites` | 연동됨 (004 적용 대기) | `lib/features/mypage/baby_member_service.dart` |
+| `baby_members` | 연동됨 | `lib/features/mypage/baby_member_service.dart` |
+| `baby_invites` | 연동됨 | `lib/features/mypage/baby_member_service.dart` |
 | `growth_records` | 연동됨 | `lib/features/detail/growth/growth_record_service.dart` |
 | `sleep_records` | 연동됨 (소음 측정 시 생성 + 수동 입력) | `noise_tracker.dart`, `sleep_record_service.dart` |
-| `sleep_noise_logs` | 연동됨 (30건 배치) | `lib/core/services/noise_tracker.dart` |
 | `profiles` | 트리거가 자동 생성 (앱은 `list_baby_members`로 간접 조회) | — |
 | `feeding_records` | 연동됨 | `lib/features/detail/feeding_record_service.dart` |
 | `diaper_records` | 연동됨 | `lib/features/detail/diaper_record_service.dart` |
@@ -33,6 +67,8 @@ Spring 의존을 걷어내며 확인한, **Supabase로 옮겨야 하는 남은 �
 | `vaccines` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `vaccination_records` | 연동됨 | `lib/features/detail/vaccination_service.dart` |
 | `assessments` | 연동됨 (저장: 체온 / 조회: 분석 탭) | `assessment_service.dart`, `analysis_page.dart` |
+| `medication_records` | 연동됨 (006 적용 후) | `lib/features/detail/care/care_record_service.dart` |
+| `hospital_visits` | 연동됨 (006 적용 후) | `lib/features/detail/care/care_record_service.dart` |
 | `skin_analyses` | **미연동** (모델 자체가 없음) | — |
 | `device_tokens` | **미연동** (FCM 설정 자체가 없음) | — |
 
@@ -51,12 +87,11 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 
 ### B. AI 분석 결과 저장 — 모델 대기
 
-> **선행 조건: 모델이 없습니다.** 피부·이유식 둘 다 추론 모델이 없어 저장할 결과 자체가
+> **선행 조건: 모델이 없습니다.** 피부 추론 모델이 없어 저장할 결과 자체가
 > 없습니다. 이 항목은 모델이 준비된 뒤에 시작합니다.
 
 - [ ] 피부 분석 결과 → `skin_analyses` (`image_path`는 Storage 경로 `{user_id}/{baby_id}/{파일명}`)
 - [ ] 이미지 원본을 Supabase Storage에 업로드하는 코드 (`skin-images` 버킷)
-- [ ] 이유식 성분 분석 — 지금은 사진 선택까지만 동작합니다
 
 `disease_result`에는 **모델이 준 원본 라벨**을 넣습니다. 한글 변환은 앱에서 합니다
 (모델을 교체해도 과거 이력이 깨지지 않게 하려는 것 — schema.sql 2.10절 주석 참고).
@@ -73,24 +108,28 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
       기록이 없으면 지어내지 않고 '기록 없음'을 표시합니다.
 - [x] **로그아웃** — 설정 화면 한 곳에서 `auth.signOut()` (확인 대화상자 포함)
 - [x] **분석 탭** — 최근 7일 집계 + `assessments` 조회 (`lib/features/analysis/`)
-- [ ] **소음 리포트를 판정 규칙에 연결** — `noise_rules.dart`(WHO 1999 기준)를 만들어
-      뒀지만 `noise_result_page.dart`는 여전히 근거 없는 50/70dB를 씁니다.
-      **선행 조건**: `-15dB` 마이크 보정이 검증되지 않아, 바꿔도 "정말 30dB인가"를
-      알 수 없습니다. 실제 소음계와 대조가 먼저입니다.
+- [x] **소음 리포트를 판정 규칙에 연결** — 완료. `noise_test_page`와
+      `noise_result_page` 모두 `NoiseRules`의 값을 씁니다. 근거 없는 50/70dB는
+      더 이상 없습니다. (이 항목이 한동안 미완으로 잘못 남아 있었습니다.)
+- [ ] **마이크 −15dB 보정 검증** — 위가 끝났어도 이게 남습니다. 보정이 틀리면
+      기준을 옳게 써도 값이 틀립니다. 실제 소음계와 대조가 필요합니다.
 - [ ] `assessments`의 나머지 영역(성장·수면·수유·배변) — 임계값 미정.
       출처와 검증 상태는 [assessment-rules.md](assessment-rules.md) 참고.
 
-### E. 함께 키우기 — 코드 완료, 적용 대기
+### E. 함께 키우기 — 적용 완료
 
 [004_add_baby_sharing.sql](../supabase/migrations/004_add_baby_sharing.sql)
 
 - [x] `baby_members` / `baby_invites` 테이블과 RLS 정책
 - [x] 기존 아이를 소유자로 이관하는 backfill (없으면 만든 사람도 자기 아이를 못 봅니다)
-- [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 18개의 판정 근거입니다
+- [x] `owns_baby()` 교체 — 이 함수 하나가 기록 테이블 정책 15개의 판정 근거입니다
 - [x] 초대 발급·입력 UI (`lib/features/mypage/co_parenting_page.dart`)
 - [x] 로컬 PostgreSQL에서 18개 시나리오 검증
-- [ ] **운영 Supabase 대시보드에서 004 실행** ← 이걸 해야 앱에서 동작합니다
-- [ ] 계정 두 개로 발급 → 입력 흐름 실제 확인
+- [x] **운영 Supabase에 004 적용** (2026-08-11). 테이블 2개와 함수 3종이 모두
+      응답하고, 권한 차단(`create_baby_invite` 거부)과 정보 비노출
+      (`list_baby_members`가 빈 배열)까지 확인했습니다.
+- [x] 계정 두 개로 발급 → 입력 → **기록 공유**까지 확인 (2026-08-12, REST)
+- [ ] 같은 흐름을 **앱 화면으로** (초대 발급·입력 UI)
 
 ### F. 인프라
 
@@ -115,23 +154,37 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 - [x] 소유자가 자기 아이·기록을 계속 봄 / 초대 전 타인은 0건
 - [x] 소유자가 초대 코드 발급 / 구성원 아닌 사람은 차단
 - [x] 초대받는 쪽이 `baby_invites`를 훑을 수 없음 (0건)
-- [x] 코드 수락 후 아이와 **기록까지** 보임 (정책 18개가 함께 따라옴)
+- [x] 코드 수락 후 아이와 **기록까지** 보임 (정책 15개가 함께 따라옴)
 - [x] 코드 재사용·만료·존재하지 않는 코드 거부
 - [x] 구성원이 쓴 기록이 소유자에게 보임
 - [x] `baby_members`에 직접 insert 시도가 RLS로 차단됨
 - [x] 소유자는 탈퇴 불가(주인 없는 아이 방지) / 구성원은 탈퇴 가능
 - [x] 새 아이 생성 시 트리거가 소유자를 자동 등록
-- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 16개, 공유 함수 6/6)
+- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 **20개**, 공유 함수 6/6)
 
 검증 중 `SET LOCAL`을 트랜잭션 밖에서 써서 역할이 적용되지 않아 거짓 통과가 나온 적이
 있습니다. RLS를 확인할 때는 반드시 `BEGIN; SET LOCAL role ...; ... COMMIT;`으로 감싸야 합니다.
+
+### 함께 키우기 (운영 Supabase, 2026-08-11)
+
+004 적용 직후 anon 키로 확인한 것입니다.
+
+- [x] `baby_members` / `baby_invites` 테이블 존재
+- [x] `list_baby_members` / `create_baby_invite` / `accept_baby_invite` 응답
+- [x] 남의 아이 id로 초대 발급 시도 → **거부** ("아이를 등록한 사람만 만들 수 있습니다")
+- [x] `list_baby_members`가 오류 대신 **빈 배열** → 아이의 존재 여부가 드러나지 않음
+- [x] 계정 두 개로 발급 → 입력 → 기록 공유 (2026-08-12)
+
+RPC를 인자 없이(`{}`) 부르면 함수가 있어도 404가 납니다. PostgREST는 이름과
+**인자 시그니처**를 함께 보기 때문입니다. 적용 여부를 확인할 때는 실제 인자를
+넣어야 합니다.
 
 ### 소음 저장 (실기기)
 
 - [x] 측정을 시작하면 `sleep_records`에 행이 하나 생기고 `sleep_type`이 고른 값(`night`/`nap`)과 맞는지
       → **확인됨.** 백그라운드 isolate에서 Supabase 초기화가 성공한다는 뜻이기도 합니다
       (실패하면 행 자체가 만들어지지 않습니다).
-- [ ] 30건마다 `sleep_noise_logs`에 배치가 쌓이는지
+- [ ] 측정 중 `sleep_records`의 `average_db`·`sample_count`가 60초마다 늘어나는지
 - [ ] 전송이 실패했을 때 버퍼를 유지하고 다음 배치에서 재시도하는지
 - [ ] 측정을 중지하면 `sleep_records.ended_at`이 채워지는지
 
@@ -159,3 +212,9 @@ CHECK 제약을 지키는지는 테스트로 고정했지만(`record_rows_test.d
 
 - 아이 `검증아기` (`edde3912-…`) 및 그에 딸린 기록 4건
 - 계정 `community-check@babysense.dev`, `community-other@babysense.dev`
+- 확인용으로 만든 계정들. 아이와 기록은 지웠지만 **계정 자체는 남아 있습니다** —
+  `auth.users` 삭제는 `service_role` 키가 있어야 하는데, 그 키는 RLS를
+  우회하므로 쓰지 않았습니다. Supabase 대시보드 Authentication에서 지우세요.
+  - `migration-005-check-*`, `tz-check-*`, `tz-fixed-*`, `upsert-*`, `upsert2-*`
+  - `advice-auth-check-*` (2026-08-12, /api/advice 인증 확인)
+  - `mig-check-a-*`, `mig-check-b-*` (2026-08-12, 006·007 왕복 확인)

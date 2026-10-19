@@ -35,22 +35,28 @@ class _LoginPageState extends State<LoginPage> {
     // 로그인 성공 시 홈으로 보내는 지점을 여기 한 곳으로 모읍니다.
     // 소셜 로그인은 브라우저를 다녀온 뒤에야 완료되므로 버튼 함수에서는
     // 이동 시점을 알 수 없기 때문입니다.
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((state) async {
-      if (!mounted || state.event != AuthChangeEvent.signedIn) return;
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) async {
+        if (!mounted || state.event != AuthChangeEvent.signedIn) return;
 
-      // 회원가입 화면이 위에 떠 있는 동안에는 그쪽이 이동을 처리합니다.
-      if (ModalRoute.of(context)?.isCurrent != true) return;
+        // 회원가입 화면이 위에 떠 있는 동안에는 그쪽이 이동을 처리합니다.
+        if (ModalRoute.of(context)?.isCurrent != true) return;
 
-      // 등록된 아이가 없으면 먼저 온보딩을 거칩니다.
-      final destination = await nextRouteAfterSignIn();
-      if (!mounted) return;
+        // 등록된 아이가 없으면 먼저 온보딩을 거칩니다.
+        final destination = await nextRouteAfterSignIn();
+        if (!mounted) return;
 
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        destination,
-            (route) => false,
-      );
-    });
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          destination,
+          (route) => false,
+        );
+      },
+      // 이유는 main_shell.dart의 같은 자리에 적어 두었습니다. 이쪽은 특히,
+      // 흐름이 캐시한 에러를 새 구독자에게 그대로 다시 흘리기 때문에
+      // 로그인 화면이 뜰 때마다 되풀이됩니다.
+      onError: (Object e) => debugPrint('인증 상태 흐름 오류: $e'),
+    );
   }
 
   // 2. 메모리 누수를 막기 위해 화면이 꺼질 때 컨트롤러 해제
@@ -142,9 +148,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         // 로그인은 첫 화면이라 뒤로 갈 곳이 없습니다.
         // 뒤로가기 버튼을 두면 스택이 비어 빈 화면이 됩니다.
@@ -179,12 +185,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           '이메일과 비밀번호를\n입력해주세요',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: context.colors.textPrimary,
                             height: 1.4,
                           ),
                         ),
@@ -195,14 +201,14 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress, // 이메일 키보드 모드
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[400]),
+                            prefixIcon: Icon(Icons.email_outlined, color: context.colors.textSecondary),
                             hintText: '이메일',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                             border: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             focusedBorder: const UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
@@ -217,14 +223,14 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _passwordController,
                           obscureText: true,
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[400]),
+                            prefixIcon: Icon(Icons.lock_outline, color: context.colors.textSecondary),
                             hintText: '비밀번호',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+                            hintStyle: TextStyle(color: context.colors.textSecondary, fontSize: 16),
                             border: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[300]!),
+                              borderSide: BorderSide(color: context.colors.border),
                             ),
                             focusedBorder: const UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.primary, width: 2),
@@ -241,7 +247,7 @@ class _LoginPageState extends State<LoginPage> {
                             child: Text(
                               '아직 계정이 없으신가요?',
                               style: TextStyle(
-                                color: Colors.grey[500],
+                                color: context.colors.textSecondary,
                                 fontSize: 14,
                                 decoration: TextDecoration.underline,
                               ),
@@ -252,7 +258,7 @@ class _LoginPageState extends State<LoginPage> {
                         Center(
                           child: Text(
                             '또는 SNS로 간편하게 시작하기',
-                            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -269,6 +275,8 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(width: 20),
                             _buildSocialImageButton(
                               imagePath: 'assets/images/google_logo.png',
+                              // 테마 예외: 구글 로그인 버튼은 브랜드 가이드가
+                              // 흰 바탕을 요구해 다크 모드에서도 그대로 둡니다.
                               backgroundColor: Colors.white,
                               onTap: () => handleSocialLogin(OAuthProvider.google),
                               hasBorder: true,
@@ -316,7 +324,7 @@ class _LoginPageState extends State<LoginPage> {
         decoration: BoxDecoration(
           color: backgroundColor,
           shape: BoxShape.circle,
-          border: hasBorder ? Border.all(color: Colors.grey[200]!) : null,
+          border: hasBorder ? Border.all(color: context.colors.border) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),

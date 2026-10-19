@@ -39,11 +39,30 @@ void main() {
     expect(find.text('버전 ${MorePage.appVersion}'), findsOneWidget);
   });
 
+  testWidgets('공지사항·육아 가이드는 각자의 갈래로 열린다', (tester) async {
+    // 타일과 갈래가 뒤바뀌면 공지 타일이 가이드 글을 보여줍니다. 화면
+    // 제목이 갈래 이름이라, 제목으로 배선을 확인합니다. (Supabase가 없어
+    // 조회는 실패하지만 화면 자체는 실패 상태로 뜹니다.)
+    await pump(tester);
+
+    await tester.tap(find.text('공지사항'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '공지사항'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('육아 가이드'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '육아 가이드'), findsOneWidget);
+  });
+
   testWidgets('아직 없는 기능은 준비 중 화면으로 보낸다', (tester) async {
     // 눌러도 아무 반응이 없으면 고장으로 보입니다.
     await pump(tester);
 
-    await tester.tap(find.text('육아 가이드'));
+    // 육아 가이드·공지사항은 실제 화면이 생겨 여기서 빠졌습니다.
+    await tester.tap(find.text('진료용 리포트'));
     await tester.pumpAndSettle();
 
     expect(find.text('준비 중입니다'), findsOneWidget);
