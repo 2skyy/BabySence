@@ -13,16 +13,30 @@ import 'package:flutter_project/features/detail/temperature_record_service.dart'
 void main() {
   const babyId = 'baby-1';
 
-  group('수유: 모유(직수)는 amount_ml이 NULL', () {
-    test('모유(직수)는 수량을 넣어도 NULL로 나간다', () {
+  group('수유: 모유(직수)는 amount_ml이 선택', () {
+    // 예전에는 직수를 무조건 NULL로 접었지만, 유축·체중법으로 잰 보호자는
+    // 적을 수 있어야 합니다. DB 제약도 '0~2000 범위'뿐이라(스키마 160행,
+    // 주석은 "NULL 허용" — 강제가 아님) 적은 값은 그대로 나가야 합니다.
+    test('모유(직수)도 적은 수량은 그대로 나간다', () {
       final row = FeedingRecordService.buildRow(
         babyId: babyId,
         type: FeedingType.breast,
         fedAt: DateTime(2026, 7, 30, 9),
-        amountMl: 120, // 사용자가 이전에 입력해 남아 있던 값
+        amountMl: 120, // 체중법으로 잰 값
       );
 
       expect(row['feeding_type'], 'breast');
+      expect(row['amount_ml'], 120);
+    });
+
+    test('모유(직수)는 비워 두면 NULL로 나간다', () {
+      final row = FeedingRecordService.buildRow(
+        babyId: babyId,
+        type: FeedingType.breast,
+        fedAt: DateTime(2026, 7, 30, 9),
+        amountMl: null,
+      );
+
       expect(row['amount_ml'], isNull);
     });
 

@@ -103,7 +103,9 @@ class FeedingRecordService {
     return {
       'baby_id': babyId,
       'feeding_type': type.name,
-      // 모유(직수)는 수량을 받지 않으므로 값이 들어와도 무시합니다.
+      // 모유(직수)도 적은 값은 그대로 보냅니다. 유축·체중법으로 잰
+      // 보호자가 있어서입니다. 비우면 NULL — DB 주석의 'NULL 허용'은
+      // 강제가 아니라 허용입니다.
       'amount_ml': amountMl,
       'fed_at': toDbTime(fedAt),
     };
