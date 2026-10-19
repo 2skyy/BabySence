@@ -4,6 +4,8 @@ import '../../core/widgets/common_app_bar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../routes/app_routes.dart';
+import '../contents/content_list_page.dart';
+import '../contents/content_service.dart';
 import 'coming_soon_page.dart';
 
 /// 하단 '전체' 탭.
@@ -59,10 +61,13 @@ class MorePage extends StatelessWidget {
               _tile(context, 
                 icon: Icons.menu_book_outlined,
                 label: '육아 가이드',
-                onTap: () => _openComingSoon(
+                onTap: () => Navigator.push(
                   context,
-                  '육아 가이드',
-                  '월령별 발달과 돌봄 정보를\n모아 보여줄 화면입니다.',
+                  MaterialPageRoute(
+                    builder: (_) => const ContentListPage(
+                      category: ContentCategory.guide,
+                    ),
+                  ),
                 ),
               ),
               _tile(context, 
@@ -79,10 +84,12 @@ class MorePage extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           _listItem(context, 
             label: '공지사항',
-            onTap: () => _openComingSoon(
+            onTap: () => Navigator.push(
               context,
-              '공지사항',
-              '업데이트와 안내를 전하는 화면입니다.',
+              MaterialPageRoute(
+                builder: (_) =>
+                    const ContentListPage(category: ContentCategory.notice),
+              ),
             ),
           ),
           _divider(context),

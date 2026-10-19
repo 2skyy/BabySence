@@ -936,3 +936,37 @@ create policy hospital_visit_own on public.hospital_visits
   for all to authenticated
   using (public.owns_baby(baby_id))
   with check (public.owns_baby(baby_id));
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 앱이 그리는 콘텐츠 (012에서 옮겨 옴)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 공지사항·육아 가이드를 코드가 아니라 데이터로 둔다. blocks의 블록 배열을
+-- 앱의 렌더러가 type→위젯으로 옮겨 그리므로, 글을 바꾸는 일은 행을 바꾸는
+-- 일이 되고 이미 설치된 앱에 스토어 심사 없이 반영된다. 모르는 type은 앱이
+-- 조용히 건너뛴다 — 구버전 앱이 신버전 콘텐츠에 죽지 않는다.
+
+create table if not exists public.contents (
+  id           uuid        primary key default gen_random_uuid(),
+  category     text        not null check (category in ('notice', 'guide')),
+  title        text        not null check (char_length(title) between 1 and 200),
+  blocks       jsonb       not null default '[]'::jsonb,
+  -- NULL이면 아직 발행 전(초안). 앱은 발행된 것만 읽는다.
+  published_at timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+comment on table  public.contents          is '앱이 그리는 콘텐츠. blocks의 블록 배열을 앱의 렌더러가 위젯으로 옮긴다';
+comment on column public.contents.category is 'notice=공지사항, guide=육아 가이드';
+comment on column public.contents.blocks   is '[{"type": "...", "props": {...}}] — type은 앱에 등록된 것만 그려지고, 모르는 type은 건너뛴다';
+
+alter table public.contents enable row level security;
+
+-- 읽기 전용. 발행 전(초안)은 쿼리가 아니라 정책이 막는다 — 앱이 조건을
+-- 빠뜨려도 초안이 새지 않는다. 쓰기 정책은 없다(발행은 운영자가 SQL로).
+create policy contents_read on public.contents
+  for select to authenticated
+  using (published_at is not null and published_at <= now());
+
+create index if not exists idx_contents_category
+  on public.contents (category, published_at desc);

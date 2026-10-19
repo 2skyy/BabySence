@@ -48,7 +48,7 @@ A: 초대 코드 발급 → B: 수락
 
 ## 현재 상태
 
-테이블 **19개** 중 앱이 실제로 읽고 쓰는 것은 **16개**입니다.
+테이블 **20개** 중 앱이 실제로 읽고 쓰는 것은 **17개**입니다.
 앱이 건드리지 않는 것은 `profiles`(트리거가 채움), `baby_invites`(RPC 경유),
 `skin_analyses`·`device_tokens`(각각 모델·FCM 미비) 4개입니다.
 
@@ -160,7 +160,7 @@ CHECK 제약 준수는 `test/features/detail/record_rows_test.dart`가 고정합
 - [x] `baby_members`에 직접 insert 시도가 RLS로 차단됨
 - [x] 소유자는 탈퇴 불가(주인 없는 아이 방지) / 구성원은 탈퇴 가능
 - [x] 새 아이 생성 시 트리거가 소유자를 자동 등록
-- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 **19개**, 공유 함수 6/6)
+- [x] `schema.sql` 단독으로 새 DB에 적용 (테이블 **20개**, 공유 함수 6/6)
 
 검증 중 `SET LOCAL`을 트랜잭션 밖에서 써서 역할이 적용되지 않아 거짓 통과가 나온 적이
 있습니다. RLS를 확인할 때는 반드시 `BEGIN; SET LOCAL role ...; ... COMMIT;`으로 감싸야 합니다.
