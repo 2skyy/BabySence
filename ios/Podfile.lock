@@ -20,7 +20,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   audio_streamer: 7a5aa15f0b48a7a0cb44eb23b5bbfcbfc2eb8171
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_background_service_ios: e30e0d3ee69e4cee66272d0c78eacd48c2e94aac
 
 PODFILE CHECKSUM: 034b836d9380b502df5f97740beb78137dc1c0e1
