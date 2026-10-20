@@ -242,7 +242,7 @@ class _FeedingRecordPageState extends State<FeedingRecordPage> {
                   keyboardType: TextInputType.number,
                   // ✅ 숫자만 입력 가능
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
+                    FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4),
                   ],
                   textAlign: TextAlign.center,
                   style: TextStyle(
