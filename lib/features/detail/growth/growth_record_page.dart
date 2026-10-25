@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fl_chart/fl_chart.dart';
 
@@ -200,7 +201,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
             children: [
               Expanded(
                 child: TextField(
-                  controller: _heightController,
+                  controller: _heightController, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')), LengthLimitingTextInputFormatter(5)],
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: '키 (cm)'),
                 ),
@@ -208,7 +209,7 @@ class _GrowthRecordPageState extends State<GrowthRecordPage> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: TextField(
-                  controller: _weightController,
+                  controller: _weightController, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')), LengthLimitingTextInputFormatter(6)],
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: '몸무게 (kg)'),
                 ),

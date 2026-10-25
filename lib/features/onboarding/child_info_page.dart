@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 
 import '../../core/services/baby_service.dart';
@@ -255,7 +256,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
               const SizedBox(height: 24),
 
               TextField(
-                controller: _heightController,
+                controller: _heightController, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')), LengthLimitingTextInputFormatter(5)],
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   hintText: '키 (cm) — 선택',
@@ -270,7 +271,7 @@ class _ChildInfoPageState extends State<ChildInfoPage> {
               const SizedBox(height: 24),
 
               TextField(
-                controller: _weightController,
+                controller: _weightController, inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')), LengthLimitingTextInputFormatter(6)],
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   hintText: '몸무게 (kg)',
